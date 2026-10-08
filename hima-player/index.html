@@ -1,6 +1,217 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="theme-color" content="#0c1224"/><title>Hema</title><link rel="icon" href="/icon.png"/></head>
-<body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="description" content="Hima Player V2 — مشغل موسيقى وفيديو متطور">
+<title>Hima Player V2</title>
+<style>
+:root{--bg:#080a0f;--panel:#10131a;--panel2:#171b24;--text:#f5f7fb;--muted:#9da5b5;--accent:#7c5cff;--accent2:#23d5ab;--danger:#ff5571;--line:#252b38;--shadow:0 20px 60px #0008}
+:root.light{--bg:#f5f7fb;--panel:#fff;--panel2:#eef1f7;--text:#111522;--muted:#667085;--accent:#6246ea;--accent2:#0b9d78;--danger:#e03150;--line:#dce1eb;--shadow:0 16px 40px #1b24320f}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}
+button,input,select{font:inherit}button{border:0;color:inherit;cursor:pointer}
+.app{min-height:100dvh;display:grid;grid-template-columns:250px 1fr}
+.sidebar{background:var(--panel);border-left:1px solid var(--line);padding:20px;position:sticky;top:0;height:100dvh}
+.brand{display:flex;gap:12px;align-items:center;font-weight:900;font-size:24px;margin-bottom:30px}
+.logo{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),#b45cff);box-shadow:0 10px 30px #7c5cff44}
+.nav button{width:100%;padding:13px 14px;margin:4px 0;background:transparent;border-radius:12px;text-align:right;color:var(--muted)}
+.nav button.active,.nav button:hover{background:var(--panel2);color:var(--text)}
+.main{padding:22px 24px 150px;max-width:1400px;width:100%;margin:auto}
+.top{display:flex;gap:12px;align-items:center;margin-bottom:22px}
+.search{flex:1;display:flex;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:9px 12px}
+.search input{flex:1;background:transparent;border:0;outline:0;color:var(--text)}
+.icon{width:42px;height:42px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+.hero h1{font-size:clamp(28px,5vw,52px);margin:8px 0}.hero p{color:var(--muted);line-height:1.8}
+.actions{display:flex;gap:10px;flex-wrap:wrap}.primary{background:var(--accent);padding:12px 17px;border-radius:13px;font-weight:800}.secondary{background:var(--panel2);padding:12px 17px;border-radius:13px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat strong{font-size:28px;display:block;margin-top:8px}.muted{color:var(--muted)}
+.section{margin:25px 0}.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.media{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:10px;overflow:hidden}
+.cover{aspect-ratio:1;background:linear-gradient(135deg,#252a3a,#10131a);border-radius:13px;display:grid;place-items:center;font-size:42px;overflow:hidden}
+.cover img{width:100%;height:100%;object-fit:cover}.media h3{font-size:15px;margin:10px 4px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.media small{color:var(--muted);display:block;margin:0 4px 8px}
+.media-actions{display:flex;gap:6px}.mini{padding:8px;border-radius:10px;background:var(--panel2);flex:1}
+.now{position:fixed;bottom:0;left:0;right:0;background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(18px);border-top:1px solid var(--line);z-index:20}
+.now-inner{max-width:1400px;margin:auto;padding:10px 18px;display:grid;grid-template-columns:1fr 2fr 1fr;gap:15px;align-items:center}
+.now-info{display:flex;align-items:center;gap:10px;min-width:0}.now-cover{width:50px;height:50px;border-radius:11px;background:var(--panel2);display:grid;place-items:center;overflow:hidden}.now-cover img{width:100%;height:100%;object-fit:cover}
+.controls{display:flex;justify-content:center;align-items:center;gap:8px}.play{width:48px;height:48px;border-radius:50%;background:var(--text);color:var(--bg);font-size:20px}.progress{height:5px;background:var(--panel2);border-radius:99px;overflow:hidden;cursor:pointer}.progress i{display:block;height:100%;width:0;background:var(--accent)}
+.time{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-top:4px}
+.panel{display:none}.panel.active{display:block}
+.list{display:flex;flex-direction:column;gap:8px}.row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);padding:10px;border-radius:13px}.row .grow{flex:1;min-width:0}.row h4{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row p{margin:3px 0 0;color:var(--muted);font-size:12px}
+.modal{position:fixed;inset:0;background:#0009;display:none;place-items:center;z-index:50;padding:18px}.modal.show{display:grid}.modal-box{width:min(700px,100%);max-height:90dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:20px}
+label{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}input[type=text],input[type=number],textarea,select{width:100%;padding:12px;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:12px;outline:none}
+.eq{display:grid;grid-template-columns:repeat(10,1fr);gap:8px;align-items:end;height:230px}.band{height:100%;display:flex;flex-direction:column;align-items:center;gap:7px}.band input{writing-mode:vertical-lr;direction:rtl;height:170px}.band span{font-size:11px;color:var(--muted)}
+.video-wrap{position:relative;background:#000;border-radius:18px;overflow:hidden}.video-wrap video{width:100%;max-height:65vh;display:block}
+.toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-20px);opacity:0;background:var(--panel);border:1px solid var(--line);padding:11px 16px;border-radius:12px;z-index:80;transition:.25s}.toast.show{opacity:1;transform:translateX(-50%)}
+.empty{padding:50px 15px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
+@media(max-width:900px){.app{display:block}.sidebar{height:auto;position:sticky;top:0;z-index:30;padding:10px 12px;border-left:0;border-bottom:1px solid var(--line)}.brand{margin:0 0 8px}.nav{display:flex;overflow:auto;gap:6px}.nav button{white-space:nowrap;width:auto;padding:10px}.main{padding:14px 12px 150px}.hero{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}.now-inner{grid-template-columns:1fr;padding:9px 10px}.now-side{display:none}.controls{order:2}.now-info{order:1}.now-center{order:3}.now-inner{grid-template-columns:1fr}.now-info{justify-content:center}.controls{margin-top:-55px;margin-bottom:48px}.now-center{margin-top:-45px}.eq{grid-template-columns:repeat(5,1fr);height:400px}.band input{height:130px}}
+@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.media-grid{grid-template-columns:repeat(2,1fr)}.hero .card{padding:16px}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="brand"><div class="logo">♫</div><div>Hima<span style="color:var(--accent)"> Player</span><small style="display:block;color:var(--muted);font-size:10px">V2 • Smart Media</small></div></div>
+  <div class="nav">
+    <button class="active" data-page="home">⌂ الرئيسية</button>
+    <button data-page="music">♫ الموسيقى</button>
+    <button data-page="video">▣ الفيديو</button>
+    <button data-page="playlists">☷ القوائم</button>
+    <button data-page="favorites">♥ المفضلة</button>
+    <button data-page="queue">≡ الانتظار</button>
+    <button data-page="ai">✦ Hima AI</button>
+    <button data-page="settings">⚙ الإعدادات</button>
+  </div>
+</aside>
+
+<main class="main">
+<header class="top">
+  <div class="search">⌕ <input id="search" placeholder="ابحث عن أغنية، فنان، ألبوم أو فيديو..."></div>
+  <button class="icon" id="theme" title="المظهر">☾</button>
+  <button class="icon" id="addFiles" title="إضافة ملفات">＋</button>
+  <input id="fileInput" type="file" hidden multiple accept="audio/*,video/*">
+</header>
+
+<section id="home" class="panel active">
+  <div class="hero">
+    <div class="card">
+      <div class="muted">مشغل الوسائط الذكي</div>
+      <h1>Hima Player<br><span style="color:var(--accent)">V2</span></h1>
+      <p>مشغل موسيقى وفيديو بواجهة حديثة، مكتبة محلية، قوائم تشغيل، طابور تشغيل، موازن صوت، إحصائيات، وميزات ذكية.</p>
+      <div class="actions"><button class="primary" id="heroAdd">＋ إضافة ملفات</button><button class="secondary" id="resumeBtn">▶ متابعة التشغيل</button></div>
+    </div>
+    <div class="card">
+      <div class="muted">الاستماع اليوم</div>
+      <div class="stat"><strong id="todayMinutes">0</strong><span class="muted">دقيقة تشغيل</span></div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:20px 0">
+      <div class="muted">المفضلة</div><div class="stat"><strong id="favCount">0</strong><span class="muted">ملف محفوظ</span></div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="card stat"><span class="muted">المكتبة</span><strong id="allCount">0</strong><span class="muted">ملف</span></div>
+    <div class="card stat"><span class="muted">أغاني</span><strong id="songCount">0</strong><span class="muted">صوت</span></div>
+    <div class="card stat"><span class="muted">فيديو</span><strong id="videoCount">0</strong><span class="muted">ملف</span></div>
+    <div class="card stat"><span class="muted">قوائم</span><strong id="playlistCount">0</strong><span class="muted">Playlist</span></div>
+  </div>
+  <div class="section"><div class="section-head"><h2>استمع الآن</h2><button class="secondary" id="smartMix">✦ Smart Mix</button></div><div id="recent" class="media-grid"></div></div>
+</section>
+
+<section id="music" class="panel"><div class="section-head"><h2>🎵 الموسيقى</h2><button class="primary" id="sortBtn">ترتيب</button></div><div id="musicList" class="list"></div></section>
+<section id="video" class="panel"><div class="section-head"><h2>🎬 الفيديو</h2></div><div id="videoList" class="media-grid"></div></section>
+<section id="playlists" class="panel"><div class="section-head"><h2>🎼 قوائم التشغيل</h2><button class="primary" id="newPlaylist">＋ قائمة جديدة</button></div><div id="playlistList" class="media-grid"></div></section>
+<section id="favorites" class="panel"><div class="section-head"><h2>♥ المفضلة</h2></div><div id="favList" class="list"></div></section>
+<section id="queue" class="panel"><div class="section-head"><h2>≡ التالي</h2><div class="actions"><button class="secondary" id="clearQueue">مسح</button><button class="primary" id="saveQueue">حفظ كقائمة</button></div></div><div id="queueList" class="list"></div></section>
+
+<section id="ai" class="panel">
+ <div class="card"><h2>✦ Hima AI</h2><p class="muted">ذكاء محلي بدون إرسال مكتبتك إلى خادم. استخدم الأوامر السريعة لتوليد Mix حسب مكتبتك.</p>
+ <div class="actions"><button class="primary" data-ai="calm">موسيقى هادئة</button><button class="secondary" data-ai="energy">طاقة</button><button class="secondary" data-ai="recent">آخر ما أضفت</button><button class="secondary" data-ai="unplayed">لم أسمعها</button></div>
+ <div id="aiResult" style="margin-top:20px"></div></div>
+</section>
+
+<section id="settings" class="panel">
+ <div class="card"><h2>⚙ الإعدادات</h2>
+  <label>اسم المستخدم</label><input id="userName" type="text" placeholder="اسمك">
+  <label>مؤقت النوم</label><div class="actions"><button class="secondary" data-timer="0">إلغاء</button><button class="secondary" data-timer="15">15 دقيقة</button><button class="secondary" data-timer="30">30 دقيقة</button><button class="secondary" data-timer="60">60 دقيقة</button><button class="secondary" data-timer="end">نهاية الأغنية</button></div>
+  <label>مستوى الصوت</label><input id="volume" type="range" min="0" max="1" step=".01" value="1" style="width:100%">
+  <div class="actions" style="margin-top:18px"><button class="primary" id="eqOpen">🎚 الموازن</button><button class="secondary" id="pip">▣ Picture-in-Picture</button><button class="secondary" id="full">⛶ ملء الشاشة</button><button class="secondary" id="reset">إعادة ضبط البيانات</button></div>
+ </div>
+</section>
+</main>
+</div>
+
+<div class="now">
+<div class="now-inner">
+ <div class="now-info"><div class="now-cover" id="nowCover">♫</div><div style="min-width:0"><b id="nowTitle">لا يوجد تشغيل</b><small id="nowArtist" class="muted" style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">أضف ملفات للبدء</small></div></div>
+ <div class="now-center">
+  <div class="controls"><button class="icon" id="shuffle">🔀</button><button class="icon" id="prev">⏮</button><button class="play" id="play">▶</button><button class="icon" id="next">⏭</button><button class="icon" id="repeat">🔁</button></div>
+  <div class="progress" id="progress"><i></i></div><div class="time"><span id="current">0:00</span><span id="duration">0:00</span></div>
+ </div>
+ <div class="now-side" style="display:flex;justify-content:end;gap:8px"><button class="icon" id="queueBtn">≡</button><button class="icon" id="favBtn">♡</button></div>
+</div>
+</div>
+
+<div class="modal" id="modal"><div class="modal-box" id="modalBox"></div></div>
+<div class="toast" id="toast"></div>
+<audio id="audio" preload="metadata"></audio>
+<video id="videoPlayer" playsinline controls style="display:none"></video>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const KEY='hima-v2-state';
+let state=JSON.parse(localStorage.getItem(KEY)||'null')||{files:[],queue:[],favorites:[],playlists:[],history:[],theme:'dark',stats:{seconds:0},shuffle:false,repeat:false,user:''};
+let currentIndex=-1, timer=null, audio=$('#audio'), mediaNode=null, gain=null, filters=[], sortAsc=true;
+const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
+const toast=m=>{let t=$('#toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.x);toast.x=setTimeout(()=>t.classList.remove('show'),2200)};
+const fmt=s=>{s=Math.max(0,Math.floor(s||0));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`};
+const isVideo=f=>f.type?.startsWith('video/')||/\.(mp4|webm|mkv|mov|avi)$/i.test(f.name);
+const esc=s=>String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+function showPage(id){$$('.panel').forEach(x=>x.classList.toggle('active',x.id===id));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===id));}
+$$('.nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+$('#theme').onclick=()=>{state.theme=state.theme==='dark'?'light':'dark';document.documentElement.classList.toggle('light',state.theme==='light');save()};
+document.documentElement.classList.toggle('light',state.theme==='light');
+
+function updateStats(){let songs=state.files.filter(f=>!isVideo(f)).length, vids=state.files.filter(isVideo).length;
+$('#allCount').textContent=state.files.length;$('#songCount').textContent=songs;$('#videoCount').textContent=vids;$('#favCount').textContent=state.favorites.length;$('#playlistCount').textContent=state.playlists.length;
+$('#todayMinutes').textContent=Math.floor(state.stats.seconds/60);$('#userName').value=state.user||''}
+function fileCard(f){return `<article class="media"><div class="cover">${f.cover?`<img src="${f.cover}">`:(isVideo(f)?'🎬':'♫')}</div><h3>${esc(f.name)}</h3><small>${isVideo(f)?'فيديو':'صوت'} • ${fmt(f.duration||0)}</small><div class="media-actions"><button class="mini" onclick="playId('${f.id}')">▶</button><button class="mini" onclick="toggleFav('${f.id}')">${state.favorites.includes(f.id)?'♥':'♡'}</button><button class="mini" onclick="addQueue('${f.id}')">＋</button></div></article>`}
+function row(f,actions=true){return `<div class="row"><div class="now-cover">${f.cover?`<img src="${f.cover}">`:(isVideo(f)?'🎬':'♫')}</div><div class="grow"><h4>${esc(f.name)}</h4><p>${isVideo(f)?'فيديو':'صوت'} • ${f.plays||0} تشغيل</p></div>${actions?`<button class="icon" onclick="playId('${f.id}')">▶</button><button class="icon" onclick="addQueue('${f.id}')">＋</button>`:''}</div>`}
+function render(){
+ updateStats();
+ let q=$('#search').value.trim().toLowerCase();
+ let files=state.files.filter(f=>!q||f.name.toLowerCase().includes(q));
+ $('#recent').innerHTML=files.length?files.slice().sort((a,b)=>(b.lastPlayed||0)-(a.lastPlayed||0)).slice(0,8).map(fileCard).join(''):`<div class="empty">لم تتم إضافة ملفات بعد.<br>اضغط «إضافة ملفات» للبدء.</div>`;
+ $('#musicList').innerHTML=files.filter(f=>!isVideo(f)).sort((a,b)=>sortAsc?a.name.localeCompare(b.name):b.name.localeCompare(a.name)).map(f=>row(f)).join('')||'<div class="empty">لا توجد أغاني.</div>';
+ $('#videoList').innerHTML=files.filter(isVideo).map(fileCard).join('')||'<div class="empty">لا توجد فيديوهات.</div>';
+ $('#favList').innerHTML=state.files.filter(f=>state.favorites.includes(f.id)).map(row).join('')||'<div class="empty">لا توجد مفضلة.</div>';
+ $('#queueList').innerHTML=state.queue.map((id,i)=>{let f=state.files.find(x=>x.id===id);return f?`<div class="row"><b>${i+1}</b><div class="grow"><h4>${esc(f.name)}</h4><p>${isVideo(f)?'فيديو':'صوت'}</p></div><button class="icon" onclick="playId('${f.id}')">▶</button><button class="icon" onclick="state.queue.splice(${i},1);save();render()">×</button></div>`:''}).join('')||'<div class="empty">الطابور فارغ.</div>';
+ $('#playlistList').innerHTML=state.playlists.map(p=>`<article class="media"><div class="cover">🎼</div><h3>${esc(p.name)}</h3><small>${p.ids.length} ملف</small><div class="media-actions"><button class="mini" onclick="playPlaylist('${p.id}')">▶ تشغيل</button><button class="mini" onclick="deletePlaylist('${p.id}')">حذف</button></div></article>`).join('')||'<div class="empty">أنشئ أول Playlist.</div>';
+}
+window.playId=id=>{let f=state.files.find(x=>x.id===id);if(!f)return;let url=f.url;currentIndex=state.queue.length?state.queue.indexOf(id):0;if(isVideo(f)){showVideo(f);return}audio.src=url;audio.dataset.id=id;$('#nowTitle').textContent=f.name;$('#nowArtist').textContent=f.artist||'ملف محلي';audio.play().then(()=>syncMediaSession(f)).catch(()=>toast('اضغط تشغيل لبدء الملف'))};
+window.addQueue=id=>{if(!state.queue.includes(id))state.queue.push(id);save();render();toast('أضيف إلى التالي')};
+window.toggleFav=id=>{state.favorites=state.favorites.includes(id)?state.favorites.filter(x=>x!==id):[...state.favorites,id];save();render();toast(state.favorites.includes(id)?'أضيف للمفضلة':'أزيل من المفضلة')};
+function playPlaylist(pid){let p=state.playlists.find(x=>x.id===pid);if(!p)return;state.queue=[...p.ids];save();render();if(p.ids[0])playId(p.ids[0])}
+function deletePlaylist(pid){state.playlists=state.playlists.filter(p=>p.id!==pid);save();render()}
+function showVideo(f){let v=$('#videoPlayer');v.style.display='block';v.src=f.url;v.play();openModal(`<div class="section-head"><h2>${esc(f.name)}</h2><button class="icon" onclick="closeModal()">×</button></div><div class="video-wrap"><video id="modalVideo" controls autoplay playsinline src="${f.url}"></video></div>`);$('#modalVideo').requestFullscreen?.().catch(()=>{})}
+function openModal(html){$('#modalBox').innerHTML=html;$('#modal').classList.add('show')}
+function closeModal(){$('#modal').classList.remove('show');$('#modalBox').innerHTML='';$('#videoPlayer').pause();$('#videoPlayer').style.display='none'}
+$('#modal').onclick=e=>{if(e.target.id==='modal')closeModal()};
+function importFiles(list){[...list].forEach(file=>{let id=crypto.randomUUID();let f={id,name:file.name,type:file.type,url:URL.createObjectURL(file),size:file.size,duration:0,plays:0,lastPlayed:0};state.files.push(f);let probe=document.createElement(isVideo(f)?'video':'audio');probe.preload='metadata';probe.src=f.url;probe.onloadedmetadata=()=>{f.duration=probe.duration;save();render()}});save();render();toast(`${list.length} ملف تمت إضافته`)};
+$('#addFiles').onclick=$('#heroAdd').onclick=()=>$('#fileInput').click();
+$('#fileInput').onchange=e=>importFiles(e.target.files);
+$('#search').oninput=render;
+$('#sortBtn').onclick=()=>{sortAsc=!sortAsc;render()};
+$('#play').onclick=()=>{if(!audio.src){toast('أضف ملفًا أولًا');return}audio.paused?audio.play():audio.pause()};
+$('#prev').onclick=()=>{let ids=state.queue.length?state.queue:state.files.filter(f=>!isVideo(f)).map(f=>f.id);let i=ids.indexOf(audio.dataset.id);playId(ids[(i-1+ids.length)%ids.length])};
+$('#next').onclick=next;
+function next(){let ids=state.queue.length?state.queue:state.files.filter(f=>!isVideo(f)).map(f=>f.id);if(!ids.length)return;let i=ids.indexOf(audio.dataset.id);let ni=state.shuffle?Math.floor(Math.random()*ids.length):(i+1)%ids.length;playId(ids[ni])}
+$('#shuffle').onclick=()=>{state.shuffle=!state.shuffle;$('#shuffle').style.opacity=state.shuffle?1:.5;save()};
+$('#repeat').onclick=()=>{state.repeat=!state.repeat;$('#repeat').style.opacity=state.repeat?1:.5;save()};
+audio.onplay=()=>$('#play').textContent='Ⅱ';
+audio.onpause=()=>$('#play').textContent='▶';
+audio.ontimeupdate=()=>{let p=audio.duration?audio.currentTime/audio.duration*100:0;$('#progress i').style.width=p+'%';$('#current').textContent=fmt(audio.currentTime);$('#duration').textContent=fmt(audio.duration);state.stats.seconds+=1/4;let f=state.files.find(x=>x.id===audio.dataset.id);if(f){f.lastPlayed=Date.now();f.plays=(f.plays||0)+(audio.currentTime<1?1:0)}save()};
+audio.onended=()=>{if(state.repeat){audio.currentTime=0;audio.play()}else next()};
+$('#progress').onclick=e=>{if(!audio.duration)return;audio.currentTime=(e.offsetX/e.currentTarget.clientWidth)*audio.duration};
+$('#volume').oninput=e=>audio.volume=+e.target.value;
+$('#queueBtn').onclick=()=>showPage('queue');
+$('#favBtn').onclick=()=>{let id=audio.dataset.id;if(id)toggleFav(id)};
+$('#resumeBtn').onclick=()=>{let f=state.files.slice().sort((a,b)=>(b.lastPlayed||0)-(a.lastPlayed||0))[0];f?playId(f.id):toast('لا يوجد تشغيل سابق')};
+$('#smartMix').onclick=()=>{$$('[data-ai="recent"]')[0]?.click();showPage('ai')};
+$$('[data-ai]').forEach(b=>b.onclick=()=>{let mode=b.dataset.ai, files=state.files.filter(f=>!isVideo(f));let arr=mode==='unplayed'?files.filter(f=>!(f.plays||0)):mode==='recent'?files.slice().sort((a,b)=>b.lastPlayed-a.lastPlayed):files.slice().sort((a,b)=>mode==='energy'?(b.plays||0)-(a.plays||0):(a.plays||0)-(b.plays||0));arr=arr.slice(0,12);$('#aiResult').innerHTML=arr.length?`<h3>اقتراح Hima AI</h3><div class="list">${arr.map(row).join('')}</div>`:'<div class="empty">لا توجد ملفات كافية لبناء Mix.</div>'});
+$$('[data-timer]').forEach(b=>b.onclick=()=>{clearTimeout(timer);let v=b.dataset.timer;if(v==='0'){toast('تم إلغاء المؤقت');return}if(v==='end'){toast('سيتم الإيقاف عند نهاية الأغنية');audio.dataset.stopAtEnd='1';return}timer=setTimeout(()=>{audio.pause();toast('انتهى مؤقت النوم')},+v*60000);toast(`سيتم الإيقاف بعد ${v} دقيقة`)});
+$('#newPlaylist').onclick=()=>openModal(`<h2>قائمة تشغيل جديدة</h2><label>الاسم</label><input id="plName" type="text" placeholder="مثلاً: المفضلة لدي"><div class="actions" style="margin-top:16px"><button class="primary" onclick="createPlaylist()">إنشاء</button><button class="secondary" onclick="closeModal()">إلغاء</button></div>`);
+window.createPlaylist=()=>{let n=$('#plName').value.trim();if(!n)return;state.playlists.push({id:crypto.randomUUID(),name:n,ids:[]});save();closeModal();render();toast('تم إنشاء القائمة')};
+$('#clearQueue').onclick=()=>{state.queue=[];save();render()};
+$('#saveQueue').onclick=()=>{if(!state.queue.length)return toast('الطابور فارغ');let n=prompt('اسم القائمة','My Queue');if(n){state.playlists.push({id:crypto.randomUUID(),name:n,ids:[...state.queue]});save();render();toast('تم حفظ القائمة')}};
+$('#userName').oninput=e=>{state.user=e.target.value;save()};
+$('#reset').onclick=()=>{if(confirm('سيتم حذف بيانات Hima المحلية. هل أنت متأكد؟')){localStorage.removeItem(KEY);location.reload()}};
+$('#eqOpen').onclick=()=>openEQ();
+function openEQ(){openModal(`<div class="section-head"><h2>🎚 موازن الصوت</h2><button class="icon" onclick="closeModal()">×</button></div><p class="muted">تحكم تجريبي عبر Web Audio عندما يسمح المتصفح/الـWebView بذلك.</p><div class="eq">${[60,170,310,600,1000,3000,6000,12000,14000,16000].map((x,i)=>`<div class="band"><input type="range" min="-12" max="12" value="0" data-band="${i}"><span>${x>=1000?(x/1000)+'k':x}</span></div>`).join('')}</div>`)}
+$('#pip').onclick=async()=>{let v=$('#videoPlayer');if(document.pictureInPictureEnabled&&v.readyState>0)try{await v.requestPictureInPicture()}catch(e){toast('PiP غير متاح لهذا الفيديو')}else toast('PiP يحتاج فيديو نشط')};
+$('#full').onclick=()=>document.documentElement.requestFullscreen?.();
+async function syncMediaSession(f){if(!('mediaSession' in navigator))return;navigator.mediaSession.metadata=new MediaMetadata({title:f.name,artist:f.artist||'Hima Player',album:'Local Library'});navigator.mediaSession.setActionHandler('play',()=>audio.play());navigator.mediaSession.setActionHandler('pause',()=>audio.pause());navigator.mediaSession.setActionHandler('nexttrack',next);navigator.mediaSession.setActionHandler('previoustrack',()=>$('#prev').click());navigator.mediaSession.setActionHandler('seekbackward',()=>audio.currentTime=Math.max(0,audio.currentTime-10));navigator.mediaSession.setActionHandler('seekforward',()=>audio.currentTime=Math.min(audio.duration||Infinity,audio.currentTime+10))}
+render();
+</script>
+</body>
 </html>
