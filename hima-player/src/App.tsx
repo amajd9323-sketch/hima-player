@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
+import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
+import { canScan, scan } from './scan'
 
-type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob: Blob }
-type Tab = 'music' | 'video' | 'ai'
+type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string }
+type Tab = 'video' | 'music' | 'fav' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.5, 2, 0.75]
@@ -15,11 +17,27 @@ const A = '#ff4d6d'
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
 
+function VThumb({ src, dur: known }: { src: string; dur?: number }) {
+  const [vis, setVis] = useState(false)
+  const box = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    const o = new IntersectionObserver(([e]) => setVis(e.isIntersecting), { rootMargin: '300px' })
+    if (box.current) o.observe(box.current)
+    return () => o.disconnect()
+  }, [])
+  return (
+    <span ref={box} className="relative block aspect-video w-full overflow-hidden rounded-xl bg-white/10">
+      {vis && <video src={src + '#t=1'} preload="metadata" muted playsInline className="size-full object-cover" />}
+      <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>
+    </span>
+  )
+}
+
 export default function App() {
   const [q, setQ] = useState<Track[]>([])
   const [i, setI] = useState(-1)
-  const [tab, setTab] = useState<Tab>('music')
-  const [favOnly, setFavOnly] = useState(false)
+  const [tab, setTab] = useState<Tab>('video')
+  const [scanMsg, setScanMsg] = useState('')
   const [find, setFind] = useState<string | null>(null)
   const [sheet, setSheet] = useState(false)
   const [panel, setPanel] = useState<'eq' | 'sleep' | null>(null)
@@ -44,11 +62,27 @@ export default function App() {
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (!favOnly || x.fav)
+  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x))
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x))
 
-  useEffect(() => { all().then((r) => setQ(r.sort((a, b) => a.at - b.at).map((x) => ({ ...x, url: URL.createObjectURL(x.blob) })))).catch(() => {}) }, [])
+  const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
+  const load = async () => {
+    setScanMsg('')
+    const keep = cur?.id
+    let lib: Track[] = []
+    if (canScan()) {
+      try {
+        const fv = favSet()
+        lib = (await scan()).map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, fav: fv.has(id) } })
+      } catch { setScanMsg('اسمح بالوصول للملفات من إعدادات التطبيق، ثم اضغط تحديث') }
+    }
+    let imp: Track[] = []
+    try { imp = (await all()).sort((a, b) => a.at - b.at).map((x) => ({ ...x, url: URL.createObjectURL(x.blob) })) } catch { /* ignore */ }
+    const list = [...lib, ...imp]
+    setQ(list); setI(keep ? list.findIndex((x) => x.id === keep) : -1)
+  }
+  useEffect(() => { void load() }, [])
 
   const add = (files: FileList | null) => {
     if (!files) return
@@ -66,9 +100,10 @@ export default function App() {
   }
   const toggle = () => { const e = m.current; if (e) { if (e.paused) void e.play(); else e.pause() } }
   const seek = (v: number) => { if (m.current) m.current.currentTime = Math.max(0, Math.min(d, v)) }
-  const lock = async (on: boolean) => { try { if (on) await ScreenOrientation.lock({ orientation: 'landscape' }); else await ScreenOrientation.unlock() } catch { /* web */ } }
-  const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void lock(true) }
-  const closeVideo = () => { setFs(false); void lock(false) }
+  const lock = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } try { if (on) await ScreenOrientation.lock({ orientation: 'landscape' }); else await ScreenOrientation.unlock() } catch { /* web */ } }
+  const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
+  const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
+  const closeVideo = () => { setFs(false); void bars(false); void lock(false) }
   const poke = () => { setUi(true); window.clearTimeout(hide.current); hide.current = window.setTimeout(() => setUi(false), 3500) }
   const cycleSpeed = () => { const n = (speed + 1) % SPEEDS.length; setSpeed(n); if (m.current) m.current.playbackRate = SPEEDS[n] }
   const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = EQS[k].g[j])) }
@@ -80,7 +115,12 @@ export default function App() {
     ;[src, ...bands.current, c.destination].reduce((a, b) => (a.connect(b), b))
     ac.current = c
   }
-  const fav = (x: Track) => { const f = !x.fav; setQ((p) => p.map((y) => (y.id === x.id ? { ...y, fav: f } : y))); put({ id: x.id, title: x.title, video: x.video, at: x.at, blob: x.blob, fav: f }).catch(() => {}) }
+  const fav = (x: Track) => {
+    const f = !x.fav
+    setQ((p) => p.map((y) => (y.id === x.id ? { ...y, fav: f } : y)))
+    if (x.blob) put({ id: x.id, title: x.title, video: x.video, at: x.at, blob: x.blob, fav: f }).catch(() => {})
+    else { const st = favSet(); if (f) st.add(x.id); else st.delete(x.id); localStorage.setItem('hema_favs', JSON.stringify([...st])) }
+  }
   const remove = (x: Track) => { del(x.id).catch(() => {}); const k = q.indexOf(x); setQ((p) => p.filter((y) => y !== x)); if (k === i) { m.current?.pause(); setI(-1); setSheet(false) } else if (k < i) setI(i - 1) }
 
   useEffect(() => { if (cur && m.current) { m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
@@ -123,26 +163,36 @@ export default function App() {
     </div>
   )
   const Row = ({ x, k }: { x: Track; k: number }) => (
-    <li className="flex items-center gap-1 rounded-xl active:bg-white/5">
+    <li key={x.id} className="flex items-center gap-1 rounded-xl active:bg-white/5">
       <button onClick={() => { setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
         <span className="grid size-12 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(x.title)}>{k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
-        <span className="truncate" style={k === i ? { color: A } : undefined}>{x.title}</span>
+        <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
       </button>
       <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
-      <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>
+      {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
     </li>
   )
-  const empty = <p className="py-20 text-center opacity-60">فارغ. اضغط + لإضافة ملفات.</p>
+  const VRow = ({ x, k }: { x: Track; k: number }) => (
+    <li key={x.id} className="relative">
+      <button onClick={() => openVideo(k)} className="block w-full text-start">
+        <VThumb src={x.url} dur={x.dur} />
+        <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
+        <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
+      </button>
+      <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
+    </li>
+  )
+  const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
   const Opt = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
     <button onClick={onClick} className="rounded-full px-4 py-2 text-sm" style={{ background: on ? A : '#ffffff1a' }}>{children}</button>
   )
 
   return (
-    <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke() }} onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setD(e.currentTarget.duration)} onEnded={ended} />
+        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended} />
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <h1 className="flex-1 text-2xl font-bold" style={{ color: A }}>Hema</h1>
@@ -153,27 +203,20 @@ export default function App() {
         </label>
       </header>
 
+      <div className="flex gap-2 overflow-x-auto px-4 pb-2">
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['fav', 'المفضلة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => setTab(k)}>{l}</Opt>)}
+      </div>
       {tab !== 'ai' && (
-        <div className="flex gap-2 px-4 pb-2">
-          <Opt on={!favOnly} onClick={() => setFavOnly(false)}>الكل</Opt><Opt on={favOnly} onClick={() => setFavOnly(true)}>المفضلة</Opt>
+        <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
+          <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : `${videos.length + musics.length} عنصر`}</span>
+          <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
         </div>
       )}
 
       <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {tab === 'music' && (musics.length ? <ul>{musics.map(({ x, k }) => <Row key={x.id} x={x} k={k} />)}</ul> : empty)}
-        {tab === 'video' && (videos.length ? (
-          <ul className="grid grid-cols-2 gap-3">
-            {videos.map(({ x, k }) => (
-              <li key={x.id}>
-                <button onClick={() => openVideo(k)} className="relative block w-full text-start">
-                  <video src={x.url + '#t=1'} preload="metadata" muted playsInline className="aspect-video w-full rounded-xl bg-white/10 object-cover" />
-                  <span className="absolute inset-0 grid place-items-center text-white/90"><Icon n="play" s={34} /></span>
-                  <p className="mt-1 truncate text-sm">{x.title}</p>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : empty)}
+        {(tab === 'music' || tab === 'fav') && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
+        {(tab === 'video' || tab === 'fav') && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
+        {tab !== 'ai' && !(tab === 'video' ? videos.length : tab === 'music' ? musics.length : videos.length + musics.length) && empty}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
@@ -198,12 +241,6 @@ export default function App() {
         </div>
       )}
 
-      <nav className="flex border-t border-white/10 pb-[env(safe-area-inset-bottom)]">
-        {([['music', 'music', 'الموسيقى'], ['video', 'video', 'الفيديو'], ['ai', 'spark', 'ذكاء']] as const).map(([k, g, l]) => (
-          <button key={k} onClick={() => setTab(k)} className="flex flex-1 flex-col items-center gap-0.5 py-2 text-xs" style={{ color: tab === k ? A : '#fff9' }}><Icon n={g} />{l}</button>
-        ))}
-      </nav>
-
       {sheet && cur && !cur.video && (
         <div className="fixed inset-0 z-30 flex flex-col gap-5 p-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)', background: `linear-gradient(180deg,hsl(${hue(cur.title)} 45% 22%),#0d0f14 70%)` }}>
           <button onClick={() => { setSheet(false); setPanel(null) }} aria-label="إغلاق" className="self-start"><Icon n="down" s={32} /></button>
@@ -213,7 +250,7 @@ export default function App() {
             </div>
           </div>
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
-          <Bar big /><Ctl />
+          {Bar({ big: true })}{Ctl()}
           <div dir="ltr" className="flex justify-around pb-2 opacity-90">
             <button aria-label="مفضلة" onClick={() => fav(cur)} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" /></button>
             <button aria-label="منبه نوم" onClick={() => setPanel(panel === 'sleep' ? null : 'sleep')} style={{ color: sleep ? A : undefined }}><Icon n="timer" /></button>
@@ -243,19 +280,19 @@ export default function App() {
           {vol !== null && <div className="absolute start-1/2 top-1/3 -translate-x-1/2 rounded-full bg-black/70 px-4 py-2">{Math.round(vol * 100)}%</div>}
           {ui && (
             <>
-              <div className="absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-black/80 to-transparent p-3">
+              <div className="absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-black/80 to-transparent p-3 pt-8">
                 <button aria-label="رجوع" onClick={(e) => { e.stopPropagation(); closeVideo() }} className="p-1"><Icon n="back" /></button>
                 <span className="min-w-0 flex-1 truncate">{cur.title}</span>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
               </div>
-              <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-12" onClick={(e) => e.stopPropagation()}>
+              <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-12" dir="ltr" onClick={(e) => e.stopPropagation()}>
                 <button aria-label="رجوع 10 ثواني" onClick={() => { seek(t - 10); poke() }}><Icon n="rew" s={40} /></button>
                 <button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="grid size-20 place-items-center rounded-full bg-black/50"><Icon n={playing ? 'pause' : 'play'} s={44} /></button>
                 <button aria-label="تقديم 10 ثواني" onClick={() => { seek(t + 10); poke() }}><Icon n="fwd" s={40} /></button>
               </div>
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8" onClick={(e) => e.stopPropagation()}>
-                <Bar />
+                {Bar({})}
                 <div dir="ltr" className="flex justify-center gap-10 pt-1"><button aria-label="السابق" onClick={() => step(-1)}><Icon n="prev" s={30} /></button><button aria-label="التالي" onClick={() => step(1)}><Icon n="next" s={30} /></button></div>
               </div>
             </>

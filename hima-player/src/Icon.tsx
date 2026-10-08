@@ -11,6 +11,7 @@ const P: Record<string, string> = {
   down: 'M7.4 8.6L12 13.2l4.6-4.6L18 10l-6 6-6-6 1.4-1.4z', close: 'M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z',
   timer: 'M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8-6.4l1.4-1.4-1.5-1.5-1.4 1.4A8 8 0 1 0 20 14a8 8 0 0 0-1-6.4zM12 20a6 6 0 1 1 0-12 6 6 0 0 1 0 12z',
   eq: 'M10 20h4V4h-4v16zm-6 0h4v-8H4v8zM16 9v11h4V9h-4z', trash: 'M6 19a2 2 0 002 2h8a2 2 0 002-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z',
+  refresh: 'M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.74 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z',
   rew: 'M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z', fwd: 'M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z',
 }
 export default function Icon({ n, s = 24 }: { n: keyof typeof P | string; s?: number }) {
