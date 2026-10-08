@@ -1,0 +1,26 @@
+name: Build APK
+on:
+  push: { branches: [main], tags: ['v*'] }
+  workflow_dispatch:
+permissions: { contents: write }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - run: npm install
+      - run: npm run build
+        env: { VITE_AI_URL: '${{ vars.VITE_AI_URL }}' }
+      - run: test -d android || npx cap add android
+      - run: npx cap sync android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
+      - run: mv android/app/build/outputs/apk/debug/app-debug.apk Hima-Player.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: Hima-Player, path: Hima-Player.apk }
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with: { files: Hima-Player.apk }
