@@ -1,3 +1,3 @@
 import type { CapacitorConfig } from '@capacitor/cli'
-const config: CapacitorConfig = { appId: 'com.hima.player', appName: 'Hima Player', webDir: 'dist' }
+const config: CapacitorConfig = { appId: 'com.hema.player', appName: 'Hema', webDir: 'dist' }
 export default config
