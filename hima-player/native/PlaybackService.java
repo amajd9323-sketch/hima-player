@@ -19,8 +19,11 @@ public class PlaybackService extends Service {
         if (title == null) title = "Hema";
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= 26) nm.createNotificationChannel(new NotificationChannel("hema", "Hema", NotificationManager.IMPORTANCE_LOW));
-        Intent open = new Intent(this, MainActivity.class);
+        
+        Intent open = getPackageManager().getLaunchIntentForPackage(getPackageName());
+        if (open == null) open = new Intent();
         open.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "hema") : new Notification.Builder(this);
         Notification n = b.setContentTitle(title).setContentText("Hema").setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(pi).setOngoing(true).build();
