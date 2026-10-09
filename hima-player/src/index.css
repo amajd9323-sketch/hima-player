@@ -6,3 +6,4 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff5a6e;outline-offse
 ::-webkit-scrollbar{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @keyframes spin{to{transform:rotate(360deg)}}
+video::cue{font-size:1.2rem;background:rgba(0,0,0,.6)}

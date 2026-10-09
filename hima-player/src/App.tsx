@@ -4,16 +4,20 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan } from './scan'
+import { canScan, scan, keepAlive, nativeBright } from './scan'
 
-type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string }
-type Tab = 'video' | 'music' | 'fav' | 'ai'
+type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string }
+type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.5, 2, 0.75]
 const BANDS = [60, 230, 910, 3600, 14000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0] }, { n: 'باس', g: [7, 4, 0, 0, 0] }, { n: 'صوت', g: [-1, 0, 3, 4, 2] }, { n: 'روك', g: [5, 2, -1, 3, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, -1] }]
-const A = '#ff4d6d'
+const ACCENTS = ['#ff4d6d', '#3d8bff', '#22c55e', '#f59e0b', '#a855f7', '#14b8a6']
+const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
+let A = ACCENTS[0]
+const ls = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? '') as T } catch { return d } }
+const srt2vtt = (x: string) => 'WEBVTT\n\n' + x.replace(/\r/g, '').replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2')
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
 
@@ -56,15 +60,36 @@ export default function App() {
   const [ask, setAsk] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [acc, setAcc] = useState(() => ls('hema_acc', 0))
+  const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
+  const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
+  const [openFolder, setOpenFolder] = useState<string | null>(null)
+  const [openList, setOpenList] = useState<string | null>(null)
+  const [newList, setNewList] = useState('')
+  const [settings, setSettings] = useState(false)
+  const [plSheet, setPlSheet] = useState<Track | null>(null)
+  const [sub, setSub] = useState<string | null>(null)
+  const [hud, setHud] = useState<{ k: string; v: number } | null>(null)
+  const [bright, setBr] = useState(0.5)
+  const g = useRef({ x: 0, y: 0, ax: '', v: 1, b: 0.5, t: 0, w: 1, left: false, nt: -1 })
+  const lastSave = useRef(0)
+  A = ACCENTS[acc] ?? ACCENTS[0]
+  useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
+  useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
   const m = useRef<HTMLVideoElement>(null)
   const hide = useRef<number>()
   const ac = useRef<AudioContext>()
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav)
-  const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x))
-  const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x))
+  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
+  const srt = (a: { x: Track }, b: { x: Track }) => (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
+  const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
+  const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
+  const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
+  const showM = tab === 'music' || tab === 'fav' || open
+  const showV = tab === 'video' || tab === 'fav' || open
+  const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
   const load = async () => {
@@ -74,7 +99,7 @@ export default function App() {
     if (canScan()) {
       try {
         const fv = favSet()
-        lib = (await scan()).map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, fav: fv.has(id) } })
+        lib = (await scan()).map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
       } catch { setScanMsg('اسمح بالوصول للملفات من إعدادات التطبيق، ثم اضغط تحديث') }
     }
     let imp: Track[] = []
@@ -123,7 +148,7 @@ export default function App() {
   }
   const remove = (x: Track) => { del(x.id).catch(() => {}); const k = q.indexOf(x); setQ((p) => p.filter((y) => y !== x)); if (k === i) { m.current?.pause(); setI(-1); setSheet(false) } else if (k < i) setI(i - 1) }
 
-  useEffect(() => { if (cur && m.current) { m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
+  useEffect(() => { if (cur && m.current) { setSub(null); m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
   useEffect(() => { if (!sleep) return; const h = window.setTimeout(() => { m.current?.pause(); setSleep(0) }, sleep * 60000); return () => window.clearTimeout(h) }, [sleep])
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return
@@ -133,6 +158,12 @@ export default function App() {
     navigator.mediaSession.setActionHandler('nexttrack', () => step(1))
     navigator.mediaSession.setActionHandler('previoustrack', () => step(-1))
   })
+  const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
+  const setBright = (b: number) => { setBr(b); void nativeBright(b) }
+  const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600) && sp < e.duration - 5) e.currentTime = sp }
+  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
+  const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
+  useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
   const ended = () => { if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
 
   const smart = async () => {
@@ -143,7 +174,7 @@ export default function App() {
       const order = await aiOrder(ask, list.map((x) => x.title))
       const picked = order.filter((n) => list[n]).map((n) => list[n])
       if (!picked.length) { setMsg('لا نتيجة. جرب وصف ثاني.'); return }
-      setQ([...picked, ...q.filter((x) => !picked.includes(x))]); setI(0); setTab('music'); setSheet(true)
+      setLists((p) => ({ ...p, ['AI · ' + ask.slice(0, 24)]: picked.map((x) => x.id) })); setQ([...picked, ...q.filter((x) => !picked.includes(x))]); setI(0); setSheet(true); setMsg('انحفظت قائمة في «القوائم»')
     } catch (e) { setMsg((e as Error).message === 'AI_URL_MISSING' ? 'AI غير مفعّل: اضبط VITE_AI_URL' : 'فشل AI. جرب لاحقا.') } finally { setBusy(false) }
   }
 
@@ -169,6 +200,7 @@ export default function App() {
         <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
       </button>
       <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
+      <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="p-2 opacity-60"><Icon n="list" s={20} /></button>
       {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
     </li>
   )
@@ -180,6 +212,7 @@ export default function App() {
         <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
       </button>
       <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
+      <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="absolute start-1 top-1 rounded-full bg-black/40 p-1.5 text-white/80"><Icon n="list" s={18} /></button>
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
@@ -191,12 +224,13 @@ export default function App() {
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
-        onPlay={() => { setPlaying(true); initAudio(); poke() }} onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended} />
+        onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { setPlaying(false); void keepAlive(false) }}
+        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); resume(e.currentTarget); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <h1 className="flex-1 text-2xl font-bold" style={{ color: A }}>Hema</h1>
           : <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="بحث" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 outline-none" />}
+        <button aria-label="إعدادات" onClick={() => setSettings(true)} className="p-2"><Icon n="gear" /></button>
         <button aria-label="بحث" onClick={() => setFind(find === null ? '' : null)} className="p-2"><Icon n={find === null ? 'search' : 'close'} /></button>
         <label className="grid size-10 cursor-pointer place-items-center rounded-full text-white" style={{ background: A }} aria-label="إضافة ملفات"><Icon n="plus" />
           <input type="file" accept="audio/*,video/*" multiple hidden onChange={(e) => add(e.target.files)} />
@@ -204,7 +238,7 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['fav', 'المفضلة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => setTab(k)}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
       </div>
       {tab !== 'ai' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
@@ -214,9 +248,17 @@ export default function App() {
       )}
 
       <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {(tab === 'music' || tab === 'fav') && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
-        {(tab === 'video' || tab === 'fav') && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
-        {tab !== 'ai' && !(tab === 'video' ? videos.length : tab === 'music' ? musics.length : videos.length + musics.length) && empty}
+        {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
+        {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
+        {tab === 'lists' && openList === null && (
+          <div className="space-y-2">
+            <div className="flex gap-2"><input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="قائمة جديدة" className="min-w-0 flex-1 rounded-xl bg-white/10 px-4 py-2 outline-none" /><button onClick={() => { if (newList.trim()) { setLists((p) => ({ ...p, [newList.trim()]: [] })); setNewList('') } }} className="rounded-xl px-4 text-white" style={{ background: A }}>إنشاء</button></div>
+            {Object.entries(lists).map(([n, ids]) => <div key={n} className="flex items-center rounded-xl bg-white/5"><button onClick={() => setOpenList(n)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-start"><span style={{ color: A }}><Icon n="list" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{ids.length}</span></button><button aria-label="حذف" onClick={() => setLists((p) => { const c = { ...p }; delete c[n]; return c })} className="p-3 opacity-40"><Icon n="trash" s={20} /></button></div>)}
+          </div>
+        )}
+        {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
+        {showV && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
+        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : (tab === 'fav' || open) && !videos.length && !musics.length) && empty}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
@@ -227,11 +269,11 @@ export default function App() {
         )}
       </main>
 
-      {cur && !cur.video && !sheet && (
+      {cur && !sheet && !fs && (
         <div className="relative mx-2 mb-2 overflow-hidden rounded-2xl bg-white/10">
           <div className="absolute inset-x-0 top-0 h-0.5 bg-white/10"><div className="h-full" style={{ width: `${d ? (t / d) * 100 : 0}%`, background: A }} /></div>
           <div className="flex items-center gap-3 p-2">
-            <button onClick={() => setSheet(true)} className="flex min-w-0 flex-1 items-center gap-3 text-start">
+            <button onClick={() => (cur.video ? openVideo(i) : setSheet(true))} className="flex min-w-0 flex-1 items-center gap-3 text-start">
               <span className="grid size-10 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(cur.title)}>{[...cur.title][0]}</span>
               <span className="truncate">{cur.title}</span>
             </button>
@@ -270,19 +312,53 @@ export default function App() {
         </div>
       )}
 
+      {settings && (
+        <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setSettings(false)}>
+          <div className="w-full space-y-4 rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-semibold">الإعدادات</h2>
+            <p className="text-sm opacity-60">اللون</p>
+            <div className="flex gap-3">{ACCENTS.map((c, k) => <button key={c} aria-label={c} onClick={() => setAcc(k)} className="size-9 rounded-full" style={{ background: c, outline: acc === k ? '3px solid #fff' : 'none' }} />)}</div>
+            <p className="text-sm opacity-60">الترتيب</p>
+            <div className="flex flex-wrap gap-2">{SORTS.map(([k, l]) => <Opt key={k} on={sort === k} onClick={() => setSort(k)}>{l}</Opt>)}</div>
+            <Opt on={false} onClick={() => { setSettings(false); void load() }}>إعادة مسح الملفات</Opt>
+          </div>
+        </div>
+      )}
+
+      {plSheet && (
+        <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setPlSheet(null)}>
+          <div className="max-h-[70%] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-semibold">أضف إلى قائمة</h2>
+            {Object.keys(lists).map((n) => <button key={n} className="block w-full rounded-xl bg-white/10 p-3 text-start" onClick={() => { addTo(n, plSheet.id); setPlSheet(null) }}>{n}</button>)}
+            <div className="flex gap-2"><input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="قائمة جديدة" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><button onClick={() => { if (newList.trim()) { addTo(newList.trim(), plSheet.id); setNewList(''); setPlSheet(null) } }} className="rounded-xl px-4 text-white" style={{ background: A }}>+</button></div>
+          </div>
+        </div>
+      )}
+
       {fs && cur?.video && (
         <div className="fixed inset-0 z-50 select-none" onClick={poke}
-          onTouchStart={(e) => { drag.current = { y: e.touches[0].clientY, v: m.current?.volume ?? 1 } }}
-          onTouchMove={(e) => { if (m.current) { const v = Math.max(0, Math.min(1, drag.current.v + (drag.current.y - e.touches[0].clientY) / 250)); m.current.volume = v; setVol(v) } }}
-          onTouchEnd={() => window.setTimeout(() => setVol(null), 600)}>
+          onTouchStart={(e) => { const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
+          onTouchMove={(e) => {
+            const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
+            if (!G.ax && (Math.abs(dx) > 14 || Math.abs(dy) > 14)) G.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+            if (G.ax === 'y') {
+              if (G.left) { const b = Math.max(0.05, Math.min(1, G.b + dy / 250)); setBright(b); setHud({ k: 'br', v: b }) }
+              else { const v = Math.max(0, Math.min(1, G.v + dy / 250)); if (m.current) m.current.volume = v; setHud({ k: 'vol', v }) }
+            } else if (G.ax === 'x') { G.nt = Math.max(0, Math.min(d, G.t + (dx / G.w) * 120)); setHud({ k: 'seek', v: G.nt }) }
+          }}
+          onTouchEnd={() => { const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
           <div className="absolute inset-y-0 start-0 w-1/3" onDoubleClick={() => seek(t - 10)} />
           <div className="absolute inset-y-0 end-0 w-1/3" onDoubleClick={() => seek(t + 10)} />
-          {vol !== null && <div className="absolute start-1/2 top-1/3 -translate-x-1/2 rounded-full bg-black/70 px-4 py-2">{Math.round(vol * 100)}%</div>}
+          {hud && <div className="absolute start-1/2 top-1/3 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-4 py-2">{hud.k === 'br' && <Icon n="sun" s={20} />}{hud.k === 'seek' ? `${fmt(hud.v)} / ${fmt(d)}` : `${Math.round(hud.v * 100)}%`}</div>}
           {ui && (
             <>
-              <div className="absolute inset-x-0 top-0 flex items-center gap-3 bg-gradient-to-b from-black/80 to-transparent p-3 pt-8">
+              <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/80 to-transparent p-3 pt-8">
                 <button aria-label="رجوع" onClick={(e) => { e.stopPropagation(); closeVideo() }} className="p-1"><Icon n="back" /></button>
                 <span className="min-w-0 flex-1 truncate">{cur.title}</span>
+                <label onClick={(e) => e.stopPropagation()} className="rounded-lg bg-white/15 px-3 py-1 text-sm">CC
+                  <input type="file" accept=".srt,.vtt" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const tx = await f.text(); setSub(URL.createObjectURL(new Blob([f.name.endsWith('.vtt') ? tx : srt2vtt(tx)], { type: 'text/vtt' }))) } }} />
+                </label>
+                <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
               </div>

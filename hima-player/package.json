@@ -1,16 +1,31 @@
 {
-  "name": "hima-player-v2",
-  "version": "2.0.0",
-  "private": true,
-  "scripts": {
-    "serve": "npx serve www",
-    "android": "npx cap sync android && npx cap open android"
-  },
-  "dependencies": {
-    "@capacitor/core": "^7.4.0",
-    "@capacitor/android": "^7.4.0"
-  },
-  "devDependencies": {
-    "@capacitor/cli": "^7.4.0"
-  }
+ "name": "hima-player",
+ "private": true,
+ "version": "1.0.0",
+ "type": "module",
+ "scripts": {
+  "dev": "vite",
+  "build": "tsc --noEmit && vite build",
+  "sync": "npm run build && cap sync android",
+  "capacitor:sync:after": "node scripts/patch-android.cjs"
+ },
+ "dependencies": {
+  "@capacitor/android": "^6.1.2",
+  "@capacitor/core": "^6.1.2",
+  "@capacitor/status-bar": "^6.0.0",
+  "@capacitor/screen-orientation": "^6.0.0",
+  "@fontsource/readex-pro": "^5.1.0",
+  "react": "^18.3.1",
+  "react-dom": "^18.3.1"
+ },
+ "devDependencies": {
+  "@capacitor/cli": "^6.1.2",
+  "@tailwindcss/vite": "^4.0.0",
+  "@types/react": "^18.3.3",
+  "@types/react-dom": "^18.3.0",
+  "@vitejs/plugin-react": "^4.3.1",
+  "tailwindcss": "^4.0.0",
+  "typescript": "^5.5.4",
+  "vite": "^5.4.0"
+ }
 }

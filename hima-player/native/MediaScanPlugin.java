@@ -5,6 +5,9 @@ import android.content.ContentUris;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
+import android.content.Intent;
+import android.view.WindowManager;
+import java.io.File;
 import android.provider.MediaStore;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -52,8 +55,8 @@ public class MediaScanPlugin extends Plugin {
 
     private void query(Uri base, boolean video, JSArray out) {
         String[] proj = video
-            ? new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Video.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.WIDTH }
-            : new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Audio.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Audio.Media.ARTIST };
+            ? new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Video.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.WIDTH, MediaStore.MediaColumns.DATA }
+            : new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Audio.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Audio.Media.ARTIST, MediaStore.MediaColumns.DATA };
         String sel = video ? null : MediaStore.Audio.Media.IS_MUSIC + " != 0";
         try (Cursor c = getContext().getContentResolver().query(base, proj, sel, null, MediaStore.MediaColumns.DATE_ADDED + " DESC")) {
             if (c == null) return;
@@ -77,8 +80,33 @@ public class MediaScanPlugin extends Plugin {
                     o.put("height", 0);
                     o.put("artist", artist);
                 }
+                String data = c.getString(video ? 6 : 5);
+                if (data != null) { File par = new File(data).getParentFile(); if (par != null) o.put("folder", par.getName()); }
                 out.put(o);
             }
         } catch (Exception ignored) { }
+    }
+
+    @PluginMethod
+    public void keepAlive(PluginCall call) {
+        boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
+        Intent i = new Intent(getContext(), PlaybackService.class);
+        i.putExtra("title", call.getString("title", "Hema"));
+        try {
+            if (on) { if (Build.VERSION.SDK_INT >= 26) getContext().startForegroundService(i); else getContext().startService(i); }
+            else getContext().stopService(i);
+        } catch (Exception ignored) { }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void brightness(PluginCall call) {
+        final float v = call.getFloat("value", -1f);
+        getActivity().runOnUiThread(() -> {
+            WindowManager.LayoutParams p = getActivity().getWindow().getAttributes();
+            p.screenBrightness = v;
+            getActivity().getWindow().setAttributes(p);
+        });
+        call.resolve();
     }
 }
