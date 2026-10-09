@@ -17,6 +17,8 @@ const ACCENTS = ['#ff4d6d', '#3d8bff', '#22c55e', '#f59e0b', '#a855f7', '#14b8a6
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 let A = ACCENTS[0]
 const ls = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? '') as T } catch { return d } }
+const lrcParse = (x: string) => x.split('\n').flatMap((l) => { const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)/); return m ? [{ t: +m[1] * 60 + +m[2], x: m[3].trim() }] : [] })
+const clean = (x: string) => x.replace(/[[(].*?[\])]/g, ' ').replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim()
 const srt2vtt = (x: string) => 'WEBVTT\n\n' + x.replace(/\r/g, '').replace(/(\d+:\d+:\d+),(\d+)/g, '$1.$2')
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
@@ -73,6 +75,21 @@ export default function App() {
   const [bright, setBr] = useState(0.5)
   const g = useRef({ x: 0, y: 0, ax: '', v: 1, b: 0.5, t: 0, w: 1, left: false, nt: -1 })
   const lastSave = useRef(0)
+  const [boost, setBoost] = useState(() => ls('hema_boost', 100))
+  const [shake, setShake] = useState(() => ls('hema_shake', false))
+  const [adhan, setAdhan] = useState(() => ls('hema_adhan', false))
+  const [quran, setQuran] = useState(() => ls('hema_quran', false))
+  const [city, setCity] = useState(() => ls('hema_city', { c: '', k: '' }))
+  const [lyr, setLyr] = useState<{ t: number; x: string }[]>([])
+  const [wrap, setWrap] = useState<string | null>(null)
+  const [car, setCar] = useState(false)
+  const gainN = useRef<GainNode>()
+  const anN = useRef<AnalyserNode>()
+  const cv = useRef<HTMLCanvasElement>(null)
+  const lastCt = useRef(0)
+  const accT = useRef(0)
+  const counted = useRef('')
+  useEffect(() => { for (const [k, v] of Object.entries({ boost, shake, adhan, quran, city })) localStorage.setItem('hema_' + k, JSON.stringify(v)); if (gainN.current) gainN.current.gain.value = boost / 100 }, [boost, shake, adhan, quran, city])
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
@@ -82,6 +99,7 @@ export default function App() {
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
+  const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 ? k : a), -1)
   const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
   const srt = (a: { x: Track }, b: { x: Track }) => (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
@@ -137,7 +155,11 @@ export default function App() {
     if (!m.current) return
     const c = new AudioContext(); const src = c.createMediaElementSource(m.current)
     bands.current = BANDS.map((f) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = EQS[eq].g[BANDS.indexOf(f)]; return b })
-    ;[src, ...bands.current, c.destination].reduce((a, b) => (a.connect(b), b))
+    const gn = c.createGain(); gn.gain.value = boost / 100
+    const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
+    const an = c.createAnalyser(); an.fftSize = 64
+    gainN.current = gn; anN.current = an
+    ;[src, ...bands.current, gn, lim, an, c.destination].reduce((a, b) => (a.connect(b), b))
     ac.current = c
   }
   const fav = (x: Track) => {
@@ -148,8 +170,13 @@ export default function App() {
   }
   const remove = (x: Track) => { del(x.id).catch(() => {}); const k = q.indexOf(x); setQ((p) => p.filter((y) => y !== x)); if (k === i) { m.current?.pause(); setI(-1); setSheet(false) } else if (k < i) setI(i - 1) }
 
-  useEffect(() => { if (cur && m.current) { setSub(null); m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
-  useEffect(() => { if (!sleep) return; const h = window.setTimeout(() => { m.current?.pause(); setSleep(0) }, sleep * 60000); return () => window.clearTimeout(h) }, [sleep])
+  useEffect(() => { if (cur && m.current) { setSub(null); counted.current = ''; lastCt.current = 0; m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
+  useEffect(() => {
+    if (sleep <= 0) return
+    const a = window.setTimeout(() => { const c = ac.current, gn = gainN.current; if (c && gn) { gn.gain.setValueAtTime(gn.gain.value, c.currentTime); gn.gain.linearRampToValueAtTime(0.0001, c.currentTime + 8) } }, Math.max(0, sleep * 60000 - 8000))
+    const b = window.setTimeout(() => { m.current?.pause(); setSleep(0); if (gainN.current) gainN.current.gain.value = boost / 100 }, sleep * 60000)
+    return () => { window.clearTimeout(a); window.clearTimeout(b) }
+  }, [sleep])
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return
     navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: 'Hema' })
@@ -158,13 +185,75 @@ export default function App() {
     navigator.mediaSession.setActionHandler('nexttrack', () => step(1))
     navigator.mediaSession.setActionHandler('previoustrack', () => step(-1))
   })
+  const stepRef = useRef(step)
+  stepRef.current = step
+  const tick = (ct: number) => {
+    const dt = ct - lastCt.current; lastCt.current = ct
+    if (!cur || dt <= 0 || dt > 1.5) return
+    accT.current += dt
+    const first = ct > 30 && counted.current !== cur.id
+    if (first || accT.current > 15) {
+      const st = ls<{ p: Record<string, { n: number; t: string }>; s: number }>('hema_stats', { p: {}, s: 0 })
+      if (first) { counted.current = cur.id; st.p[cur.id] = { n: (st.p[cur.id]?.n ?? 0) + 1, t: cur.title } }
+      st.s += accT.current; accT.current = 0
+      localStorage.setItem('hema_stats', JSON.stringify(st))
+    }
+  }
+  const makeWrapped = () => {
+    const st = ls<{ p: Record<string, { n: number; t: string }>; s: number }>('hema_stats', { p: {}, s: 0 })
+    const top = Object.values(st.p).sort((a, b) => b.n - a.n).slice(0, 5)
+    const c = document.createElement('canvas'); c.width = 720; c.height = 1280
+    const x = c.getContext('2d')!
+    const gr = x.createLinearGradient(0, 0, 720, 1280); gr.addColorStop(0, A); gr.addColorStop(1, '#1a1030')
+    x.fillStyle = gr; x.fillRect(0, 0, 720, 1280)
+    x.fillStyle = '#fff'; x.textAlign = 'center'
+    x.font = '700 72px Readex Pro, sans-serif'; x.fillText('Hema Wrapped', 360, 170)
+    x.font = '400 42px Readex Pro, sans-serif'; x.fillText(`${Math.round((st.s / 3600) * 10) / 10} ساعة استماع`, 360, 270)
+    top.forEach((o, k) => { x.font = '600 38px Readex Pro, sans-serif'; x.fillText(`${k + 1}. ${o.t.slice(0, 24)} · ${o.n}`, 360, 440 + k * 120) })
+    if (!top.length) { x.font = '400 40px Readex Pro, sans-serif'; x.fillText('اسمع شوي وارجع', 360, 500) }
+    setWrap(c.toDataURL('image/png'))
+  }
+  useEffect(() => {
+    if (!shake) return
+    let last = 0
+    const f = (e: DeviceMotionEvent) => { const a = e.accelerationIncludingGravity; if (!a) return; if (Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0) > 28 && Date.now() - last > 1500) { last = Date.now(); stepRef.current(1) } }
+    window.addEventListener('devicemotion', f)
+    return () => window.removeEventListener('devicemotion', f)
+  }, [shake])
+  useEffect(() => {
+    if (!sheet || !playing) return
+    let raf = 0; const buf = new Uint8Array(32)
+    const draw = () => { const c = cv.current, a = anN.current; if (c && a) { a.getByteFrequencyData(buf); const x = c.getContext('2d')!; x.clearRect(0, 0, c.width, c.height); x.fillStyle = A; buf.forEach((v, k) => { const h = Math.max(2, (v / 255) * c.height); x.fillRect(k * 9 + 2, c.height - h, 6, h) }) } raf = requestAnimationFrame(draw) }
+    draw()
+    return () => cancelAnimationFrame(raf)
+  }, [sheet, playing])
+  useEffect(() => {
+    setLyr([])
+    if (!cur || cur.video) return
+    const key = 'lyr_' + cur.id; const cached = localStorage.getItem(key)
+    if (cached) { setLyr(lrcParse(cached)); return }
+    const ctl = new AbortController()
+    const who = cur.artist && !cur.artist.includes('unknown') ? cur.artist + ' ' : ''
+    fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(clean(who + cur.title)), { signal: ctl.signal })
+      .then((r) => r.json()).then((a: { syncedLyrics?: string }[]) => { const l = a.find((y) => y.syncedLyrics)?.syncedLyrics; if (l) { localStorage.setItem(key, l); setLyr(lrcParse(l)) } }).catch(() => {})
+    return () => ctl.abort()
+  }, [cur?.id])
+  useEffect(() => {
+    if (!adhan || !city.c) return
+    const hs: number[] = []
+    fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city.c)}&country=${encodeURIComponent(city.k)}`).then((r) => r.json()).then((j) => {
+      const T = j.data.timings as Record<string, string>
+      ;['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'].forEach((n) => { const [h, mi] = T[n].split(':').map(Number); const at = new Date(); at.setHours(h, mi, 0, 0); const ms = at.getTime() - Date.now(); if (ms > 0) hs.push(window.setTimeout(() => m.current?.pause(), ms)) })
+    }).catch(() => {})
+    return () => hs.forEach((h) => window.clearTimeout(h))
+  }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
-  const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600) && sp < e.duration - 5) e.currentTime = sp }
-  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
+  const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran) && sp < e.duration - 5) e.currentTime = sp }
+  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
-  const ended = () => { if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
+  const ended = () => { if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
 
   const smart = async () => {
     const list = q.filter((x) => !x.video)
@@ -225,7 +314,7 @@ export default function App() {
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); resume(e.currentTarget); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); resume(e.currentTarget); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <h1 className="flex-1 text-2xl font-bold" style={{ color: A }}>Hema</h1>
@@ -291,36 +380,69 @@ export default function App() {
               <div className="grid size-1/4 place-items-center rounded-full bg-[#0d0f14] text-2xl font-bold">{[...cur.title][0]}</div>
             </div>
           </div>
+          <canvas ref={cv} width={288} height={48} className="mx-auto" />
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
+          {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}
           {Bar({ big: true })}{Ctl()}
           <div dir="ltr" className="flex justify-around pb-2 opacity-90">
             <button aria-label="مفضلة" onClick={() => fav(cur)} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" /></button>
             <button aria-label="منبه نوم" onClick={() => setPanel(panel === 'sleep' ? null : 'sleep')} style={{ color: sleep ? A : undefined }}><Icon n="timer" /></button>
             <button aria-label="موازن صوت" onClick={() => setPanel(panel === 'eq' ? null : 'eq')} style={{ color: eq ? A : undefined }}><Icon n="eq" /></button>
             <button aria-label="السرعة" onClick={cycleSpeed} className="text-sm font-semibold">{SPEEDS[speed]}x</button>
+            <button onClick={() => setCar(true)} className="text-sm font-semibold">قيادة</button>
           </div>
           {panel && (
             <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 rounded-t-3xl bg-[#1a1d26] p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
               <h2 className="font-semibold">{panel === 'eq' ? 'موازن الصوت' : 'إيقاف تلقائي'}</h2>
               <div className="flex flex-wrap gap-2">
                 {panel === 'eq' ? EQS.map((e, k) => <Opt key={e.n} on={eq === k} onClick={() => applyEq(k)}>{e.n}</Opt>)
-                  : [0, 15, 30, 60].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n ? `${n} د` : 'إيقاف'}</Opt>)}
+                  : [0, 15, 30, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
               </div>
+              {panel === 'eq' && <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>}
               <button onClick={() => setPanel(null)} className="w-full py-2 opacity-70">تم</button>
             </div>
           )}
         </div>
       )}
 
+      {wrap && (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-4 bg-black/90 p-4" onClick={() => setWrap(null)}>
+          <img src={wrap} alt="Hema Wrapped" className="max-h-[75%] rounded-2xl" />
+          <button onClick={async (e) => { e.stopPropagation(); try { const b = await (await fetch(wrap)).blob(); await navigator.share({ files: [new File([b], 'hema.png', { type: 'image/png' })] }) } catch { /* ignore */ } }} className="rounded-full px-8 py-3 text-white" style={{ background: A }}>مشاركة</button>
+        </div>
+      )}
+
+      {car && cur && (
+        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center gap-10 bg-black p-6">
+          <p className="line-clamp-2 text-center text-3xl font-bold">{cur.title}</p>
+          <div dir="ltr" className="flex w-full items-center justify-around">
+            <button aria-label="السابق" onClick={() => step(-1)} className="p-4"><Icon n="prev" s={90} /></button>
+            <button aria-label="تشغيل" onClick={toggle} className="grid size-36 place-items-center rounded-full text-white" style={{ background: A }}><Icon n={playing ? 'pause' : 'play'} s={80} /></button>
+            <button aria-label="التالي" onClick={() => step(1)} className="p-4"><Icon n="next" s={90} /></button>
+          </div>
+          <button onClick={() => setCar(false)} className="rounded-full bg-white/10 px-8 py-3 text-xl">خروج</button>
+        </div>
+      )}
+
       {settings && (
         <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setSettings(false)}>
-          <div className="w-full space-y-4 rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[85%] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">الإعدادات</h2>
             <p className="text-sm opacity-60">اللون</p>
             <div className="flex gap-3">{ACCENTS.map((c, k) => <button key={c} aria-label={c} onClick={() => setAcc(k)} className="size-9 rounded-full" style={{ background: c, outline: acc === k ? '3px solid #fff' : 'none' }} />)}</div>
             <p className="text-sm opacity-60">الترتيب</p>
             <div className="flex flex-wrap gap-2">{SORTS.map(([k, l]) => <Opt key={k} on={sort === k} onClick={() => setSort(k)}>{l}</Opt>)}</div>
             <Opt on={false} onClick={() => { setSettings(false); void load() }}>إعادة مسح الملفات</Opt>
+            <p className="text-sm opacity-60">الصوت والتحكم</p>
+            <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
+            <div className="flex flex-wrap gap-2">
+              <Opt on={shake} onClick={() => setShake(!shake)}>هز = التالي</Opt>
+              <Opt on={quran} onClick={() => setQuran(!quran)}>وضع القرآن (يكمل كل مقطع)</Opt>
+              <Opt on={adhan} onClick={() => setAdhan(!adhan)}>إيقاف وقت الأذان</Opt>
+            </div>
+            {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
+            <Opt on={false} onClick={() => { setSettings(false); makeWrapped() }}>ملخصي Hema Wrapped</Opt>
+            <p className="text-xs opacity-50">لا إعلانات. ملفاتك ما تغادر جوالك. الإنترنت فقط للكلمات والذكاء والأذان.</p>
           </div>
         </div>
       )}
