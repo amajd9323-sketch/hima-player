@@ -17,6 +17,7 @@ const copyDir = (a, b) => { for (const f of fs.readdirSync(a, { withFileTypes: t
 if (fs.existsSync('native/res')) copyDir('native/res', path.join(main, 'res'))
 const mf = path.join(main, 'AndroidManifest.xml')
 let m = fs.readFileSync(mf, 'utf8')
+if (!m.includes('supportsPictureInPicture')) m = m.replace('<activity', '<activity android:supportsPictureInPicture="true"')
 for (const p of ['READ_MEDIA_AUDIO', 'READ_MEDIA_VIDEO'])
   if (!m.includes(p)) m = m.replace('<application', `<uses-permission android:name="android.permission.${p}" />\n    <application`)
 if (!m.includes('READ_EXTERNAL_STORAGE'))
