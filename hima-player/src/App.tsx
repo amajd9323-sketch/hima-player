@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { StatusBar } from '@capacitor/status-bar'
@@ -30,7 +30,7 @@ const srt2vtt = (x: string) => 'WEBVTT\n\n' + x.replace(/\r/g, '').replace(/(\d+
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
 
-function VThumb({ src, dur: known }: { src: string; dur?: number }) {
+function VThumb({ src, dur: known, lite = false }: { src: string; dur?: number; lite?: boolean }) {
   const [vis, setVis] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
   useEffect(() => {
@@ -40,7 +40,7 @@ function VThumb({ src, dur: known }: { src: string; dur?: number }) {
   }, [])
   return (
     <span ref={box} className="relative block aspect-video w-full overflow-hidden rounded-xl bg-white/10">
-      {vis && <video src={src + '#t=1'} preload="metadata" muted playsInline className="size-full object-cover" />}
+      {vis && !lite && <video src={src + '#t=1'} preload="metadata" muted playsInline className="size-full object-cover" />}
       <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>
     </span>
   )
@@ -51,6 +51,7 @@ export default function App() {
   const qRef = useRef<Track[]>([]); qRef.current = q
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
+  const [renderLimit, setRenderLimit] = useState(60)
   const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
   const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
   const [batterySaver, setBatterySaver] = useState<boolean>(() => ls('hema_battery_saver', false))
@@ -191,15 +192,22 @@ export default function App() {
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
-  const topIds = new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id))
-  const match = (x: Track) => (!find || (x.title + ' ' + (x.artist ?? '')).toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id)) && (tab !== 'top' || topIds.has(x.id))
-  const srt = (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? queueIds.indexOf(a.x.id) - queueIds.indexOf(b.x.id) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
-  const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
-  const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
+  const topIds = useMemo(() => new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id)), [q, tab, Math.floor(t / 15)])
+  const recentIdSet = useMemo(() => new Set(recent), [recent])
+  const queueIdSet = useMemo(() => new Set(queueIds), [queueIds])
+  const queuePosition = useMemo(() => new Map(queueIds.map((id, index) => [id, index])), [queueIds])
+  const listIdSet = useMemo(() => new Set(lists[openList ?? ''] ?? []), [lists, openList])
+  const match = useMemo(() => (x: Track) => (!find || (x.title + ' ' + (x.artist ?? '')).toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recentIdSet.has(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || listIdSet.has(x.id)) && (tab !== 'queue' || queueIdSet.has(x.id)) && (tab !== 'top' || topIds.has(x.id)), [find, tab, recentIdSet, openFolder, listIdSet, queueIdSet, topIds])
+  const srt = useMemo(() => (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? (queuePosition.get(a.x.id) ?? 0) - (queuePosition.get(b.x.id) ?? 0) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0), [tab, queuePosition, sort])
+  const musics = useMemo(() => q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt), [q, match, srt])
+  const videos = useMemo(() => q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt), [q, match, srt])
+  const visibleMusics = useMemo(() => musics.slice(0, renderLimit), [musics, renderLimit])
+  const visibleVideos = useMemo(() => videos.slice(0, renderLimit), [videos, renderLimit])
+  useEffect(() => { setRenderLimit(60) }, [tab, find, sort, openFolder, openList])
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
   const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
   const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
-  const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
+  const folderMap = useMemo(() => q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>()), [q])
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
   const load = async () => {
@@ -617,7 +625,7 @@ export default function App() {
       navigator.mediaSession.setActionHandler('seekbackward', (details) => seek((m.current?.currentTime ?? 0) - (details.seekOffset ?? 10)))
       navigator.mediaSession.setActionHandler('seekforward', (details) => seek((m.current?.currentTime ?? 0) + (details.seekOffset ?? 10)))
     } catch { /* browser may not support every Media Session action */ }
-  })
+  }, [cur?.id, cur?.title, cur?.artist, d])
   const stepRef = useRef(step)
   stepRef.current = step
   const toggleRef = useRef(toggle)
@@ -964,7 +972,7 @@ export default function App() {
   const VRow = ({ x, k }: { x: Track; k: number }) => (
     <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className={'relative ' + (tab === 'queue' ? 'cursor-grab' : '')}>
       <button onClick={() => openVideo(k)} className="block w-full text-start">
-        <VThumb src={x.url} dur={x.dur} />
+        <VThumb src={x.url} dur={x.dur} lite={batterySaver} />
         <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
         <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
       </button>
@@ -1136,8 +1144,12 @@ export default function App() {
             {Object.entries(lists).map(([n, ids]) => <div key={n} className="flex items-center rounded-xl bg-white/5"><button onClick={() => setOpenList(n)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-start"><span style={{ color: A }}><Icon n="list" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{ids.length}</span></button><button aria-label="تشغيل القائمة" title="تشغيل القائمة" onClick={() => { const valid = ids.filter((id) => q.some((x) => x.id === id)); if (valid.length) { setQueueIds(valid); setI(q.findIndex((x) => x.id === valid[0])); setTab('queue') } }} className="p-2 text-sm" style={{ color: A }}>▶</button><button aria-label="تصدير القائمة" title="تصدير القائمة" onClick={() => exportPlaylist(n)} className="p-2 text-sm opacity-70">JSON</button><button aria-label="حذف" onClick={() => setLists((p) => { const c = { ...p }; delete c[n]; return c })} className="p-2 opacity-40"><Icon n="trash" s={20} /></button></div>)}
           </div>
         )}
-        {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
-        {showV && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
+        {showM && visibleMusics.length > 0 && <ul>{visibleMusics.map(({ x, k }) => Row({ x, k }))}</ul>}
+        {showV && visibleVideos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{visibleVideos.map(({ x, k }) => VRow({ x, k }))}</ul>}
+        {(showM && musics.length > visibleMusics.length || showV && videos.length > visibleVideos.length) && <div className="flex flex-col gap-2 py-3">
+          {showM && musics.length > visibleMusics.length && <button onClick={() => setRenderLimit((n) => n + 60)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الموسيقى ({visibleMusics.length}/{musics.length})</button>}
+          {showV && videos.length > visibleVideos.length && <button onClick={() => setRenderLimit((n) => n + 60)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الفيديوهات ({visibleVideos.length}/{videos.length})</button>}
+        </div>}
         {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
