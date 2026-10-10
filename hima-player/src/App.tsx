@@ -252,7 +252,21 @@ export default function App() {
   const closeVideo = () => { setFs(false); void bars(false); void lock(false) }
   const poke = () => { setUi(true); window.clearTimeout(hide.current); hide.current = window.setTimeout(() => setUi(false), 3500) }
   const cycleSpeed = () => { const n = (speed + 1) % SPEEDS.length; setSpeed(n); if (m.current) m.current.playbackRate = SPEEDS[n] }
-  const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = (k === EQS.length - 1 ? customEq : EQS[k].g)[j])) }
+  const saveEqProfile = () => {
+    if (!cur) { setMsg('اختر مقطعًا أولًا.'); return }
+    const profiles = ls<Record<string, { eq: number; customEq: number[]; boost: number; bassBoost: boolean; spatial: boolean }>>('hema_track_eq_profiles', {})
+    profiles[cur.id] = { eq, customEq, boost, bassBoost, spatial }; localStorage.setItem('hema_track_eq_profiles', JSON.stringify(profiles)); setMsg('تم حفظ إعدادات الصوت لهذا المقطع.')
+  }
+  const loadEqProfile = () => {
+    if (!cur) { setMsg('اختر مقطعًا أولًا.'); return }
+    const profile = ls<Record<string, { eq: number; customEq: number[]; boost: number; bassBoost: boolean; spatial: boolean }>>('hema_track_eq_profiles', {})[cur.id]
+    if (!profile) { setMsg('لا يوجد بروفايل محفوظ لهذا المقطع.'); return }
+    if (Number.isInteger(profile.eq) && profile.eq >= 0 && profile.eq < EQS.length) setEq(profile.eq)
+    if (Array.isArray(profile.customEq) && profile.customEq.length === 10 && profile.customEq.every((v) => Number.isFinite(v) && v >= -12 && v <= 12)) setCustomEq(profile.customEq)
+    if (Number.isFinite(profile.boost)) setBoost(Math.max(100, Math.min(300, profile.boost)))
+    setBassBoost(!!profile.bassBoost); setSpatial(!!profile.spatial); setMsg('تم تطبيق بروفايل الصوت.')
+  }
+  const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = (k === EQS.length - 1 ? customEq : EQS[k].g)[j] + (bassBoost && j < 3 ? 5 : 0))) }
   const changeEqBand = (j: number, value: number) => { const next = [...customEq]; next[j] = value; setCustomEq(next); setEq(EQS.length - 1); if (bands.current[j]) bands.current[j].gain.value = value }
   const initAudio = () => {
     if (ac.current) { void ac.current.resume(); return }
@@ -461,7 +475,7 @@ export default function App() {
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = async () => {
     const overrides = await allTrackMeta().catch(() => [])
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })) }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })) }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية والإعدادات وبيانات العرض. ملفات الغلاف نفسها تُحفظ محليًا ولا تدخل الملف.')
@@ -498,6 +512,16 @@ export default function App() {
       if (typeof data.lyrOffset === 'number' && data.lyrOffset >= -10 && data.lyrOffset <= 10) setLyrOffset(data.lyrOffset)
       if (typeof data.crossfade === 'number' && [0, 2, 3, 5, 8].includes(data.crossfade)) setCrossfade(data.crossfade)
       if (typeof data.autoVolume === 'boolean') setAutoVolume(data.autoVolume)
+      if (data.trackProfiles && typeof data.trackProfiles === 'object' && !Array.isArray(data.trackProfiles)) {
+        const profiles: Record<string, { eq: number; customEq: number[]; boost: number; bassBoost: boolean; spatial: boolean }> = {}
+        for (const [id, raw] of Object.entries(data.trackProfiles as Record<string, unknown>).slice(0, 2000)) {
+          if (!raw || typeof raw !== 'object') continue
+          const p = raw as Record<string, unknown>
+          if (typeof p.eq !== 'number' || !Number.isInteger(p.eq) || p.eq < 0 || p.eq >= EQS.length || !Array.isArray(p.customEq) || p.customEq.length !== 10 || !p.customEq.every((v) => typeof v === 'number' && v >= -12 && v <= 12) || typeof p.boost !== 'number' || typeof p.bassBoost !== 'boolean' || typeof p.spatial !== 'boolean') continue
+          profiles[id] = { eq: p.eq, customEq: p.customEq as number[], boost: Math.max(100, Math.min(300, p.boost)), bassBoost: p.bassBoost, spatial: p.spatial }
+        }
+        localStorage.setItem('hema_track_eq_profiles', JSON.stringify(profiles))
+      }
       if (typeof data.cueSize === 'number' && data.cueSize >= 80 && data.cueSize <= 200) setCueSize(data.cueSize)
       if (typeof data.cueColor === 'string' && ['#ffffff', '#ffe082', '#80deea', '#f48fb1'].includes(data.cueColor)) setCueColor(data.cueColor)
       if (typeof data.shake === 'boolean') setShake(data.shake)
@@ -768,6 +792,7 @@ export default function App() {
               </div>
               {panel === 'eq' && <>
                 {eq === EQS.length - 1 && <div className="space-y-3 rounded-xl bg-black/20 p-3">{BANDS.map((f, j) => <label key={f} className="grid grid-cols-[54px_1fr_42px] items-center gap-2 text-xs"><span dir="ltr">{f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`}</span><input aria-label={`EQ ${f} Hz`} type="range" min={-12} max={12} step={1} value={customEq[j]} onChange={(e) => changeEqBand(j, +e.target.value)} style={{ accentColor: A }} /><span className="text-end" dir="ltr">{customEq[j] > 0 ? '+' : ''}{customEq[j]} dB</span></label>)}</div>}
+                <div className="grid grid-cols-2 gap-2"><button onClick={saveEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">حفظ بروفايل المقطع</button><button onClick={loadEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">تطبيق البروفايل</button></div>
                 <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
               </>}
               <button onClick={() => setPanel(null)} className="w-full py-2 opacity-70">تم</button>
