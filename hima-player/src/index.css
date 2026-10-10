@@ -1376,3 +1376,52 @@ main ul.grid > li > button:first-child { min-height: 0; }
   .video-overlay-top { max-height: 70dvh; }
   .video-tools-dropdown .video-toolbar { max-height: 34dvh; }
 }
+
+
+/* HEMA UX polish: visualizer selector and comfortable touch targets on mobile. */
+.hema-visualizer-wrap {
+  width: min(100%, 390px);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+}
+.hema-visualizer-wrap canvas {
+  display: block;
+  width: 100%;
+  max-width: 390px;
+  height: 44px;
+  min-height: 36px;
+  border-radius: 10px;
+}
+.hema-visualizer-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.hema-visualizer-controls > button {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 11px;
+  background: rgba(255,255,255,.055);
+  color: var(--hema-text, #f4f6fc);
+  font-size: 11px;
+  font-weight: 600;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.hema-visualizer-controls > button:active { transform: scale(.98); }
+.hema-visualizer-controls > button:focus-visible {
+  outline: 2px solid var(--hema-teal, #24d9c2);
+  outline-offset: 2px;
+}
+@media (max-width: 380px) {
+  .hema-visualizer-wrap canvas { height: 36px; min-height: 32px; }
+  .hema-visualizer-controls > button { min-height: 40px; padding-inline: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hema-visualizer-controls > button { transition: none !important; }
+  .music-player-screen .relative.grid { animation-duration: 0s !important; }
+}
