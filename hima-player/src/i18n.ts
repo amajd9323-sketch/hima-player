@@ -360,6 +360,8 @@ const strings: Record<string, Pair> = {
   "النسخة الاحتياطية": ["Backup", "Kopia zapasowa"],
   "حجم الملف": ["File size", "Rozmiar pliku"],
   "مسح التكرار": ["Clear duplicates", "Wyczyść duplikaty"],
+  "عرض المزيد من الموسيقى": ["Load more music", "Załaduj więcej muzyki"],
+  "عرض المزيد من الفيديوهات": ["Load more videos", "Załaduj więcej filmów"]
 }
 
 const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length)
