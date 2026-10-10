@@ -78,6 +78,7 @@ export default function App() {
   const [editTitle, setEditTitle] = useState('')
   const [editArtist, setEditArtist] = useState('')
   const [editCover, setEditCover] = useState<File | null>(null)
+  const [editCoverUrl, setEditCoverUrl] = useState<string | null>(null)
   const [metaMsg, setMetaMsg] = useState('')
   const [party, setParty] = useState(false)
   const [cueSize, setCueSize] = useState<number>(() => ls('hema_cue_size', 120))
@@ -523,6 +524,50 @@ export default function App() {
     setBackupMsg('انتهى الفحص: SHA-256 للملفات المستوردة، وبيانات الاسم/الحجم/المدة لملفات الجهاز.')
   }
 
+  const editTrack = (x: Track) => { setEditingMeta(x); setEditTitle(x.title); setEditArtist(x.artist ?? ''); setEditCover(null); setEditCoverUrl(x.cover ?? null); setMetaMsg('') }
+  const saveEditedTrackMeta = async () => {
+    if (!editingMeta || !editTitle.trim()) { setMetaMsg('اكتب اسمًا صالحًا للمقطع.'); return }
+    try {
+      const all = await allTrackMeta(); const old = all.find((v) => v.id === editingMeta.id)
+      const record = { id: editingMeta.id, title: editTitle.trim(), artist: editArtist.trim(), cover: editCover ?? old?.cover, updatedAt: Date.now() }
+      await saveTrackMeta(record)
+      const coverUrl = record.cover ? URL.createObjectURL(record.cover) : undefined
+      setQ((p) => p.map((x) => x.id === editingMeta.id ? { ...x, title: record.title, artist: record.artist, cover: coverUrl } : x))
+      setEditingMeta(null); setEditCover(null); setEditCoverUrl(null); setMetaMsg('')
+    } catch { setMetaMsg('تعذر حفظ البيانات. تحقق من مساحة التطبيق.') }
+  }
+  const resetEditedTrackMeta = async () => {
+    if (!editingMeta) return
+    try {
+      await deleteTrackMeta(editingMeta.id)
+      setQ((p) => p.map((x) => x.id === editingMeta.id ? { ...x, title: x.sourceTitle ?? x.title, artist: x.sourceArtist, cover: undefined } : x))
+      setEditingMeta(null); setEditCover(null); setEditCoverUrl(null); setMetaMsg('')
+    } catch { setMetaMsg('تعذر حذف التعديل المحلي.') }
+  }
+  const exportPlaylist = (name: string) => {
+    const ids = lists[name] ?? []
+    const payload = { app: 'HEMA ROKSI PLAYER', type: 'playlist', schemaVersion: 1, name, exportedAt: new Date().toISOString(), tracks: ids.map((id) => q.find((x) => x.id === id)).filter((x): x is Track => !!x).map((x) => ({ id: x.id, title: x.title, artist: x.artist ?? '', video: x.video })) }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = name.replace(/[^\p{L}\p{N}_-]+/gu, '_') + '.hema-playlist.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1800); setBackupMsg('تم تصدير القائمة؛ ملفّات الوسائط نفسها لا تُنسخ ضمن القائمة.')
+  }
+  const importPlaylist = async (file?: File) => {
+    if (!file) return
+    try {
+      const data = JSON.parse(await file.text()) as { app?: unknown; type?: unknown; schemaVersion?: unknown; name?: unknown; tracks?: unknown }
+      if (data.app !== 'HEMA ROKSI PLAYER' || data.type !== 'playlist' || data.schemaVersion !== 1 || typeof data.name !== 'string' || !Array.isArray(data.tracks)) throw new Error('PLAYLIST_INVALID')
+      const matched: string[] = []
+      for (const raw of data.tracks) {
+        if (!raw || typeof raw !== 'object') continue
+        const row = raw as { id?: unknown; title?: unknown; artist?: unknown; video?: unknown }
+        const exact = typeof row.id === 'string' ? q.find((x) => x.id === row.id) : undefined
+        const fallback = !exact && typeof row.title === 'string' ? q.find((x) => x.video === (row.video === true) && x.title.trim().toLocaleLowerCase() === row.title.trim().toLocaleLowerCase() && (x.artist ?? '').trim().toLocaleLowerCase() === (typeof row.artist === 'string' ? row.artist.trim().toLocaleLowerCase() : '')) : undefined
+        const found = exact ?? fallback
+        if (found && !matched.includes(found.id)) matched.push(found.id)
+      }
+      const name = data.name.trim().slice(0, 80) || 'قائمة مستوردة'
+      setLists((p) => ({ ...p, [name]: matched })); setBackupMsg(`استيراد القائمة: ${matched.length} مقطع مطابق لمكتبتك. الملفات الصوتية نفسها لا تُنقل.`)
+    } catch { setBackupMsg('ملف القائمة غير صالح.') }
+  }
+
   const unlockVaultUi = async () => {
     setVaultBusy(true); setVaultMsg('')
     try { const pin = vaultPinInput.trim(); await unlockVault(pin); setVaultPin(pin); setVaultUnlocked(true); setVaultKnown(true); const items = await listVaultFiles(pin); setVaultItems(items); setVaultMsg('الخزنة مفتوحة. الملفات مشفّرة محليًا.') }
@@ -582,11 +627,12 @@ export default function App() {
   const Row = ({ x, k }: { x: Track; k: number }) => (
     <li key={x.id} className="flex items-center gap-1 rounded-xl active:bg-white/5">
       <button onClick={() => { cancelCrossfade(); setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
-        <span className="grid size-12 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(x.title)}>{k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
+        <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg font-semibold text-white" style={art(x.title)}>{x.cover ? <img src={x.cover} alt="" className="size-full object-cover" /> : k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
         <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
       </button>
       {tab !== 'queue' ? <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="p-2" style={{ color: queueIds.includes(x.id) ? A : '#fff8' }}><Icon n="plus" s={20} /></button> : <><div className="flex flex-col"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="px-1 text-xs opacity-70">↑</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="px-1 text-xs opacity-70">↓</button></div><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="p-2 opacity-60"><Icon n="close" s={18} /></button></>}
       <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
+      <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="p-2 opacity-60">✎</button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="p-2 opacity-60"><Icon n="list" s={20} /></button>
       {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
     </li>
@@ -601,6 +647,7 @@ export default function App() {
       {tab === 'queue' ? <div className="absolute inset-x-1 bottom-1 flex items-center justify-between rounded-lg bg-black/65 px-2 py-1 text-white"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)}>↑</button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)}>إزالة</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)}>↓</button></div> : <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="absolute end-1 bottom-1 rounded-full bg-black/55 p-1.5" style={{ color: queueIds.includes(x.id) ? A : '#fffc' }}><Icon n="plus" s={18} /></button>}
       <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="absolute start-1 top-1 rounded-full bg-black/40 p-1.5 text-white/80"><Icon n="list" s={18} /></button>
+      <button aria-label="تعديل بيانات العرض" onClick={() => editTrack(x)} className="absolute start-1 bottom-1 rounded-full bg-black/55 px-2 py-1 text-xs text-white">✎</button>
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
@@ -642,7 +689,7 @@ export default function App() {
         {tab === 'lists' && openList === null && (
           <div className="space-y-2">
             <div className="flex gap-2"><input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="قائمة جديدة" className="min-w-0 flex-1 rounded-xl bg-white/10 px-4 py-2 outline-none" /><button onClick={() => { if (newList.trim()) { setLists((p) => ({ ...p, [newList.trim()]: [] })); setNewList('') } }} className="rounded-xl px-4 text-white" style={{ background: A }}>إنشاء</button></div>
-            {Object.entries(lists).map(([n, ids]) => <div key={n} className="flex items-center rounded-xl bg-white/5"><button onClick={() => setOpenList(n)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-start"><span style={{ color: A }}><Icon n="list" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{ids.length}</span></button><button aria-label="حذف" onClick={() => setLists((p) => { const c = { ...p }; delete c[n]; return c })} className="p-3 opacity-40"><Icon n="trash" s={20} /></button></div>)}
+            {Object.entries(lists).map(([n, ids]) => <div key={n} className="flex items-center rounded-xl bg-white/5"><button onClick={() => setOpenList(n)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-start"><span style={{ color: A }}><Icon n="list" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{ids.length}</span></button><button aria-label="تشغيل القائمة" title="تشغيل القائمة" onClick={() => { const valid = ids.filter((id) => q.some((x) => x.id === id)); if (valid.length) { setQueueIds(valid); setI(q.findIndex((x) => x.id === valid[0])); setTab('queue') } }} className="p-2 text-sm" style={{ color: A }}>▶</button><button aria-label="تصدير القائمة" title="تصدير القائمة" onClick={() => exportPlaylist(n)} className="p-2 text-sm opacity-70">JSON</button><button aria-label="حذف" onClick={() => setLists((p) => { const c = { ...p }; delete c[n]; return c })} className="p-2 opacity-40"><Icon n="trash" s={20} /></button></div>)}
           </div>
         )}
         {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
@@ -790,6 +837,10 @@ export default function App() {
               </div>)}
               <p className="text-xs opacity-50">SHA-256 للملفات المستوردة؛ مقارنة الاسم والفنان والحجم والمدة لملفات الجهاز. لا حذف تلقائي.</p>
             </div>}
+            <p className="text-sm opacity-60">إدارة القوائم</p>
+            <label className="inline-flex cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">استيراد قائمة HEMA<input type="file" accept="application/json,.json" hidden onChange={(e) => { void importPlaylist(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
+            <Opt on={autoVolume} onClick={() => setAutoVolume(!autoVolume)}>توازن الصوت تلقائيًا</Opt>
+            <p className="text-xs opacity-50">التوازن يقرأ مستوى الصوت أثناء التشغيل ويعدّل الكسب تدريجيًا؛ النتيجة تختلف حسب الملف والجهاز.</p>
             <p className="text-sm opacity-60">النسخ الاحتياطي</p>
             <div className="flex flex-wrap gap-2">
               <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
@@ -797,6 +848,20 @@ export default function App() {
             </div>
             {backupMsg && <p role="status" className="text-sm opacity-70">{backupMsg}</p>}
             <p className="text-xs opacity-50">لا إعلانات. الخزنة تستخدم AES-GCM ومفتاح PBKDF2 محليًا. ملفات الخزنة لا تدخل النسخة الاحتياطية العادية.</p>
+          </div>
+        </div>
+      )}
+
+      {editingMeta && (
+        <div className="fixed inset-0 z-[85] flex items-end bg-black/75" onClick={() => { setEditingMeta(null); setEditCover(null); setEditCoverUrl(null) }}>
+          <div className="max-h-[90%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between"><div><p className="text-xs font-semibold tracking-[.2em]" style={{ color: A }}>LOCAL METADATA</p><h2 className="text-xl font-bold">تعديل بيانات العرض</h2></div><button onClick={() => setEditingMeta(null)} className="rounded-full bg-white/10 px-3 py-2">إغلاق</button></div>
+            <p className="text-xs opacity-55">التغييرات داخل HEMA فقط؛ لا تعدّل Tags الأصلية للملف.</p>
+            <label className="block space-y-1 text-sm"><span className="opacity-65">اسم المقطع</span><input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={180} className="w-full rounded-xl bg-white/10 px-4 py-3 outline-none" placeholder="اسم المقطع" /></label>
+            <label className="block space-y-1 text-sm"><span className="opacity-65">الفنان / الوصف</span><input value={editArtist} onChange={(e) => setEditArtist(e.target.value)} maxLength={120} className="w-full rounded-xl bg-white/10 px-4 py-3 outline-none" placeholder="اسم الفنان" /></label>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-white/5 p-3 text-sm"><span className="grid size-12 place-items-center overflow-hidden rounded-lg bg-white/10">{editCoverUrl ? <img src={editCoverUrl} alt="" className="size-full object-cover" /> : <Icon n="music" />}</span><span className="flex-1">اختيار غلاف من الصور<input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(e) => { const file = e.target.files?.[0]; if (file && file.size <= 8 * 1024 * 1024) { setEditCover(file); setEditCoverUrl(URL.createObjectURL(file)) } else if (file) setMetaMsg('حد الغلاف 8 MB.') ; e.currentTarget.value = '' }} /></span></label>
+            {metaMsg && <p role="status" className="text-sm opacity-75">{metaMsg}</p>}
+            <div className="grid grid-cols-2 gap-2"><button disabled={!editTitle.trim()} onClick={() => void saveEditedTrackMeta()} className="rounded-xl py-3 font-semibold text-white disabled:opacity-40" style={{ background: A }}>حفظ</button><button onClick={() => void resetEditedTrackMeta()} className="rounded-xl bg-white/10 py-3">إرجاع الأصل</button></div>
           </div>
         </div>
       )}
