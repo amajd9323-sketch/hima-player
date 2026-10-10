@@ -1488,3 +1488,92 @@ main ul.grid > li > button:first-child { min-height: 0; }
   outline: 2px solid var(--hema-teal);
   outline-offset: 2px;
 }
+
+
+/* Native disclosure navigation: let Android WebView handle accordion taps. */
+.hema-section-dropdown {
+  position: relative;
+  z-index: 80;
+  isolation: isolate;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin: 0 12px 10px;
+  pointer-events: auto;
+}
+.hema-section-dropdown > summary.hema-menu-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  min-height: 48px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--hema-outline);
+  border-radius: 14px;
+  background: var(--hema-card-strong);
+  color: var(--hema-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  list-style: none;
+  touch-action: manipulation;
+  pointer-events: auto;
+}
+.hema-section-dropdown > summary::-webkit-details-marker,
+.hema-nav-group > summary::-webkit-details-marker { display: none; }
+.hema-section-dropdown > summary::marker,
+.hema-nav-group > summary::marker { content: ""; }
+.hema-section-dropdown > summary > span { flex: 1 1 auto; min-width: 0; }
+.hema-section-dropdown[open] > summary {
+  border-radius: 14px 14px 0 0;
+  border-color: color-mix(in srgb, var(--hema-teal) 40%, var(--hema-outline));
+}
+.hema-section-dropdown[open] > summary > svg:last-child {
+  color: var(--hema-teal);
+  transform: rotate(180deg);
+}
+.hema-section-dropdown > .hema-nav-menu {
+  display: grid;
+  position: relative;
+  z-index: 81;
+  max-height: min(52dvh, 420px);
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+}
+.hema-section-dropdown .hema-nav-group {
+  overflow: visible;
+  pointer-events: auto;
+}
+.hema-section-dropdown .hema-nav-group > summary.hema-nav-group-trigger {
+  cursor: pointer;
+  touch-action: manipulation;
+  pointer-events: auto;
+  list-style: none;
+}
+.hema-section-dropdown .hema-nav-group[open] > summary.hema-nav-group-trigger {
+  border-bottom: 1px solid rgba(255,255,255,.07);
+}
+.hema-section-dropdown .hema-nav-group[open] > summary .hema-nav-chevron svg {
+  transform: rotate(180deg);
+  color: var(--hema-teal);
+}
+.hema-section-dropdown .hema-nav-options,
+.hema-section-dropdown .hema-nav-option {
+  pointer-events: auto;
+}
+.hema-section-dropdown .hema-nav-option {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+}
+@media (max-width: 420px) {
+  .hema-section-dropdown { margin-inline: 8px; }
+  .hema-section-dropdown > .hema-nav-menu { max-height: min(55dvh, 420px); }
+}
