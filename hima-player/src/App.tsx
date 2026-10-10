@@ -1654,7 +1654,7 @@ export default function App() {
                     <span className="block text-xs opacity-55">أدخل من 1 إلى 1440 دقيقة.</span>
                   </label>
                   <button disabled={!Number.isFinite(Number(sleepCustom)) || Number(sleepCustom) < 1 || Number(sleepCustom) > 1440} onClick={() => { setSleep(Math.max(1, Math.min(1440, Math.floor(Number(sleepCustom)) || 1))); setPanel(null) }} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-40" style={{ background: A }}>بدء المؤقت المخصص</button>
-                  {sleep > 0 && <p className="text-center text-xs opacity-60">المؤقت الحالي: {sleep} دقيقة</p>}
+                  {sleep > 0 && <p className="text-center text-xs opacity-60">{language === 'ar' ? `المؤقت الحالي: ${sleep} دقيقة` : language === 'pl' ? `Minutnik: ${sleep} min` : `Current timer: ${sleep} min`}</p>}
                 </div>
               )}
               {panel === 'eq' && <>
