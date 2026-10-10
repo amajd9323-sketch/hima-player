@@ -6,8 +6,9 @@ import { all, put, del } from './db'
 import Icon from './Icon'
 import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
+import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 
-type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string }
+type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
 type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
@@ -72,6 +73,12 @@ export default function App() {
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
   const [queueIds, setQueueIds] = useState<string[]>(() => ls('hema_queue', []))
   const [crossfade, setCrossfade] = useState<number>(() => ls('hema_crossfade', 3))
+  const [autoVolume, setAutoVolume] = useState<boolean>(() => ls('hema_auto_volume', false))
+  const [editingMeta, setEditingMeta] = useState<Track | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editArtist, setEditArtist] = useState('')
+  const [editCover, setEditCover] = useState<File | null>(null)
+  const [metaMsg, setMetaMsg] = useState('')
   const [party, setParty] = useState(false)
   const [cueSize, setCueSize] = useState<number>(() => ls('hema_cue_size', 120))
   const [cueColor, setCueColor] = useState<string>(() => ls('hema_cue_color', '#ffffff'))
@@ -117,6 +124,9 @@ export default function App() {
   const nextStartedFor = useRef<string | null>(null)
   const handoff = useRef<{ id: string; pos: number } | null>(null)
   const gainN = useRef<GainNode>()
+  const normN = useRef<GainNode>()
+  const normMeter = useRef<AnalyserNode>()
+  const lastNormAt = useRef(0)
   const wetN = useRef<GainNode>()
   const anN = useRef<AnalyserNode>()
   const cv = useRef<HTMLCanvasElement>(null)
@@ -129,6 +139,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
   useEffect(() => { localStorage.setItem('hema_queue', JSON.stringify(queueIds)) }, [queueIds])
   useEffect(() => { localStorage.setItem('hema_crossfade', JSON.stringify(crossfade)) }, [crossfade])
+  useEffect(() => { localStorage.setItem('hema_auto_volume', JSON.stringify(autoVolume)); if (normN.current && ac.current && !autoVolume) normN.current.gain.setTargetAtTime(1, ac.current.currentTime, 0.4) }, [autoVolume])
   useEffect(() => { localStorage.setItem('hema_cue_size', JSON.stringify(cueSize)); document.documentElement.style.setProperty('--hema-cue-size', cueSize + '%'); localStorage.setItem('hema_cue_color', cueColor); document.documentElement.style.setProperty('--hema-cue-color', cueColor) }, [cueSize, cueColor])
   useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
   useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, bassBoost, spatial, bookMode])
@@ -165,7 +176,12 @@ export default function App() {
     }
     let imp: Track[] = []
     try { imp = (await all()).sort((a, b) => a.at - b.at).map((x) => ({ ...x, url: URL.createObjectURL(x.blob) })) } catch { /* ignore */ }
-    const list = [...lib, ...imp]
+    const rawList = [...lib, ...imp].map((x) => ({ ...x, sourceTitle: x.sourceTitle ?? x.title, sourceArtist: x.sourceArtist ?? x.artist }))
+    let list = rawList
+    try {
+      const overrides = await allTrackMeta(); const byId = new Map(overrides.map((x) => [x.id, x]))
+      list = rawList.map((x) => { const v = byId.get(x.id); return v ? { ...x, title: v.title?.trim() || x.title, artist: v.artist !== undefined ? v.artist : x.artist, cover: v.cover ? URL.createObjectURL(v.cover) : undefined } : x })
+    } catch { /* metadata database is optional; media library must still load */ }
     setQ(list); setQueueIds((p) => p.filter((id) => list.some((x) => x.id === id)))
     setI(keep ? list.findIndex((x) => x.id === keep) : -1)
   }
@@ -247,6 +263,8 @@ export default function App() {
       fadeMain.current = mainFade; fadeNext.current = nextFade
       bands.current = BANDS.map((f, j) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0); return b })
       const gn = c.createGain(); gn.gain.value = boost / 100
+      const meter = c.createAnalyser(); meter.fftSize = 256; normMeter.current = meter
+      const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
       const an = c.createAnalyser(); an.fftSize = 64
       const length = Math.floor(c.sampleRate * 1.4); const impulse = c.createBuffer(2, length, c.sampleRate)
@@ -255,7 +273,7 @@ export default function App() {
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
       gainN.current = gn; anN.current = an; wetN.current = wet
       src.connect(mainFade); nextSrc.connect(nextFade); mainFade.connect(bands.current[0]); nextFade.connect(bands.current[0])
-      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(lim)
+      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(meter); meter.connect(normalizer); normalizer.connect(lim)
       lim.connect(an); an.connect(c.destination); lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination)
       ac.current = c
     } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
@@ -345,6 +363,13 @@ export default function App() {
   }, [cur?.id, cur?.artist, cur?.video, playing, q.length])
   const tick = (ct: number) => {
     const dt = ct - lastCt.current; lastCt.current = ct
+    if (autoVolume && normMeter.current && normN.current && ac.current && Date.now() - lastNormAt.current > 350) {
+      lastNormAt.current = Date.now()
+      const samples = new Uint8Array(normMeter.current.fftSize); normMeter.current.getByteTimeDomainData(samples)
+      let sum = 0; for (const value of samples) { const n = (value - 128) / 128; sum += n * n }
+      const rms = Math.sqrt(sum / samples.length)
+      if (rms > 0.004) normN.current.gain.setTargetAtTime(Math.max(0.65, Math.min(1.8, 0.12 / rms)), ac.current.currentTime, 0.65)
+    } else if (!autoVolume && normN.current && ac.current && normN.current.gain.value !== 1) normN.current.gain.setTargetAtTime(1, ac.current.currentTime, 0.4)
     if (!cur || dt <= 0 || dt > 1.5) return
     accT.current += dt
     const first = ct > 30 && counted.current !== cur.id
@@ -434,7 +459,7 @@ export default function App() {
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = () => {
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية')
@@ -459,6 +484,7 @@ export default function App() {
       if (typeof data.bookMode === 'boolean') setBookMode(data.bookMode)
       if (typeof data.lyrOffset === 'number' && data.lyrOffset >= -10 && data.lyrOffset <= 10) setLyrOffset(data.lyrOffset)
       if (typeof data.crossfade === 'number' && [0, 2, 3, 5, 8].includes(data.crossfade)) setCrossfade(data.crossfade)
+      if (typeof data.autoVolume === 'boolean') setAutoVolume(data.autoVolume)
       if (typeof data.cueSize === 'number' && data.cueSize >= 80 && data.cueSize <= 200) setCueSize(data.cueSize)
       if (typeof data.cueColor === 'string' && ['#ffffff', '#ffe082', '#80deea', '#f48fb1'].includes(data.cueColor)) setCueColor(data.cueColor)
       if (typeof data.shake === 'boolean') setShake(data.shake)
