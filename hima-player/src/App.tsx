@@ -53,6 +53,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('video')
   const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
   const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
+  const [batterySaver, setBatterySaver] = useState<boolean>(() => ls('hema_battery_saver', false))
   const [onlineUrl, setOnlineUrl] = useState('')
   const [downloadUrl, setDownloadUrl] = useState('')
   const [downloadBusy, setDownloadBusy] = useState(false)
@@ -128,6 +129,7 @@ export default function App() {
   const [newList, setNewList] = useState('')
   const [settings, setSettings] = useState(false)
   useEffect(() => initLocalization(language), [language])
+  useEffect(() => { localStorage.setItem('hema_battery_saver', JSON.stringify(batterySaver)); document.body.classList.toggle('hema-battery-saver', batterySaver) }, [batterySaver])
   const [plSheet, setPlSheet] = useState<Track | null>(null)
   const [sub, setSub] = useState<string | null>(null)
   const subUrl = useRef<string | null>(null)
@@ -1256,6 +1258,14 @@ export default function App() {
                 <option value="pl">Polski</option>
               </select>
             </label>
+            <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold">ملخص المكتبة</h3><span className="text-xs opacity-55">{q.length} عنصر</span></div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-white/5 p-3"><p className="text-xl font-bold" style={{ color: A }}>{q.filter((x) => x.video).length}</p><p className="mt-1 text-xs opacity-60">فيديو</p></div>
+                <div className="rounded-xl bg-white/5 p-3"><p className="text-xl font-bold" style={{ color: A }}>{q.filter((x) => !x.video).length}</p><p className="mt-1 text-xs opacity-60">موسيقى</p></div>
+                <div className="rounded-xl bg-white/5 p-3"><p className="text-lg font-bold" style={{ color: A }}>{(q.reduce((sum, x) => sum + (x.size ?? x.blob?.size ?? 0), 0) / 1048576).toFixed(1)} MB</p><p className="mt-1 text-xs opacity-60">الحجم التقريبي</p></div>
+              </div>
+            </section>
             <p className="text-sm opacity-60">اللون</p>
             <div className="flex gap-3">{ACCENTS.map((c, k) => <button key={c} aria-label={c} onClick={() => setAcc(k)} className="size-9 rounded-full" style={{ background: c, outline: acc === k ? '3px solid #fff' : 'none' }} />)}</div>
             <p className="text-sm opacity-60">الترتيب</p>
@@ -1273,7 +1283,9 @@ export default function App() {
               <Opt on={bookMode} onClick={() => setBookMode(!bookMode)}>وضع الكتب الصوتية</Opt>
               <Opt on={bassBoost} onClick={() => setBassBoost(!bassBoost)}>تعزيز الجهير</Opt>
               <Opt on={spatial} onClick={() => setSpatial(!spatial)}>صدى محيطي</Opt>
+              <Opt on={batterySaver} onClick={() => setBatterySaver((v) => !v)}>توفير البطارية</Opt>
               <Opt on={adhan} onClick={() => setAdhan(!adhan)}>إيقاف وقت الأذان</Opt>
+              {batterySaver && <p className="w-full text-xs opacity-60">تقليل الحركات والانتقالات لتخفيف الحمل البصري؛ لا يوقف تشغيل الوسائط بالخلفية.</p>}
             </div>
             {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
             <Opt on={false} onClick={() => { setSettings(false); makeWrapped() }}>ملخصي Hema Wrapped</Opt>
