@@ -1285,7 +1285,7 @@ export default function App() {
           </div>
         )}
         {showM && visibleMusics.length > 0 && <ul>{visibleMusics.map(({ x, k }) => Row({ x, k }))}</ul>}
-        {showV && visibleVideos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{visibleVideos.map(({ x, k }) => VRow({ x, k }))}</ul>}
+        {showV && visibleVideos.length > 0 && <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-3">{visibleVideos.map(({ x, k }) => VRow({ x, k }))}</ul>}
         {(showM && musics.length > visibleMusics.length || showV && videos.length > visibleVideos.length) && <div className="flex flex-col gap-2 py-3">
           {showM && musics.length > visibleMusics.length && <button onClick={() => setRenderLimit((n) => n + 30)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الموسيقى ({visibleMusics.length}/{musics.length})</button>}
           {showV && videos.length > visibleVideos.length && <button onClick={() => setRenderLimit((n) => n + 30)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الفيديوهات ({visibleVideos.length}/{videos.length})</button>}
