@@ -100,6 +100,7 @@ export default function App() {
   const [settings, setSettings] = useState(false)
   const [plSheet, setPlSheet] = useState<Track | null>(null)
   const [sub, setSub] = useState<string | null>(null)
+  const subUrl = useRef<string | null>(null)
   const [hud, setHud] = useState<{ k: string; v: number } | null>(null)
   const [bright, setBr] = useState(0.5)
   const g = useRef({ x: 0, y: 0, ax: '', v: 1, b: 0.5, t: 0, w: 1, left: false, nt: -1 })
@@ -155,7 +156,7 @@ export default function App() {
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
   const topIds = new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id))
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id)) && (tab !== 'top' || topIds.has(x.id))
+  const match = (x: Track) => (!find || (x.title + ' ' + (x.artist ?? '')).toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id)) && (tab !== 'top' || topIds.has(x.id))
   const srt = (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? queueIds.indexOf(a.x.id) - queueIds.indexOf(b.x.id) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
@@ -326,6 +327,7 @@ export default function App() {
 
   useEffect(() => {
     if (!cur || !m.current) return
+    if (subUrl.current) { URL.revokeObjectURL(subUrl.current); subUrl.current = null }
     setSub(null); setLoopA(null); setLoopB(null); counted.current = ''; lastCt.current = 0
     const pending = handoff.current
     if (pending?.id !== cur.id) {
@@ -529,7 +531,8 @@ export default function App() {
       if (typeof data.quran === 'boolean') setQuran(data.quran)
       if (data.city && typeof data.city === 'object' && typeof (data.city as { c?: unknown }).c === 'string' && typeof (data.city as { k?: unknown }).k === 'string') setCity(data.city as { c: string; k: string })
       setQ((p) => p.map((x) => ({ ...x, fav: favSet().has(x.id) })))
-      setBackupMsg('تم استيراد الإعدادات والقوائم. أعد فحص الملفات لتحديث المفضلة.')
+      await load()
+      setBackupMsg('تم استيراد الإعدادات والقوائم وبيانات العرض. لم تتضمن النسخة ملفات الوسائط أو أغلفة الصور.')
     } catch { setBackupMsg('ملف النسخة الاحتياطية غير صالح أو من إصدار غير مدعوم.') }
   }
   const pip = async () => { await requestPip() }
@@ -699,7 +702,7 @@ export default function App() {
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; setT(loopA); return } setT(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; setT(loopA); return } setT(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div>
@@ -793,6 +796,7 @@ export default function App() {
               {panel === 'eq' && <>
                 {eq === EQS.length - 1 && <div className="space-y-3 rounded-xl bg-black/20 p-3">{BANDS.map((f, j) => <label key={f} className="grid grid-cols-[54px_1fr_42px] items-center gap-2 text-xs"><span dir="ltr">{f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`}</span><input aria-label={`EQ ${f} Hz`} type="range" min={-12} max={12} step={1} value={customEq[j]} onChange={(e) => changeEqBand(j, +e.target.value)} style={{ accentColor: A }} /><span className="text-end" dir="ltr">{customEq[j] > 0 ? '+' : ''}{customEq[j]} dB</span></label>)}</div>}
                 <div className="grid grid-cols-2 gap-2"><button onClick={saveEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">حفظ بروفايل المقطع</button><button onClick={loadEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">تطبيق البروفايل</button></div>
+                {msg && <p role="status" className="text-xs opacity-70">{msg}</p>}
                 <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
               </>}
               <button onClick={() => setPanel(null)} className="w-full py-2 opacity-70">تم</button>
@@ -939,7 +943,7 @@ export default function App() {
                 <button aria-label="رجوع" onClick={(e) => { e.stopPropagation(); closeVideo() }} className="p-1"><Icon n="back" /></button>
                 <span className="min-w-0 flex-1 truncate">{cur.title}</span>
                 <label onClick={(e) => e.stopPropagation()} className="rounded-lg bg-white/15 px-3 py-1 text-sm">CC
-                  <input type="file" accept=".srt,.vtt" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const tx = await f.text(); setSub(URL.createObjectURL(new Blob([f.name.endsWith('.vtt') ? tx : srt2vtt(tx)], { type: 'text/vtt' }))) } }} />
+                  <input type="file" accept=".srt,.vtt" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const tx = await f.text(); if (subUrl.current) URL.revokeObjectURL(subUrl.current); subUrl.current = URL.createObjectURL(new Blob([f.name.toLowerCase().endsWith('.vtt') ? tx : srt2vtt(tx)], { type: 'text/vtt' })); setSub(subUrl.current) } }} />
                 </label>
                 <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
