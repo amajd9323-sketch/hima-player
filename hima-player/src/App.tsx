@@ -33,14 +33,11 @@ const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 
 function VThumb({ src, dur: known, lite = false }: { src: string; dur?: number; lite?: boolean }) {
   const [vis, setVis] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    const o = new IntersectionObserver(([e]) => setVis(e.isIntersecting), { rootMargin: '300px' })
-    if (box.current) o.observe(box.current)
-    return () => o.disconnect()
-  }, [])
+  // Keep library scrolling lightweight: do not create a video decoder per thumbnail.
+  useEffect(() => { setVis(false) }, [])
   return (
     <span ref={box} className="relative block aspect-video w-full overflow-hidden rounded-xl bg-white/10">
-      {vis && !lite && <video src={src + '#t=1'} preload="metadata" muted playsInline className="size-full object-cover" />}
+      {false && vis && !lite && <video src={src + '#t=1'} preload="none" muted playsInline className="size-full object-cover" />}
       <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>
     </span>
   )
@@ -193,7 +190,7 @@ export default function App() {
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
-  const topIds = useMemo(() => new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id)), [q, tab, Math.floor(t / 15)])
+  const topIds = useMemo(() => new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id)), [q, tab])
   const recentIdSet = useMemo(() => new Set(recent), [recent])
   const queueIdSet = useMemo(() => new Set(queueIds), [queueIds])
   const queuePosition = useMemo(() => new Map(queueIds.map((id, index) => [id, index])), [queueIds])
@@ -562,14 +559,18 @@ export default function App() {
       const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
       const an = c.createAnalyser(); an.fftSize = 64
-      const length = Math.floor(c.sampleRate * 1.4); const impulse = c.createBuffer(2, length, c.sampleRate)
-      for (let ch = 0; ch < 2; ch++) { const data = impulse.getChannelData(ch); for (let j = 0; j < length; j++) data[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / length, 2.6) }
-      const convolver = c.createConvolver(); convolver.buffer = impulse
+      // Build reverb only when spatial effect is enabled; generating a long impulse on every first play caused startup stutter on low-memory phones.
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
+      let convolver: ConvolverNode | null = null
+      if (spatial) {
+        const length = Math.floor(c.sampleRate * 0.35); const impulse = c.createBuffer(2, length, c.sampleRate)
+        for (let ch = 0; ch < 2; ch++) { const data = impulse.getChannelData(ch); for (let j = 0; j < length; j++) data[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / length, 3.5) }
+        convolver = c.createConvolver(); convolver.buffer = impulse
+      }
       gainN.current = gn; anN.current = an; wetN.current = wet
       src.connect(mainFade); nextSrc.connect(nextFade); mainFade.connect(bands.current[0]); nextFade.connect(bands.current[0])
       bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(meter); meter.connect(normalizer); normalizer.connect(lim)
-      lim.connect(an); an.connect(c.destination); lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination)
+      lim.connect(an); an.connect(c.destination); if (convolver) { lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination) }
       ac.current = c
     } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
   }
