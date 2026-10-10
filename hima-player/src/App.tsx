@@ -1371,7 +1371,7 @@ export default function App() {
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
-  const navGroups = [
+  const navGroups: { id: string; title: string; description: string; icon: string; items: { key: Tab; label: string; icon: string }[] }[] = [
     {
       id: 'library',
       title: language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library',
@@ -1416,7 +1416,7 @@ export default function App() {
         { key: 'cast' as Tab, label: language === 'ar' ? 'التلفاز والبث' : language === 'pl' ? 'Telewizor i przesyłanie' : 'TV & casting', icon: 'video' },
       ],
     },
-  ] as const
+  ]
   const activeNavItem = navGroups.flatMap((group) => group.items).find((item) => item.key === tab)
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
