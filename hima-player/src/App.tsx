@@ -127,6 +127,24 @@ export default function App() {
   }
   useEffect(() => { void load() }, [])
 
+  // Keyboard shortcuts for desktop keyboards; ignore typing fields and dialogs.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      if (e.code === 'Space') { e.preventDefault(); toggle() }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); seek((m.current?.currentTime ?? t) + (e.shiftKey ? 30 : 5)) }
+      else if (e.code === 'ArrowLeft') { e.preventDefault(); seek((m.current?.currentTime ?? t) - (e.shiftKey ? 30 : 5)) }
+      else if (e.code === 'ArrowUp') { e.preventDefault(); step(-1) }
+      else if (e.code === 'ArrowDown') { e.preventDefault(); step(1) }
+      else if (e.key.toLowerCase() === 'm' && m.current) m.current.muted = !m.current.muted
+      else if (e.key.toLowerCase() === 'f' && cur?.video) setCover((v) => !v)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [cur?.id, t, i, shuffle, repeat, q])
+
   const add = (files: FileList | null) => {
     if (!files) return
     const n = [...files].map((f, k) => ({ id: crypto.randomUUID(), title: f.name.replace(/\.[^.]+$/, ''), url: URL.createObjectURL(f), video: f.type.startsWith('video'), at: Date.now() + k, blob: f as Blob }))
@@ -180,10 +198,15 @@ export default function App() {
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return
     navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: 'Hema' })
-    navigator.mediaSession.setActionHandler('play', toggle)
-    navigator.mediaSession.setActionHandler('pause', toggle)
-    navigator.mediaSession.setActionHandler('nexttrack', () => step(1))
-    navigator.mediaSession.setActionHandler('previoustrack', () => step(-1))
+    // Media controls must be idempotent: play always plays, pause always pauses.
+    try {
+      navigator.mediaSession.setActionHandler('play', () => { if (m.current?.paused) void m.current.play() })
+      navigator.mediaSession.setActionHandler('pause', () => { if (m.current && !m.current.paused) m.current.pause() })
+      navigator.mediaSession.setActionHandler('nexttrack', () => stepRef.current(1))
+      navigator.mediaSession.setActionHandler('previoustrack', () => stepRef.current(-1))
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => seek((m.current?.currentTime ?? 0) - (details.seekOffset ?? 10)))
+      navigator.mediaSession.setActionHandler('seekforward', (details) => seek((m.current?.currentTime ?? 0) + (details.seekOffset ?? 10)))
+    } catch { /* browser may not support every Media Session action */ }
   })
   const stepRef = useRef(step)
   stepRef.current = step
