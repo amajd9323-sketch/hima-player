@@ -58,6 +58,7 @@ export default function App() {
   const [onlineQueue, setOnlineQueue] = useState<OnlineLink[]>(() => ls<OnlineLink[]>('hema_online_queue', []))
   const [onlineFavorites, setOnlineFavorites] = useState<string[]>(() => ls<string[]>('hema_online_favorites', []))
   const [onlineView, setOnlineView] = useState<OnlineView>('saved')
+  const [onlineAudioFocus, setOnlineAudioFocus] = useState(false)
   const [onlineSeek, setOnlineSeek] = useState('0')
   const [onlineTime, setOnlineTime] = useState(0)
   const [onlineDuration, setOnlineDuration] = useState(0)
@@ -691,7 +692,7 @@ export default function App() {
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = async () => {
     const overrides = await allTrackMeta().catch(() => [])
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })) }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 3, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })), onlineSaved, onlineHistory, onlineQueue, onlineFavorites }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية والإعدادات وبيانات العرض. ملفات الغلاف نفسها تُحفظ محليًا ولا تدخل الملف.')
@@ -700,7 +701,7 @@ export default function App() {
     if (!file) return
     try {
       const data = JSON.parse(await file.text()) as Record<string, unknown>
-      if (data.app !== 'HEMA ROKSI PLAYER' || (data.schemaVersion !== 1 && data.schemaVersion !== 2)) throw new Error('BACKUP_VERSION')
+      if (data.app !== 'HEMA ROKSI PLAYER' || (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3)) throw new Error('BACKUP_VERSION')
       if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) { const safeLists = Object.entries(data.lists as Record<string, unknown>).filter(([name, value]) => !!name.trim() && Array.isArray(value)).map(([name, value]) => [name.trim(), [...new Set((value as unknown[]).filter((id): id is string => typeof id === 'string'))]]); setLists(Object.fromEntries(safeLists) as Record<string, string[]>) }
       if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
       if (Array.isArray(data.trackMeta)) {
@@ -715,6 +716,26 @@ export default function App() {
         }
       }
       if (Array.isArray(data.queueIds)) setQueueIds([...new Set(data.queueIds.filter((x): x is string => typeof x === 'string'))].slice(0, 500))
+      const parseOnlineLinks = (value: unknown, max: number): OnlineLink[] | null => {
+        if (!Array.isArray(value)) return null
+        return value.filter((raw): raw is OnlineLink => {
+          if (!raw || typeof raw !== 'object') return false
+          const item = raw as Partial<OnlineLink>
+          return typeof item.key === 'string' && item.key.length <= 3200 &&
+            (item.platform === 'youtube' || item.platform === 'tiktok') &&
+            typeof item.videoId === 'string' && item.videoId.length <= 64 &&
+            typeof item.url === 'string' && item.url.length <= 3200 &&
+            typeof item.title === 'string' && item.title.length <= 120
+        }).slice(0, max)
+      }
+      const importedOnlineSaved = parseOnlineLinks(data.onlineSaved, 300)
+      const importedOnlineHistory = parseOnlineLinks(data.onlineHistory, 100)
+      const importedOnlineQueue = parseOnlineLinks(data.onlineQueue, 200)
+      if (importedOnlineSaved) setOnlineSaved(importedOnlineSaved)
+      if (importedOnlineHistory) setOnlineHistory(importedOnlineHistory)
+      if (importedOnlineQueue) setOnlineQueue(importedOnlineQueue)
+      if (Array.isArray(data.onlineFavorites)) setOnlineFavorites([...new Set(data.onlineFavorites.filter((x): x is string => typeof x === 'string'))].slice(0, 300))
+
       if (Array.isArray(data.favorites)) localStorage.setItem('hema_favs', JSON.stringify(data.favorites.filter((x): x is string => typeof x === 'string')))
       if (data.positions && typeof data.positions === 'object') localStorage.setItem('hema_pos', JSON.stringify(data.positions))
       if (data.stats && typeof data.stats === 'object') localStorage.setItem('hema_stats', JSON.stringify(data.stats))
@@ -943,7 +964,7 @@ export default function App() {
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
         {tab === 'online' && (
           <section className="space-y-4 py-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            {(!onlineAudioFocus || !onlineMedia) && <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-semibold tracking-[0.2em]" style={{ color: A }}>HEMA ONLINE</p>
               <h2 className="mt-1 text-lg font-bold">YouTube و TikTok</h2>
               <p className="mt-2 text-sm leading-6 opacity-70">الصق رابطًا أو شاركه من YouTube / TikTok → اختر HEMA. الروابط والسجل والمفضلة تُحفظ محليًا على الجهاز.</p>
@@ -953,13 +974,14 @@ export default function App() {
                 <button onClick={() => void openOnline()} className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: A }}>تشغيل الرابط</button>
               </div>
               {onlineMsg && <p role="status" className="mt-3 text-sm text-amber-200">{onlineMsg}</p>}
-            </div>
+            </div>}
             {onlineMedia && (
               <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="grid size-12 shrink-0 place-items-center rounded-xl text-lg font-bold" style={art(onlineMedia.title)}>{onlineMedia.platform === 'youtube' ? 'YT' : 'TT'}</div>
                   <div className="min-w-0 flex-1"><p className="truncate font-semibold">{onlineMedia.title}</p><p className="text-xs opacity-55">{onlineMedia.platform === 'youtube' ? 'YouTube' : 'TikTok'} · تشغيل رسمي مضمّن</p></div>
                   <button onClick={() => saveOnlineLink(onlineMedia)} className="rounded-full bg-white/10 px-3 py-2 text-xs">حفظ</button>
+                  <button onClick={() => setOnlineAudioFocus((v) => !v)} className="rounded-full px-3 py-2 text-xs" style={{ background: onlineAudioFocus ? A : "#ffffff1a" }}>{onlineAudioFocus ? 'إنهاء التركيز' : 'تركيز الموسيقى'}</button>
                   <button aria-label="إغلاق اللاعب" onClick={() => { setOnlineMedia(null); setOnlinePlaying(false); setOnlineMsg('') }} className="rounded-full bg-white/10 px-3 py-2 text-xs">×</button>
                 </div>
                 {onlineMedia.videoId ? (
@@ -1013,7 +1035,7 @@ export default function App() {
                 <p className="text-xs leading-5 opacity-55">التحكم الخارجي يعتمد على دعم مشغّل المنصة. YouTube يبقى ظاهرًا؛ لا استخراج صوت أو تشغيل مخفي بالخلفية. بعض الفيديوهات قد تمنع التضمين.</p>
               </div>
             )}
-            <div className="space-y-3">
+            {!onlineAudioFocus && <div className="space-y-3">
               <div className="flex gap-2 overflow-x-auto">
                 {([['saved', 'المكتبة', onlineSaved.length], ['favorites', 'المفضلة', onlineFavorites.length], ['history', 'السجل', onlineHistory.length], ['queue', 'الطابور', onlineQueue.length]] as const).map(([view, label, count]) => (
                   <button key={view} onClick={() => setOnlineView(view)} className="shrink-0 rounded-full px-3 py-2 text-xs" style={{ background: onlineView === view ? A : '#ffffff1a', color: onlineView === view ? '#fff' : undefined }}>{label} · {count}</button>
@@ -1040,7 +1062,7 @@ export default function App() {
                   </li>)}
                 </ul> : <p className="rounded-xl bg-white/[0.03] py-8 text-center text-sm opacity-55">{onlineView === 'saved' ? 'لا روابط محفوظة. شغّل رابطًا ثم اضغط حفظ.' : onlineView === 'favorites' ? 'أضف روابط للمفضلة من زر ☆.' : onlineView === 'history' ? 'ما شغّلت روابط بعد.' : 'الطابور فارغ. أضف فيديو بزر Q+.'}</p>
               })()}
-            </div>
+            </div>}
           </section>
         )}
         {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
