@@ -222,6 +222,7 @@ export default function App() {
   }
   const enqueue = (x: Track, next = true) => setQueueIds((p) => { const rest = p.filter((id) => id !== x.id); return next ? [x.id, ...rest] : [...rest, x.id] })
   const dequeue = (id: string) => setQueueIds((p) => p.filter((x) => x !== id))
+  const reorderQueue = (fromId: string, toId: string) => setQueueIds((p) => { const n = [...p]; const from = n.indexOf(fromId); const to = n.indexOf(toId); if (from < 0 || to < 0 || from === to) return p; const [item] = n.splice(from, 1); n.splice(to, 0, item); return n })
   const moveQueue = (id: string, delta: -1 | 1) => setQueueIds((p) => { const n = [...p]; const from = n.indexOf(id); const to = from + delta; if (from < 0 || to < 0 || to >= n.length) return p; [n[from], n[to]] = [n[to], n[from]]; return n })
   const nextItem = () => {
     const queuedId = queueIds.find((id) => { const item = q.find((x) => x.id === id); return item && item.video === cur?.video && item.id !== cur?.id })
@@ -666,7 +667,7 @@ export default function App() {
     </div>
   )
   const Row = ({ x, k }: { x: Track; k: number }) => (
-    <li key={x.id} className="flex items-center gap-1 rounded-xl active:bg-white/5">
+    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className={'flex items-center gap-1 rounded-xl active:bg-white/5 ' + (tab === 'queue' ? 'cursor-grab' : '')}>
       <button onClick={() => { cancelCrossfade(); setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
         <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg font-semibold text-white" style={art(x.title)}>{x.cover ? <img src={x.cover} alt="" className="size-full object-cover" /> : k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
         <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
@@ -679,7 +680,7 @@ export default function App() {
     </li>
   )
   const VRow = ({ x, k }: { x: Track; k: number }) => (
-    <li key={x.id} className="relative">
+    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className={'relative ' + (tab === 'queue' ? 'cursor-grab' : '')}>
       <button onClick={() => openVideo(k)} className="block w-full text-start">
         <VThumb src={x.url} dur={x.dur} />
         <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
@@ -725,7 +726,7 @@ export default function App() {
       )}
 
       <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع في الطابور</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
+        {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع · اسحب لإعادة الترتيب</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
         {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
         {tab === 'lists' && openList === null && (
