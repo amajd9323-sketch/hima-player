@@ -8,7 +8,7 @@ import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consu
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 
 type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string }
-type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'queue' | 'ai'
+type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
@@ -61,6 +61,8 @@ export default function App() {
   const [eq, setEq] = useState(0)
   const [customEq, setCustomEq] = useState<number[]>(() => { const v = ls<number[]>('hema_custom_eq', Array(10).fill(0)); if (Array.isArray(v) && v.length === 10) return v.map((n) => Math.max(-12, Math.min(12, Number(n) || 0))); if (Array.isArray(v) && v.length === 5) { const n = Array(10).fill(0) as number[]; [1, 3, 5, 7, 9].forEach((j, k) => { n[j] = Math.max(-12, Math.min(12, Number(v[k]) || 0)) }); return n } return Array(10).fill(0) })
   const [sleep, setSleep] = useState(0)
+  const [loopA, setLoopA] = useState<number | null>(null)
+  const [loopB, setLoopB] = useState<number | null>(null)
   const [vol, setVol] = useState<number | null>(null)
   const [ask, setAsk] = useState('')
   const [msg, setMsg] = useState('')
@@ -140,13 +142,14 @@ export default function App() {
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id))
+  const topIds = new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id))
+  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id)) && (tab !== 'top' || topIds.has(x.id))
   const srt = (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? queueIds.indexOf(a.x.id) - queueIds.indexOf(b.x.id) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
-  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || open
-  const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || open
+  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
+  const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
   const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
@@ -290,7 +293,7 @@ export default function App() {
 
   useEffect(() => {
     if (!cur || !m.current) return
-    setSub(null); counted.current = ''; lastCt.current = 0
+    setSub(null); setLoopA(null); setLoopB(null); counted.current = ''; lastCt.current = 0
     const pending = handoff.current
     if (pending?.id !== cur.id) {
       cancelCrossfade()
@@ -526,7 +529,7 @@ export default function App() {
       try { order = await aiOrder(ask, list.map((x) => x.title)) } catch {
         local = true
         const terms = clean(ask).toLocaleLowerCase().split(/\s+/).filter((x) => x.length > 1)
-        order = list.map((x, n) => ({ n, score: terms.reduce((sum, word) => sum + (clean(x.title + ' ' + (x.artist ?? '')).toLocaleLowerCase().includes(word) ? 3 : 0), 0) + (recent.includes(x.id) ? 1 : 0) })).sort((a, b) => b.score - a.score || a.n - b.n).map((x) => x.n)
+        order = list.map((x, n) => ({ n, score: terms.reduce((sum, word) => sum + (clean(x.title + ' ' + (x.artist ?? '')).toLocaleLowerCase().includes(word) ? 4 : 0), 0) + (x.fav ? 1 : 0) - (recent.includes(x.id) ? 3 : 0) })).sort((a, b) => b.score - a.score || a.n - b.n).map((x) => x.n)
       }
       const picked = order.filter((n) => list[n]).map((n) => list[n])
       if (!picked.length) { setMsg('لا نتيجة. جرب وصف ثاني.'); return }
@@ -556,8 +559,7 @@ export default function App() {
         <span className="grid size-12 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(x.title)}>{k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
         <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
       </button>
-      <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="p-2" style={{ color: queueIds.includes(x.id) ? A : '#fff8' }}><Icon n="plus" s={20} /></button>
-      {tab === 'queue' && <div className="flex flex-col"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="px-1 text-xs opacity-70">↑</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="px-1 text-xs opacity-70">↓</button></div>}
+      {tab !== 'queue' ? <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="p-2" style={{ color: queueIds.includes(x.id) ? A : '#fff8' }}><Icon n="plus" s={20} /></button> : <><div className="flex flex-col"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="px-1 text-xs opacity-70">↑</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="px-1 text-xs opacity-70">↓</button></div><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="p-2 opacity-60"><Icon n="close" s={18} /></button></>}
       <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="p-2 opacity-60"><Icon n="list" s={20} /></button>
       {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
@@ -570,7 +572,7 @@ export default function App() {
         <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
         <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
       </button>
-      <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="absolute end-1 bottom-1 rounded-full bg-black/55 p-1.5" style={{ color: queueIds.includes(x.id) ? A : '#fffc' }}><Icon n="plus" s={18} /></button>
+      {tab === 'queue' ? <div className="absolute inset-x-1 bottom-1 flex items-center justify-between rounded-lg bg-black/65 px-2 py-1 text-white"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)}>↑</button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)}>إزالة</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)}>↓</button></div> : <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="absolute end-1 bottom-1 rounded-full bg-black/55 p-1.5" style={{ color: queueIds.includes(x.id) ? A : '#fffc' }}><Icon n="plus" s={18} /></button>}
       <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="absolute start-1 top-1 rounded-full bg-black/40 p-1.5 text-white/80"><Icon n="list" s={18} /></button>
     </li>
@@ -586,7 +588,7 @@ export default function App() {
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime); void maybeCrossfade(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; setT(loopA); return } setT(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div>
@@ -599,11 +601,11 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
       </div>
       {tab !== 'ai' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
-          <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : `${videos.length + musics.length} عنصر`}</span>
+          <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : tab === 'queue' ? `${queueIds.length} في الطابور` : tab === 'top' ? 'الأكثر استماعًا' : `${videos.length + musics.length} عنصر`}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
         </div>
       )}
@@ -619,7 +621,7 @@ export default function App() {
         )}
         {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
         {showV && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
-        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
+        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
@@ -658,6 +660,7 @@ export default function App() {
           {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}
           <div className="flex flex-wrap items-center justify-center gap-2"><label className="cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed); setMsg('تم حفظ الكلمات محليًا') } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label><button aria-label="تأخير الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.max(-10, Math.round((v - 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">−0.5s</button><span className="text-xs opacity-60" dir="ltr">{lyrOffset > 0 ? '+' : ''}{lyrOffset.toFixed(1)}s</span><button aria-label="تقديم الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.min(10, Math.round((v + 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">+0.5s</button></div>
           {Bar({ big: true })}{Ctl()}
+          <div className="flex items-center justify-center gap-2 text-xs"><button onClick={() => { setLoopA(t); setLoopB(null) }} className="rounded-lg bg-white/10 px-3 py-2" style={{ color: loopA !== null ? A : undefined }}>A {loopA === null ? '—' : fmt(loopA)}</button><button onClick={() => { if (loopA === null || t <= loopA) setMsg('حدد A أولًا، ثم B بعده.'); else setLoopB(t) }} className="rounded-lg bg-white/10 px-3 py-2" style={{ color: loopB !== null ? A : undefined }}>B {loopB === null ? '—' : fmt(loopB)}</button><button onClick={() => { setLoopA(null); setLoopB(null) }} className="rounded-lg bg-white/10 px-3 py-2">مسح التكرار</button></div>
           <div dir="ltr" className="flex justify-around pb-2 opacity-90">
             <button aria-label="مفضلة" onClick={() => fav(cur)} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" /></button>
             <button aria-label="منبه نوم" onClick={() => setPanel(panel === 'sleep' ? null : 'sleep')} style={{ color: sleep ? A : undefined }}><Icon n="timer" /></button>
