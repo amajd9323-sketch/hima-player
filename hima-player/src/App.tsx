@@ -13,7 +13,7 @@ const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.f
 const SPEEDS = [1, 1.5, 2, 0.75]
 const BANDS = [60, 230, 910, 3600, 14000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0] }, { n: 'باس', g: [7, 4, 0, 0, 0] }, { n: 'صوت', g: [-1, 0, 3, 4, 2] }, { n: 'روك', g: [5, 2, -1, 3, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, -1] }]
-const ACCENTS = ['#ff4d6d', '#3d8bff', '#22c55e', '#f59e0b', '#a855f7', '#14b8a6']
+const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B']
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 let A = ACCENTS[0]
 const ls = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? '') as T } catch { return d } }
