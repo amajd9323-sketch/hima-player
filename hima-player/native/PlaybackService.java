@@ -1,4 +1,4 @@
-package com.hema.player;
+package com.hima.player;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
