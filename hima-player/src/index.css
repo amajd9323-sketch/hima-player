@@ -62,3 +62,330 @@ body.hema-battery-saver *::after {
 input[type=password]{letter-spacing:.12em}
 canvas{max-width:100%}
 @media(max-height:700px){.fixed.inset-0.z-30{gap:10px!important;padding:12px!important}.fixed.inset-0.z-30 .w-4\/5{width:min(54vw,220px)}}
+
+
+/* ─────────────────────────────────────────────────────────────
+   HEMA ROKSI · Comfort-first mobile UI
+   Consistent touch targets, calmer spacing, clearer hierarchy.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --hema-radius-sm: 12px;
+  --hema-radius-md: 18px;
+  --hema-radius-lg: 24px;
+  --hema-touch: 44px;
+  --hema-surface: rgba(19, 25, 38, .94);
+  --hema-surface-soft: rgba(255, 255, 255, .045);
+  --hema-line: rgba(220, 230, 255, .11);
+  --hema-line-strong: rgba(220, 230, 255, .17);
+}
+html, body, #root { min-height: 100%; }
+body { line-height: 1.45; }
+button, label { -webkit-tap-highlight-color: transparent; }
+button {
+  min-height: var(--hema-touch);
+  border: 1px solid transparent;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--hema-teal);
+  outline-offset: 3px;
+}
+button:disabled { opacity: .46; transform: none !important; }
+
+/* App header: cleaner brand block and predictable icon spacing. */
+#root > div > header {
+  flex-shrink: 0;
+  min-height: 76px;
+  padding: 13px 16px 12px;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255,255,255,.035);
+}
+#root > div > header button {
+  display: grid;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--hema-line);
+  border-radius: 15px;
+  color: rgba(246,248,255,.88);
+  background: rgba(255,255,255,.045);
+}
+#root > div > header button:active { background: rgba(255,255,255,.10); }
+#root > div > header label[aria-label="إضافة ملفات"] {
+  width: 46px;
+  min-width: 46px;
+  height: 46px;
+  min-height: 46px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 7px 20px color-mix(in srgb, var(--hema-purple) 22%, transparent);
+}
+#root > div > header img { border-radius: 15px; box-shadow: 0 4px 16px rgba(0,0,0,.22); }
+#root > div > header h1 { line-height: 1; }
+
+/* Category bar: roomy pills, easy horizontal scrolling, no squeezed labels. */
+#root > div > header + div {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 8px 16px 12px;
+  scroll-padding-inline: 16px;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+#root > div > header + div > button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--hema-line);
+  border-radius: 15px;
+  background: rgba(255,255,255,.045);
+  color: rgba(240,244,255,.76);
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+#root > div > header + div > button[style*="background"] {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--hema-purple) 52%, transparent);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--hema-purple) 13%, transparent);
+}
+
+/* Library count / refresh strip. */
+#root > div > header + div + div {
+  min-height: 36px;
+  padding: 2px 18px 7px;
+  color: rgba(227,233,248,.62);
+  font-size: 12px;
+}
+#root > div > header + div + div > button {
+  display: grid;
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--hema-line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.035);
+}
+
+/* Scrollable content: separate cards instead of a visually crowded list. */
+#root > div > main {
+  padding: 8px 14px 18px;
+  scrollbar-width: none;
+  overscroll-behavior-y: contain;
+}
+main ul:not(.grid) { display: flex; flex-direction: column; gap: 8px; }
+main ul:not(.grid) > li {
+  min-width: 0;
+  min-height: 64px;
+  margin: 0;
+  padding: 5px 6px;
+  gap: 5px;
+  border: 1px solid rgba(220,230,255,.075);
+  border-radius: 17px;
+  background: linear-gradient(110deg, rgba(255,255,255,.050), rgba(255,255,255,.025));
+  box-shadow: 0 3px 12px rgba(0,0,0,.07);
+}
+main ul:not(.grid) > li > button { border-radius: 12px; }
+main ul:not(.grid) > li > button:first-child {
+  min-height: 54px;
+  padding: 5px 6px;
+  gap: 11px;
+}
+main ul:not(.grid) > li > button:first-child > span:first-child {
+  border-radius: 13px;
+}
+main ul:not(.grid) > li > button:not(:first-child) {
+  flex: 0 0 auto;
+  width: 38px;
+  min-width: 38px;
+  min-height: 42px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: rgba(240,244,255,.76);
+}
+main ul:not(.grid) > li > button:not(:first-child):active { background: rgba(255,255,255,.10); }
+main ul:not(.grid) > li span.block.truncate:first-child,
+main ul:not(.grid) > li .font-medium { line-height: 1.35; }
+main ul.grid { gap: 14px; padding: 3px 0 16px; }
+main ul.grid > li {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--hema-line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.02));
+  padding: 6px;
+}
+main ul.grid > li > button:first-child { border-radius: 13px; overflow: hidden; }
+main ul.grid > li > button[aria-label="تشغيل بعد الحالي"],
+main ul.grid > li > button[aria-label="مفضلة"],
+main ul.grid > li > button[aria-label="قائمة"],
+main ul.grid > li > button[aria-label="تعديل بيانات العرض"] {
+  min-width: 36px;
+  min-height: 36px;
+  width: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.13);
+  backdrop-filter: blur(12px);
+}
+main p { overflow-wrap: anywhere; }
+main input:not([type="range"]), main select, main textarea {
+  min-height: 46px;
+  border: 1px solid var(--hema-line);
+  border-radius: 14px;
+  background-color: rgba(4,7,14,.42);
+  padding-inline: 14px;
+}
+main input[type="range"] { min-height: 34px; }
+
+/* Distinct primary / secondary action hierarchy in content. */
+main button[style*="background"] { box-shadow: 0 4px 12px rgba(0,0,0,.10); }
+main button.rounded-full { border-radius: 14px; }
+main button.bg-white\\/10 { border: 1px solid rgba(255,255,255,.06); }
+main section { scroll-margin-top: 8px; }
+main .rounded-2xl.border {
+  border-color: var(--hema-line);
+  box-shadow: 0 8px 24px rgba(0,0,0,.08);
+}
+
+/* Mini-player: tidy, anchored visual bar and properly spaced controls. */
+#root > div > .relative.mx-2.mb-2 {
+  flex-shrink: 0;
+  margin: 0 12px 10px;
+  border: 1px solid rgba(220,230,255,.13);
+  border-radius: 20px;
+  background: rgba(20,25,38,.96);
+  box-shadow: 0 12px 32px rgba(0,0,0,.27);
+  backdrop-filter: blur(18px);
+}
+#root > div > .relative.mx-2.mb-2 > div.flex {
+  min-height: 70px;
+  padding: 9px 10px;
+  gap: 8px;
+}
+#root > div > .relative.mx-2.mb-2 > div.flex > button:first-child {
+  min-height: 50px;
+  gap: 10px;
+}
+#root > div > .relative.mx-2.mb-2 > div.flex > button:first-child > span:first-child {
+  border-radius: 13px;
+}
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="التالي"] {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(255,255,255,.065);
+}
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"] { background: color-mix(in srgb, var(--hema-purple) 22%, #171e2c); }
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="الطابور"] {
+  min-height: 40px;
+  padding: 0 11px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+/* Player sheet: balanced spacing and controls reachable with one hand. */
+.fixed.inset-0.z-30 {
+  gap: 18px !important;
+  padding: max(18px, env(safe-area-inset-top)) 20px max(22px, env(safe-area-inset-bottom)) !important;
+}
+.fixed.inset-0.z-30 > button:first-child {
+  display: grid;
+  width: 46px;
+  min-width: 46px;
+  min-height: 46px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 16px;
+  background: rgba(255,255,255,.08);
+}
+.fixed.inset-0.z-30 input[type="range"] { min-height: 38px; }
+
+/* Bottom sheets and dialogs: rounded, separated controls; preserve scroll. */
+#root > div > div.fixed.inset-0[class*="z-[60]"] > div,
+#root > div > div.fixed.inset-0[class*="z-[85]"] > div,
+#root > div > div.fixed.inset-0[class*="z-[90]"] > div {
+  border: 1px solid rgba(220,230,255,.12);
+  border-bottom: 0;
+  border-radius: 28px 28px 0 0;
+  background: #111722;
+  box-shadow: 0 -16px 50px rgba(0,0,0,.3);
+  padding: 22px 18px max(26px, env(safe-area-inset-bottom));
+}
+#root > div > div.fixed.inset-0[class*="z-[60]"] h2,
+#root > div > div.fixed.inset-0[class*="z-[85]"] h2,
+#root > div > div.fixed.inset-0[class*="z-[90]"] h2 {
+  font-size: 21px;
+  letter-spacing: -.025em;
+}
+#root > div > div.fixed.inset-0[class*="z-[60]"] button,
+#root > div > div.fixed.inset-0[class*="z-[85]"] button,
+#root > div > div.fixed.inset-0[class*="z-[90]"] button {
+  min-height: 44px;
+}
+#root > div > div.fixed.inset-0[class*="z-[60]"] label,
+#root > div > div.fixed.inset-0[class*="z-[85]"] label,
+#root > div > div.fixed.inset-0[class*="z-[90]"] label {
+  border-radius: 15px;
+}
+#root > div > div.fixed.inset-0[class*="z-[60]"] input:not([type="range"]),
+#root > div > div.fixed.inset-0[class*="z-[85]"] input:not([type="range"]),
+#root > div > div.fixed.inset-0[class*="z-[90]"] input:not([type="range"]),
+#root > div > div.fixed.inset-0[class*="z-[60]"] select {
+  min-height: 46px;
+  border-radius: 14px;
+}
+#root > div > div.fixed.inset-0[class*="z-[60]"] .flex.flex-wrap.gap-2 > button,
+#root > div > div.fixed.inset-0[class*="z-[60]"] .flex.gap-2 > button {
+  padding: 9px 14px;
+  border-radius: 14px;
+}
+
+/* Shared website-like actions across Queue, Online, and AI. */
+main button, #root > div button { -webkit-user-select: none; user-select: none; }
+main .space-y-2 > button.w-full,
+main .space-y-3 > button.w-full,
+main section button.w-full {
+  min-height: 48px;
+  border-radius: 15px;
+  font-weight: 600;
+}
+[role="status"] { padding-block: 3px; line-height: 1.55; }
+
+/* Compact screens: do not shrink touch targets; tighten only large artwork. */
+@media (max-width: 390px) {
+  #root > div > header { gap: 7px; padding-inline: 12px; }
+  #root > div > header + div { gap: 7px; padding-inline: 12px; }
+  #root > div > header + div > button { padding-inline: 12px; font-size: 12px; }
+  #root > div > main { padding-inline: 10px; }
+  main ul:not(.grid) > li { padding: 4px; gap: 2px; }
+  main ul:not(.grid) > li > button:not(:first-child) { width: 34px; min-width: 34px; }
+  #root > div > .relative.mx-2.mb-2 { margin-inline: 8px; }
+  #root > div > .relative.mx-2.mb-2 > div.flex { gap: 5px; padding-inline: 7px; }
+  #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
+  #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="التالي"] { width: 38px; min-width: 38px; flex-basis: 38px; }
+}
+@media (min-width: 480px) {
+  #root > div > main { padding-inline: 18px; }
+  main ul:not(.grid) > li { padding: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none !important; }
+}
