@@ -66,6 +66,7 @@ export default function App() {
   const [onlineMuted, setOnlineMuted] = useState(false)
   const [onlineVolume, setOnlineVolume] = useState(80)
   const [onlineRate, setOnlineRate] = useState(1)
+  const [onlineLoop, setOnlineLoop] = useState(false)
   const onlineFrame = useRef<HTMLIFrameElement>(null)
   const [scanMsg, setScanMsg] = useState('')
   const [find, setFind] = useState<string | null>(null)
@@ -988,11 +989,11 @@ export default function App() {
                   <div className={onlineMedia.platform === 'youtube' ? 'overflow-hidden rounded-xl border border-white/10 bg-black' : 'mx-auto h-[min(62vh,600px)] min-h-[380px] max-w-[390px] overflow-hidden rounded-xl border border-white/10 bg-black'}>
                     <iframe
                       ref={onlineFrame}
-                      key={onlineMedia.key}
+                      key={onlineMedia.key + (onlineLoop ? ':loop' : ':once')}
                       title={onlineMedia.platform === 'youtube' ? 'YouTube video player' : 'TikTok video player'}
                       src={onlineMedia.platform === 'youtube'
-                        ? `https://www.youtube.com/embed/${onlineMedia.videoId}?playsinline=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
-                        : `https://www.tiktok.com/player/v1/${onlineMedia.videoId}?controls=1&progress_bar=1&play_button=1&volume_control=1&music_info=1&description=1&autoplay=0&loop=0&timestamp=1`}
+                        ? `https://www.youtube.com/embed/${onlineMedia.videoId}?playsinline=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}&loop=${onlineLoop ? 1 : 0}&playlist=${onlineMedia.videoId}`
+                        : `https://www.tiktok.com/player/v1/${onlineMedia.videoId}?controls=1&progress_bar=1&play_button=1&volume_control=1&music_info=1&description=1&autoplay=0&loop=${onlineLoop ? 1 : 0}&timestamp=1`}
                       className={onlineMedia.platform === 'youtube' ? 'block aspect-video w-full' : 'block size-full w-full'}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
@@ -1007,11 +1008,12 @@ export default function App() {
                   </div>
                 )}
                 {onlineMedia.videoId && <>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-5 gap-2">
                     <button onClick={playOnlinePrevious} className="rounded-xl bg-white/10 py-2 text-xs">السابق</button>
                     <button onClick={toggleOnlinePlayback} className="rounded-xl py-2 text-xs font-semibold text-white" style={{ background: A }}>{onlinePlaying ? 'إيقاف' : 'تشغيل'}</button>
                     <button onClick={playOnlineNext} className="rounded-xl bg-white/10 py-2 text-xs">التالي</button>
                     <button onClick={() => { sendOnlineCommand(onlineMuted ? 'unMute' : 'mute'); setOnlineMuted(!onlineMuted) }} className="rounded-xl bg-white/10 py-2 text-xs">{onlineMuted ? 'إلغاء كتم' : 'كتم'}</button>
+                    <button onClick={() => setOnlineLoop((v) => !v)} className="rounded-xl bg-white/10 py-2 text-xs" style={{ color: onlineLoop ? A : undefined }}>{onlineLoop ? 'التكرار شغّال' : 'تكرار'}</button>
                   </div>
                   <div className="flex items-center gap-2">
                     <button aria-label="رجوع 10 ثواني" onClick={() => seekOnlineBy(-10)} className="rounded-lg bg-white/10 px-3 py-2 text-xs">−10s</button>
