@@ -109,7 +109,7 @@ export default function App() {
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
-  const showM = tab === 'music' || tab === 'fav' || open
+  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || open
   const showV = tab === 'video' || tab === 'fav' || open
   const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
 
@@ -402,7 +402,7 @@ export default function App() {
         )}
         {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
         {showV && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
-        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : (tab === 'fav' || open) && !videos.length && !musics.length) && empty}
+        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && empty}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
