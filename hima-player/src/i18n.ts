@@ -83,17 +83,20 @@ const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length
 
 export function translateText(value: string, language: Language): string {
   if (language === 'ar' || !value) return value
-  const leading = value.match(/^\s*/)?.[0] ?? ''
-  const trailing = value.match(/\s*$/)?.[0] ?? ''
-  const core = value.slice(leading.length, value.length - trailing.length || undefined)
+  if (!value.trim()) return value
+  const leading = value.length - value.trimStart().length
+  const trailing = value.length - value.trimEnd().length
+  const prefix = value.slice(0, leading)
+  const suffix = trailing ? value.slice(-trailing) : ''
+  const core = value.trim()
   const exact = strings[core]
-  if (exact) return leading + exact[language === 'en' ? 0 : 1] + trailing
+  if (exact) return prefix + exact[language === 'en' ? 0 : 1] + suffix
   let out = core
   for (const [source, pair] of entries) {
     if (source.length < 3 || !out.includes(source)) continue
     out = out.split(source).join(pair[language === 'en' ? 0 : 1])
   }
-  return leading + out + trailing
+  return prefix + out + suffix
 }
 
 type TextRecord = { original: string; translated: string }
