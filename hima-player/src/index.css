@@ -1461,3 +1461,30 @@ main ul.grid > li > button:first-child { min-height: 0; }
 @media (prefers-reduced-motion: reduce) {
   .roksi-page button, .roksi-page input, .roksi-page textarea { transition: none !important; }
 }
+
+
+/* Mobile interaction fix: keep section dropdowns above adjacent content and tap-friendly. */
+.hema-nav-menu {
+  position: relative;
+  z-index: 80;
+  isolation: isolate;
+  pointer-events: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.hema-nav-group,
+.hema-nav-options,
+.hema-nav-group-trigger,
+.hema-nav-option { pointer-events: auto; }
+.hema-nav-group-trigger,
+.hema-nav-option {
+  position: relative;
+  z-index: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hema-nav-group-trigger:focus-visible,
+.hema-nav-option:focus-visible,
+.hema-menu-toggle:focus-visible {
+  outline: 2px solid var(--hema-teal);
+  outline-offset: 2px;
+}
