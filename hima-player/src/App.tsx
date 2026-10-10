@@ -618,6 +618,7 @@ export default function App() {
       setPlaying(false)
       void keepAlive(false)
     }
+    setAudioTrackMenu(false)
     setFs(false)
     void bars(false)
     void lock(false)
@@ -1757,7 +1758,7 @@ export default function App() {
             } else if (G.ax === 'x') { G.nt = Math.max(0, Math.min(d, G.t + (dx / G.w) * 120)); setHud({ k: 'seek', v: G.nt }) }
           }}
           onTouchEnd={() => { if (lockedScreen) return; const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
-          {audioTrackMenu && <div className="absolute end-3 top-20 z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#101522]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          {audioTrackMenu && ui && !lockedScreen && <div className="video-audio-track-menu absolute end-3 top-[132px] z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#101522]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
                 <p className="mb-2 text-sm font-semibold">مسارات الصوت</p>
                 {audioTracks.length ? audioTracks.map((track) => <button key={track.id} onClick={() => chooseAudioTrack(track.id)} className="mb-1 flex w-full items-center gap-2 rounded-xl bg-white/5 p-3 text-start text-sm" style={{ color: track.enabled ? A : undefined }}><span className="min-w-0 flex-1 truncate">{track.label}</span><span className="text-xs opacity-50">{track.language}</span>{track.enabled ? '✓' : ''}</button>) : <p className="text-xs opacity-65">لم يعرض Android WebView مسارات صوت منفصلة لهذا الفيديو.</p>}
               </div>}
@@ -1767,35 +1768,40 @@ export default function App() {
           {lockedScreen && <button onClick={(e) => { e.stopPropagation(); setLockedScreen(false); poke() }} className="absolute inset-x-0 bottom-10 z-[60] mx-auto w-fit rounded-full bg-black/75 px-5 py-3 text-sm text-white shadow-xl">اضغط لفتح اللمس</button>}
           {ui && !lockedScreen && (
             <>
-              <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/80 to-transparent p-3 pt-8">
-                <button aria-label="رجوع" onClick={(e) => { e.stopPropagation(); closeVideo() }} className="p-1"><Icon n="back" /></button>
-                <span className="min-w-0 flex-1 truncate">{cur.title}</span>
-                <label onClick={(e) => e.stopPropagation()} className="rounded-lg bg-white/15 px-3 py-1 text-sm">CC
-                  <input type="file" accept=".srt,.vtt" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const tx = await f.text(); if (subUrl.current) URL.revokeObjectURL(subUrl.current); subUrl.current = URL.createObjectURL(new Blob([f.name.toLowerCase().endsWith('.vtt') ? tx : srt2vtt(tx)], { type: 'text/vtt' })); setSub(subUrl.current) } }} />
-                </label>
-                <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
-                <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
-                <button onClick={(e) => { e.stopPropagation(); setCueSize((v) => Math.min(200, v + 10)) }} className="rounded-lg bg-white/15 px-2 py-1 text-xs">CC A+</button>
-                <button onClick={(e) => { e.stopPropagation(); setCueColor((v) => v === '#ffffff' ? '#ffe082' : v === '#ffe082' ? '#80deea' : v === '#80deea' ? '#f48fb1' : '#ffffff') }} className="rounded-lg bg-white/15 px-2 py-1 text-xs" style={{ color: cueColor }}>لون CC</button>
-                <button onClick={(e) => { e.stopPropagation(); setCueSize((v) => Math.max(80, v - 10)) }} className="rounded-lg bg-white/15 px-2 py-1 text-xs">CC A−</button>
-                <button onClick={(e) => { e.stopPropagation(); setLockedScreen(!lockedScreen) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{lockedScreen ? 'فتح اللمس' : 'قفل اللمس'}</button>
-                <button onClick={(e) => { e.stopPropagation(); void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز')) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">PiP</button>
-                <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
-                <button onClick={(e) => { e.stopPropagation(); setAudioTrackMenu((v) => !v); refreshAudioTracks() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">مسار الصوت</button>
-                <div className="flex items-center gap-1 rounded-lg bg-white/10 px-1">
-                  <button aria-label="تأخير الترجمة" onClick={(e) => { e.stopPropagation(); setSubOffset((v) => Math.max(-10, Math.round((v - 0.25) * 100) / 100)) }} className="px-2 py-1 text-xs">CC −</button>
-                  <span className="text-[10px]" dir="ltr">{subOffset.toFixed(2)}s</span>
-                  <button aria-label="تقديم الترجمة" onClick={(e) => { e.stopPropagation(); setSubOffset((v) => Math.min(10, Math.round((v + 0.25) * 100) / 100)) }} className="px-2 py-1 text-xs">CC +</button>
+              <div className="video-overlay-top absolute inset-x-0 top-0 flex flex-col gap-2 bg-gradient-to-b from-black/90 via-black/65 to-transparent px-3 pb-5"
+                style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }} onClick={(e) => e.stopPropagation()}>
+                <div className="video-title-row flex min-w-0 items-center gap-2">
+                  <button aria-label="رجوع" onClick={closeVideo} className="video-icon-button"><Icon n="back" s={20} /></button>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{cur.title}</span>
+                  <button aria-label="تدوير الشاشة" onClick={() => void rotate()} className="video-icon-button"><Icon n="rotate" s={20} /></button>
+                  <button aria-label="صورة داخل صورة" onClick={() => void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز'))} className="video-tool">PiP</button>
+                  <button aria-label="تغيير ملاءمة الفيديو" onClick={() => setCover(!cover)} className="video-tool">{cover ? 'ملء' : 'احتواء'}</button>
+                </div>
+                <div className="video-toolbar flex flex-wrap items-center gap-1.5">
+                  <label className="video-tool cursor-pointer">ترجمة CC
+                    <input type="file" accept=".srt,.vtt" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f) { const tx = await f.text(); if (subUrl.current) URL.revokeObjectURL(subUrl.current); subUrl.current = URL.createObjectURL(new Blob([f.name.toLowerCase().endsWith('.vtt') ? tx : srt2vtt(tx)], { type: 'text/vtt' })); setSub(subUrl.current) } e.currentTarget.value = '' }} />
+                  </label>
+                  <button aria-label="سرعة التشغيل" onClick={() => cycleSpeed()} className="video-tool">{SPEEDS[speed]}×</button>
+                  <button aria-label="تكبير الترجمة" onClick={() => setCueSize((v) => Math.min(200, v + 10))} className="video-tool">A+</button>
+                  <button aria-label="تغيير لون الترجمة" onClick={() => setCueColor((v) => v === '#ffffff' ? '#ffe082' : v === '#ffe082' ? '#80deea' : v === '#80deea' ? '#f48fb1' : '#ffffff')} className="video-tool" style={{ color: cueColor }}>لون CC</button>
+                  <button aria-label="تصغير الترجمة" onClick={() => setCueSize((v) => Math.max(80, v - 10))} className="video-tool">A−</button>
+                  <button aria-label="قفل أو فتح اللمس" onClick={() => setLockedScreen(!lockedScreen)} className="video-tool">{lockedScreen ? 'فتح اللمس' : 'قفل اللمس'}</button>
+                  <button aria-label="اختيار مسار الصوت" onClick={() => { setAudioTrackMenu((v) => !v); refreshAudioTracks() }} className="video-tool">مسار الصوت</button>
+                  <div className="video-tool video-subtitle-offset">
+                    <button aria-label="تأخير الترجمة" onClick={() => setSubOffset((v) => Math.max(-10, Math.round((v - 0.25) * 100) / 100))}>−</button>
+                    <span dir="ltr">{subOffset.toFixed(2)}s</span>
+                    <button aria-label="تقديم الترجمة" onClick={() => setSubOffset((v) => Math.min(10, Math.round((v + 0.25) * 100) / 100))}>+</button>
+                  </div>
                 </div>
               </div>
-              <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-12" dir="ltr" onClick={(e) => e.stopPropagation()}>
+              <div className="video-center-controls absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-8" dir="ltr" onClick={(e) => e.stopPropagation()}>
                 <button aria-label="رجوع 10 ثواني" onClick={() => { seek(t - 10); poke() }}><Icon n="rew" s={40} /></button>
-                <button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="grid size-20 place-items-center rounded-full bg-black/50"><Icon n={playing ? 'pause' : 'play'} s={44} /></button>
+                <button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="video-main-play grid size-16 place-items-center rounded-full bg-black/60 ring-1 ring-white/15"><Icon n={playing ? 'pause' : 'play'} s={44} /></button>
                 <button aria-label="تقديم 10 ثواني" onClick={() => { seek(t + 10); poke() }}><Icon n="fwd" s={40} /></button>
               </div>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 pb-3 pt-8" onClick={(e) => e.stopPropagation()}>
+              <div className="video-bottom-controls absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-4 pb-3 pt-8" onClick={(e) => e.stopPropagation()}>
                 {Bar({})}
-                <div dir="ltr" className="flex justify-center gap-10 pt-1"><button aria-label="السابق" onClick={() => step(-1)}><Icon n="prev" s={30} /></button><button aria-label="التالي" onClick={() => step(1)}><Icon n="next" s={30} /></button></div>
+                <div dir="ltr" className="video-bottom-navigation flex justify-center gap-10 pt-1"><button aria-label="السابق" onClick={() => step(-1)}><Icon n="prev" s={30} /></button><button aria-label="التالي" onClick={() => step(1)}><Icon n="next" s={30} /></button></div>
               </div>
             </>
           )}

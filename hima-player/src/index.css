@@ -443,3 +443,83 @@ main .rounded-2xl.border { box-shadow: none !important; }
 @media (max-width: 380px) {
   .media-track-actions { grid-template-columns: repeat(4,minmax(0,1fr)); }
 }
+
+
+/* Video player: responsive grouped controls and mobile safe-area handling. */
+.video-overlay-top {
+  z-index: 55;
+  padding-left: max(10px, env(safe-area-inset-left));
+  padding-right: max(10px, env(safe-area-inset-right));
+  max-height: 48%;
+  overflow: visible;
+  pointer-events: none;
+}
+.video-overlay-top > * { pointer-events: auto; }
+.video-title-row { min-height: 38px; }
+.video-icon-button {
+  display: inline-flex;
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+  background: rgba(15,19,29,.72);
+  color: #fff;
+}
+.video-tool {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 11px;
+  background: rgba(20,25,36,.76);
+  color: rgba(255,255,255,.94);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.video-toolbar { min-width: 0; width: 100%; row-gap: 6px; }
+.video-subtitle-offset { padding: 0 5px; gap: 7px; }
+.video-subtitle-offset button { display: grid; min-width: 30px; min-height: 30px; place-items: center; border-radius: 8px; background: rgba(255,255,255,.08); }
+.video-subtitle-offset span { font-size: 10px; opacity: .8; }
+.video-center-controls { z-index: 35; }
+.video-center-controls > button { min-width: 48px; min-height: 48px; display: grid; place-items: center; color: #fff; }
+.video-main-play { width: 64px; height: 64px; min-width: 64px !important; min-height: 64px !important; }
+.video-bottom-controls { z-index: 45; padding-bottom: calc(env(safe-area-inset-bottom) + 8px); }
+.video-bottom-navigation { align-items: center; }
+.video-bottom-navigation > button { display: grid; width: 42px; min-width: 42px; height: 42px; min-height: 42px; place-items: center; border-radius: 12px; background: rgba(255,255,255,.08); }
+.video-audio-track-menu { top: 132px; max-height: calc(100% - 170px); }
+@media (max-width: 390px) {
+  .video-overlay-top { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .video-title-row { gap: 6px; }
+  .video-tool { min-height: 32px; padding-left: 8px; padding-right: 8px; font-size: 11px; }
+  .video-toolbar { gap: 5px; row-gap: 5px; }
+  .video-center-controls { gap: 22px; }
+  .video-main-play { width: 58px; height: 58px; min-width: 58px !important; min-height: 58px !important; }
+  .video-bottom-controls { padding-left: 12px; padding-right: 12px; padding-top: 28px; }
+  .video-bottom-navigation { gap: 42px; }
+}
+@media (orientation: landscape) and (max-height: 460px) {
+  .video-overlay-top { padding-top: max(4px, env(safe-area-inset-top)) !important; padding-bottom: 8px; gap: 4px; max-height: 56%; }
+  .video-title-row { min-height: 30px; gap: 5px; }
+  .video-icon-button { width: 32px; min-width: 32px; height: 30px; min-height: 30px; flex-basis: 32px; border-radius: 9px; }
+  .video-tool { min-height: 28px; padding-left: 7px; padding-right: 7px; border-radius: 8px; font-size: 10px; }
+  .video-toolbar { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding-bottom: 2px; }
+  .video-toolbar::-webkit-scrollbar { display: none; }
+  .video-center-controls { gap: 12px; }
+  .video-center-controls > button { min-width: 42px; min-height: 42px; }
+  .video-main-play { width: 48px; height: 48px; min-width: 48px !important; min-height: 48px !important; }
+  .video-main-play svg { width: 30px; height: 30px; }
+  .video-bottom-controls { padding-top: 20px; padding-bottom: calc(env(safe-area-inset-bottom) + 3px); }
+  .video-bottom-navigation > button { width: 34px; min-width: 34px; height: 32px; min-height: 32px; }
+  .video-audio-track-menu { top: 76px !important; max-height: calc(100% - 100px); }
+}
