@@ -12,7 +12,7 @@ import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
 
 type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; album?: string; albumId?: string; genre?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
-type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast'
+type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast' | 'roksi'
 type Repeat = 'off' | 'all' | 'one'
 type OnlinePlatform = 'youtube' | 'ytmusic' | 'tiktok'
 type OnlineLink = { key: string; platform: OnlinePlatform; videoId: string; url: string; title: string }
@@ -23,6 +23,11 @@ const BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { n: 'باس', g: [8, 7, 6, 4, 2, 0, 0, 0, 0, 0] }, { n: 'صوت', g: [-3, -2, 0, 3, 5, 5, 4, 2, 0, -1] }, { n: 'روك', g: [5, 4, 2, -1, -1, 1, 3, 5, 6, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, 2, 0, -1, -2, -3, -4] }, { n: 'مخصص', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }]
 const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B', '#FF6B6B', '#FFB84D', '#F472B6']
 const ACCENT_NAMES = ['بنفسجي', 'تركواز', 'أزرق', 'ليلكي', 'ثلجي', 'رمادي', 'مرجاني', 'ذهبي', 'وردي']
+const ROKSI_LETTERS: Record<'pl' | 'en' | 'ar', string> = {
+  pl: 'Kochana Roksi,\n\nStworzyłem HEMA ROKSI PLAYER specjalnie dla Ciebie — kawałek mojego świata, który możesz mieć przy sobie. Mam nadzieję, że każda piosenka przyniesie Ci uśmiech i przypomni, jak bardzo jesteś dla mnie ważna.\n\nZ miłością,\nHema (Ibi) ❤️',
+  en: 'My dear Roksi,\n\nI made HEMA ROKSI PLAYER especially for you — a little piece of my world that you can carry with you. I hope every song brings you a smile and reminds you how special you are to me.\n\nWith love,\nHema (Ibi) ❤️',
+  ar: 'روكسي حبيبتي،\n\nصنعت HEMA ROKSI PLAYER خصيصًا لكِ؛ قطعة صغيرة من عالمي أضعها بين يديكِ. أتمنى أن تمنحكِ كل أغنية ابتسامة، وأن تذكّركِ دائمًا بمدى خصوصيتكِ في قلبي.\n\nبكل الحب،\nهيما (إبي) ❤️',
+}
 type Mood = 'focus' | 'energy' | 'romance' | 'night' | 'arabic' | 'nostalgia' | 'chill' | 'random'
 const MOOD_PRESETS: { id: Mood; title: string; subtitle: string; icon: string }[] = [
   { id: 'focus', title: 'تركيز ودراسة', subtitle: 'هادئ وأقل تشتيتًا', icon: '◌' },
@@ -214,7 +219,13 @@ export default function App() {
   const [settings, setSettings] = useState(false)
   const [navMenuOpen, setNavMenuOpen] = useState(false)
   const [navGroupOpen, setNavGroupOpen] = useState<string | null>(null)
+  const [roksiGlow, setRoksiGlow] = useState<boolean>(() => ls('hema_roksi_mode', true))
+  const [roksiSongIds, setRoksiSongIds] = useState<string[]>(() => ls<string[]>('hema_roksi_songs', []))
+  const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
+  const [roksiLetter, setRoksiLetter] = useState<string>(() => ls('hema_roksi_letter', ROKSI_LETTERS.pl))
+  const [roksiStoryTitle, setRoksiStoryTitle] = useState<string>(() => ls('hema_roksi_story_title', 'Hema × Roksi'))
   useEffect(() => initLocalization(language), [language])
+  useEffect(() => { localStorage.setItem('hema_roksi_mode', JSON.stringify(roksiGlow)); localStorage.setItem('hema_roksi_songs', JSON.stringify(roksiSongIds)); localStorage.setItem('hema_roksi_letter_lang', JSON.stringify(roksiLetterLang)); localStorage.setItem('hema_roksi_letter', JSON.stringify(roksiLetter)); localStorage.setItem('hema_roksi_story_title', JSON.stringify(roksiStoryTitle)) }, [roksiGlow, roksiSongIds, roksiLetterLang, roksiLetter, roksiStoryTitle])
   useEffect(() => { localStorage.setItem('hema_battery_saver', JSON.stringify(batterySaver)); document.body.classList.toggle('hema-battery-saver', batterySaver) }, [batterySaver])
   const [plSheet, setPlSheet] = useState<Track | null>(null)
   const [sub, setSub] = useState<string | null>(null)
@@ -1543,6 +1554,15 @@ export default function App() {
       ],
     },
     {
+      id: 'personal',
+      title: language === 'ar' ? 'هدية روكسي' : language === 'pl' ? 'Dla Roksi' : 'For Roksi',
+      description: language === 'ar' ? 'رسالة وأغاني صنعتها من أجلك' : language === 'pl' ? 'List i muzyka stworzone dla Ciebie' : 'A letter and songs made for you',
+      icon: 'heart',
+      items: [
+        { key: 'roksi' as Tab, label: language === 'ar' ? 'عالمي الصغير لكِ ♡' : language === 'pl' ? 'Mały świat dla Ciebie ♡' : 'A little world for you ♡', icon: 'heart' },
+      ],
+    },
+    {
       id: 'connect',
       title: language === 'ar' ? 'الاتصال والمنصات' : language === 'pl' ? 'Połączenia i platformy' : 'Connect & services',
       description: language === 'ar' ? 'YouTube Music والبث للتلفاز' : language === 'pl' ? 'YouTube Music i przesyłanie na TV' : 'YouTube Music and TV casting',
@@ -1617,7 +1637,7 @@ export default function App() {
           })}
         </nav>
       )}
-      {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && (
+      {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'roksi' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
@@ -1827,6 +1847,46 @@ export default function App() {
         </div>}
         {canScan() && (nativeMore.audio || nativeMore.video) && <button onClick={() => void loadMoreNativeMedia()} disabled={nativeLoading} className="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-50">{nativeLoading ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد من ملفات الهاتف'}</button>}
         {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : tab === 'explore' ? exploreValue !== null && !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
+        {tab === 'roksi' && (
+          <div className={'roksi-page space-y-4 pb-5 ' + (roksiGlow ? 'roksi-glow-on' : '')} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <section className="roksi-hero relative overflow-hidden rounded-3xl border p-5">
+              <div className="roksi-orb roksi-orb-one" /><div className="roksi-orb roksi-orb-two" />
+              <div className="relative z-10 space-y-3">
+                <p className="text-[10px] font-bold tracking-[.24em] text-pink-200">A LITTLE GIFT · MADE WITH LOVE</p>
+                <h2 className="text-3xl font-bold tracking-tight">{roksiStoryTitle || 'Hema × Roksi'} <span className="text-pink-300">♡</span></h2>
+                <p className="max-w-sm text-sm leading-7 text-white/75">Dla Ciebie, Roksi. Mały kawałek mojego świata — stworzony przeze mnie w Gazie, z myślą o Tobie.</p>
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇸 Gaza · Hema</span>
+                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇱 Poland · Roksi</span>
+                </div>
+                <button type="button" onClick={() => setRoksiGlow((value) => !value)} aria-pressed={roksiGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{roksiGlow ? '♡ Romantic glow: ON' : '♡ Romantic glow: OFF'}</button>
+              </div>
+            </section>
+            <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
+              <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">OUR SONGS</p><h3 className="mt-1 text-lg font-bold">Nasze piosenki ♫</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} saved</span></div>
+              <p className="mb-3 text-xs leading-5 opacity-60">Wybierz utwory z biblioteki, które chcesz zachować na naszej liście. Lista zapisuje się na tym telefonie.</p>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => { const ids = roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)); if (!ids.length) { notify('أضيفي أغاني إلى Our Songs أولًا.'); return } setQueueIds(ids); const first = q.findIndex((x) => x.id === ids[0]); if (first >= 0) { setI(first); setSheet(true); setTab('queue') } }} className="rounded-xl bg-pink-500/90 px-3 py-3 text-sm font-bold text-white">▶ Play Our Songs</button>
+                <button type="button" onClick={() => { const ids = q.filter((x) => !x.video && x.fav).map((x) => x.id); if (!ids.length) { notify('لا توجد أغاني مفضلة بعد.'); return } setRoksiSongIds((old) => [...new Set([...old, ...ids])]); notify('أُضيفت الأغاني المفضلة إلى Our Songs.') }} className="rounded-xl bg-white/10 px-3 py-3 text-sm">♡ Add favorites</button>
+              </div>
+              {q.filter((x) => !x.video).length === 0 ? <p className="rounded-xl bg-black/20 p-4 text-center text-sm opacity-65">أضف ملفات موسيقى من زر + في الأعلى، ثم ارجع إلى هنا لاختيار أغانيكم.</p> : <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain rounded-xl bg-black/15 p-2">{q.filter((x) => !x.video).slice(0, 100).map((track) => { const added = roksiSongIds.includes(track.id); return <div key={track.id} className="flex min-w-0 items-center gap-2 rounded-xl p-2"><span className="grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold" style={art(track.title)}>{track.cover ? <img src={track.cover} alt="" loading="lazy" className="size-full rounded-lg object-cover" /> : '♫'}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs opacity-50">{track.artist || 'Unknown artist'}</span></span><button type="button" aria-label={added ? 'Remove from Our Songs' : 'Add to Our Songs'} onClick={() => setRoksiSongIds((ids) => added ? ids.filter((id) => id !== track.id) : [...ids, track.id])} className="min-h-10 min-w-10 rounded-xl px-3 text-lg" style={{ background: added ? 'rgba(244,114,182,.2)' : 'rgba(255,255,255,.07)', color: added ? '#f9a8d4' : '#fff' }}>{added ? '♥' : '+'}</button></div> })}</div>}
+              {q.filter((x) => !x.video).length > 100 && <p className="mt-2 text-[10px] opacity-45">تُعرض أول 100 أغنية لتبقى الصفحة خفيفة.</p>}
+            </section>
+            <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[.035] p-4">
+              <div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">A LETTER FOR YOU</p><h3 className="mt-1 text-lg font-bold">List od Hemy 💌</h3><p className="mt-1 text-xs opacity-60">Ta wiadomość jest zapisana tylko na tym urządzeniu i możesz ją zmienić.</p></div>
+              <label className="block text-xs opacity-60">لغة الرسالة / Message language</label>
+              <div className="grid grid-cols-3 gap-2">{([{id:'pl',label:'Polski 🇵🇱'},{id:'en',label:'English'},{id:'ar',label:'العربية'}] as const).map((opt) => <button key={opt.id} type="button" aria-pressed={roksiLetterLang === opt.id} onClick={() => { setRoksiLetterLang(opt.id); setRoksiLetter(ROKSI_LETTERS[opt.id]) }} className="rounded-xl border px-2 py-2.5 text-xs font-semibold" style={roksiLetterLang === opt.id ? {background:'rgba(244,114,182,.2)',borderColor:'#f472b6',color:'#fbcfe8'} : {background:'rgba(255,255,255,.045)',borderColor:'rgba(255,255,255,.1)'}}>{opt.label}</button>)}</div>
+              <label className="block space-y-2"><span className="text-xs opacity-65">رسالتك إلى روكسي</span><textarea value={roksiLetter} onChange={(e) => setRoksiLetter(e.target.value)} maxLength={2500} rows={7} className="w-full resize-y rounded-xl border border-pink-200/10 bg-black/25 p-3 text-sm leading-7 outline-none focus:border-pink-300/60" placeholder="اكتب كلماتك الخاصة هنا…" /></label>
+              <div className="flex items-center justify-between gap-2"><span className="text-[10px] opacity-45">{roksiLetter.length}/2500 · auto-saved</span><button type="button" onClick={() => { navigator.clipboard?.writeText(roksiLetter).then(() => notify('تم نسخ الرسالة.')).catch(() => notify('تعذر النسخ في هذا الجهاز.')) }} className="rounded-xl bg-pink-500/80 px-4 py-2.5 text-xs font-semibold text-white">نسخ الرسالة</button></div>
+            </section>
+            <section className="rounded-2xl border border-pink-200/10 bg-gradient-to-br from-pink-500/[.10] to-violet-500/[.06] p-4">
+              <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">OUR LITTLE STORY</p><h3 className="mt-1 text-lg font-bold">Gaza ♡ Poland</h3>
+              <p className="mt-2 text-sm leading-7 opacity-75">المسافة بين مكانين لا تمنع شخصين من مشاركة الأغاني والذكريات. هذه المساحة لكما؛ أضيفوا إليها أغانيكم وكلماتكم وتواريخكم المهمة عندما تريدان.</p>
+              <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">عنوان قصتكم (قابل للتعديل)</span><input value={roksiStoryTitle} onChange={(e) => setRoksiStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Roksi" /></label>
+            </section>
+          </div>
+        )}
+
         {tab === 'ai' && (
           <div className="space-y-4 p-1">
             <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3"><div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>HEMA MOOD DJ</p><h2 className="mt-1 text-lg font-bold">اختَر مزاجك</h2><p className="mt-1 text-xs leading-5 opacity-60">إنشاء قائمة محلية من مكتبتك؛ يعتمد الترتيب على الاسم والفنان والنوع والمفضلة وسجل الاستماع.</p></div><div className="grid grid-cols-2 gap-2">{MOOD_PRESETS.map((preset) => <button key={preset.id} onClick={() => playMood(preset.id)} className="flex min-h-[76px] min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3 text-start transition active:scale-[.98]" style={{ borderColor: 'rgba(255,255,255,.09)' }}><span className="grid size-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: A + '26', color: A }}>{preset.icon}</span><span className="min-w-0"><span className="block text-sm font-semibold">{preset.title}</span><span className="mt-1 block text-[10px] leading-4 opacity-55">{preset.subtitle}</span></span></button>)}</div></section>
