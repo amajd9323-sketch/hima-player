@@ -10,9 +10,9 @@ type Track = { id: string; title: string; url: string; video: boolean; fav?: boo
 type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
-const SPEEDS = [1, 1.5, 2, 0.75]
+const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
 const BANDS = [60, 230, 910, 3600, 14000]
-const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0] }, { n: 'باس', g: [7, 4, 0, 0, 0] }, { n: 'صوت', g: [-1, 0, 3, 4, 2] }, { n: 'روك', g: [5, 2, -1, 3, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, -1] }]
+const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0] }, { n: 'باس', g: [7, 4, 0, 0, 0] }, { n: 'صوت', g: [-1, 0, 3, 4, 2] }, { n: 'روك', g: [5, 2, -1, 3, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, -1] }, { n: 'مخصص', g: [0, 0, 0, 0, 0] }]
 const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B']
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 let A = ACCENTS[0]
@@ -57,6 +57,7 @@ export default function App() {
   const [repeat, setRepeat] = useState<Repeat>('off')
   const [speed, setSpeed] = useState(0)
   const [eq, setEq] = useState(0)
+  const [customEq, setCustomEq] = useState<number[]>(() => ls('hema_custom_eq', [0, 0, 0, 0, 0]))
   const [sleep, setSleep] = useState(0)
   const [vol, setVol] = useState<number | null>(null)
   const [ask, setAsk] = useState('')
@@ -95,6 +96,7 @@ export default function App() {
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
+  useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
   useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
   useEffect(() => { const id = q[i]?.id; if (!id) return; setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
   const m = useRef<HTMLVideoElement>(null)
@@ -171,12 +173,13 @@ export default function App() {
   const closeVideo = () => { setFs(false); void bars(false); void lock(false) }
   const poke = () => { setUi(true); window.clearTimeout(hide.current); hide.current = window.setTimeout(() => setUi(false), 3500) }
   const cycleSpeed = () => { const n = (speed + 1) % SPEEDS.length; setSpeed(n); if (m.current) m.current.playbackRate = SPEEDS[n] }
-  const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = EQS[k].g[j])) }
+  const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = (k === EQS.length - 1 ? customEq : EQS[k].g)[j])) }
+  const changeEqBand = (j: number, value: number) => { const next = [...customEq]; next[j] = value; setCustomEq(next); setEq(EQS.length - 1); if (bands.current[j]) bands.current[j].gain.value = value }
   const initAudio = () => {
     if (ac.current) return void ac.current.resume()
     if (!m.current) return
     const c = new AudioContext(); const src = c.createMediaElementSource(m.current)
-    bands.current = BANDS.map((f) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = EQS[eq].g[BANDS.indexOf(f)]; return b })
+    bands.current = BANDS.map((f) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[BANDS.indexOf(f)]; return b })
     const gn = c.createGain(); gn.gain.value = boost / 100
     const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
     const an = c.createAnalyser(); an.fftSize = 64
@@ -276,7 +279,7 @@ export default function App() {
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = () => {
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); URL.revokeObjectURL(url)
     setBackupMsg('تم تصدير النسخة الاحتياطية')
@@ -294,6 +297,7 @@ export default function App() {
       if (typeof data.accent === 'number' && data.accent >= 0 && data.accent < ACCENTS.length) setAcc(data.accent)
       if (typeof data.sort === 'string' && SORTS.some(([k]) => k === data.sort)) setSort(data.sort)
       if (typeof data.boost === 'number') setBoost(Math.max(100, Math.min(300, data.boost)))
+      if (Array.isArray(data.customEq) && data.customEq.length === 5 && data.customEq.every((x) => typeof x === 'number' && x >= -12 && x <= 12)) setCustomEq(data.customEq as number[])
       if (typeof data.shake === 'boolean') setShake(data.shake)
       if (typeof data.adhan === 'boolean') setAdhan(data.adhan)
       if (typeof data.quran === 'boolean') setQuran(data.quran)
@@ -438,6 +442,7 @@ export default function App() {
           <canvas ref={cv} width={288} height={48} className="mx-auto" />
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
           {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}
+          <label className="mx-auto cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed) } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label>
           {Bar({ big: true })}{Ctl()}
           <div dir="ltr" className="flex justify-around pb-2 opacity-90">
             <button aria-label="مفضلة" onClick={() => fav(cur)} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" /></button>
@@ -453,7 +458,10 @@ export default function App() {
                 {panel === 'eq' ? EQS.map((e, k) => <Opt key={e.n} on={eq === k} onClick={() => applyEq(k)}>{e.n}</Opt>)
                   : [0, 15, 30, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
               </div>
-              {panel === 'eq' && <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>}
+              {panel === 'eq' && <>
+                {eq === EQS.length - 1 && <div className="space-y-3 rounded-xl bg-black/20 p-3">{BANDS.map((f, j) => <label key={f} className="grid grid-cols-[54px_1fr_42px] items-center gap-2 text-xs"><span dir="ltr">{f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`}</span><input aria-label={`EQ ${f} Hz`} type="range" min={-12} max={12} step={1} value={customEq[j]} onChange={(e) => changeEqBand(j, +e.target.value)} style={{ accentColor: A }} /><span className="text-end" dir="ltr">{customEq[j] > 0 ? '+' : ''}{customEq[j]} dB</span></label>)}</div>}
+                <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
+              </>}
               <button onClick={() => setPanel(null)} className="w-full py-2 opacity-70">تم</button>
             </div>
           )}

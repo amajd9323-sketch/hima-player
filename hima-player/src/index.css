@@ -17,3 +17,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @keyframes spin{to{transform:rotate(360deg)}}
 video{background:#03050a}
 video::cue{font-size:1.2rem;background:rgba(0,0,0,.72)}
+
+/* HEMA ROKSI accessibility and mobile polish */
+button,label{ -webkit-user-select:none; user-select:none }
+input[type=range]{min-height:24px;cursor:pointer}
+@media (max-width:420px){button{min-height:36px} video::cue{font-size:1rem}}
