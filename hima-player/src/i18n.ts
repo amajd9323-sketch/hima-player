@@ -551,13 +551,46 @@ export function initLocalization(language: Language): () => void {
   }
 
   translateNode(document.body)
+
+  // Batch React DOM mutations into one pass per frame to avoid repeated subtree walks.
+  const pending = new Set<Node>()
+  let scheduled = false
+  let frame = 0
+  const flushPending = () => {
+    scheduled = false
+    frame = 0
+    const queued = Array.from(pending)
+    pending.clear()
+    const queuedSet = new Set(queued)
+    const roots = queued.filter((node) => {
+      let parent = node.parentNode
+      while (parent) {
+        if (queuedSet.has(parent)) return false
+        parent = parent.parentNode
+      }
+      return true
+    })
+    for (const node of roots) translateNode(node, true)
+  }
+  const queueNode = (node: Node) => {
+    pending.add(node)
+    if (scheduled) return
+    scheduled = true
+    if (typeof requestAnimationFrame === 'function') frame = requestAnimationFrame(flushPending)
+    else window.setTimeout(flushPending, 0)
+  }
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.type === 'characterData' && mutation.target.parentElement) translateNode(mutation.target, true)
-      for (const node of Array.from(mutation.addedNodes)) translateNode(node, true)
-      if (mutation.type === 'attributes' && mutation.target instanceof Element) translateNode(mutation.target, true)
+      if (mutation.type === 'characterData' && mutation.target.parentElement) queueNode(mutation.target)
+      for (const node of Array.from(mutation.addedNodes)) queueNode(node)
+      if (mutation.type === 'attributes' && mutation.target instanceof Element) queueNode(mutation.target)
     }
   })
   observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: attrs })
-  return () => observer.disconnect()
+  return () => {
+    observer.disconnect()
+    if (frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
+    pending.clear()
+    scheduled = false
+  }
 }
