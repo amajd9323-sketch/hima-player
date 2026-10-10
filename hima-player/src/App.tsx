@@ -110,7 +110,7 @@ export default function App() {
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
   const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || open
-  const showV = tab === 'video' || tab === 'fav' || open
+  const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || open
   const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
