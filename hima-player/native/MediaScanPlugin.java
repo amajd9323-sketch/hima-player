@@ -102,6 +102,34 @@ public class MediaScanPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void updateWidget(PluginCall call) {
+        String title = call.getString("title", "HEMA ROKSI PLAYER");
+        String artist = call.getString("artist", "Hema");
+        boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", false));
+        getContext().getSharedPreferences("hema-widget", android.content.Context.MODE_PRIVATE).edit()
+            .putString("title", title == null ? "HEMA ROKSI PLAYER" : title)
+            .putString("artist", artist == null ? "Hema" : artist)
+            .putBoolean("playing", playing)
+            .apply();
+        Intent update = new Intent(HemaWidgetProvider.ACTION_UPDATE);
+        update.setPackage(getContext().getPackageName());
+        getContext().sendBroadcast(update);
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void consumeWidgetCommand(PluginCall call) {
+        android.content.SharedPreferences prefs = getContext().getSharedPreferences("hema-widget", android.content.Context.MODE_PRIVATE);
+        String command = prefs.getString("command", "");
+        long commandAt = prefs.getLong("command_at", 0L);
+        prefs.edit().remove("command").remove("command_at").apply();
+        if (System.currentTimeMillis() - commandAt > 60000L) command = "";
+        JSObject out = new JSObject();
+        out.put("command", command);
+        call.resolve(out);
+    }
+
+    @PluginMethod
     public void requestPip(PluginCall call) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             call.reject("PIP_UNSUPPORTED");
