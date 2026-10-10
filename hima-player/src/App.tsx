@@ -4,10 +4,11 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand } from './scan'
+import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 
-type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string }
-type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
+type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string }
+type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'queue' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
@@ -66,6 +67,19 @@ export default function App() {
   const [acc, setAcc] = useState(() => ls('hema_acc', 0))
   const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
+  const [queueIds, setQueueIds] = useState<string[]>(() => ls('hema_queue', []))
+  const [crossfade, setCrossfade] = useState<number>(() => ls('hema_crossfade', 3))
+  const [party, setParty] = useState(false)
+  const [cueSize, setCueSize] = useState<number>(() => ls('hema_cue_size', 120))
+  const [cueColor, setCueColor] = useState<string>(() => ls('hema_cue_color', '#ffffff'))
+  const [vaultOpen, setVaultOpen] = useState(false)
+  const [vaultKnown, setVaultKnown] = useState(false)
+  const [vaultPinInput, setVaultPinInput] = useState('')
+  const [vaultPin, setVaultPin] = useState('')
+  const [vaultUnlocked, setVaultUnlocked] = useState(false)
+  const [vaultItems, setVaultItems] = useState<VaultItem[]>([])
+  const [vaultMsg, setVaultMsg] = useState('')
+  const [vaultBusy, setVaultBusy] = useState(false)
   const [recent, setRecent] = useState<string[]>(() => ls('hema_recent', []))
   const [backupMsg, setBackupMsg] = useState('')
   const [duplicates, setDuplicates] = useState<Track[][] | null>(null)
@@ -92,6 +106,7 @@ export default function App() {
   const [lockedScreen, setLockedScreen] = useState(false)
   const [wrap, setWrap] = useState<string | null>(null)
   const [car, setCar] = useState(false)
+  const partyCanvas = useRef<HTMLCanvasElement>(null)
   const gainN = useRef<GainNode>()
   const wetN = useRef<GainNode>()
   const anN = useRef<AnalyserNode>()
@@ -103,6 +118,9 @@ export default function App() {
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
+  useEffect(() => { localStorage.setItem('hema_queue', JSON.stringify(queueIds.filter((id) => q.some((x) => x.id === id)))) }, [queueIds, q])
+  useEffect(() => { localStorage.setItem('hema_crossfade', JSON.stringify(crossfade)) }, [crossfade])
+  useEffect(() => { localStorage.setItem('hema_cue_size', JSON.stringify(cueSize)); document.documentElement.style.setProperty('--hema-cue-size', cueSize + '%'); localStorage.setItem('hema_cue_color', cueColor); document.documentElement.style.setProperty('--hema-cue-color', cueColor) }, [cueSize, cueColor])
   useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
   useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, bassBoost, spatial, bookMode])
   useEffect(() => { bands.current.forEach((b, j) => { b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0) }) }, [eq, customEq, bassBoost])
@@ -115,13 +133,13 @@ export default function App() {
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
-  const srt = (a: { x: Track }, b: { x: Track }) => (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
+  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id)) && (tab !== 'queue' || queueIds.includes(x.id))
+  const srt = (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? queueIds.indexOf(a.x.id) - queueIds.indexOf(b.x.id) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
-  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || open
-  const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || open
+  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || open
+  const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || open
   const folderMap = q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>())
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
@@ -167,10 +185,34 @@ export default function App() {
     if (i < 0) setI(q.length)
     setQ((p) => [...p, ...n])
   }
+  const cancelCrossfade = () => {
+    if (crossfadeTimer.current) window.clearTimeout(crossfadeTimer.current)
+    crossfadeTimer.current = undefined; nextStartedFor.current = null; handoff.current = null
+    if (nextMedia.current) { nextMedia.current.pause(); nextMedia.current.removeAttribute('src'); nextMedia.current.load() }
+    if (ac.current) { const now = ac.current.currentTime; fadeMain.current?.gain.setValueAtTime(1, now); fadeNext.current?.gain.setValueAtTime(0, now) }
+  }
+  const enqueue = (x: Track, next = true) => setQueueIds((p) => { const rest = p.filter((id) => id !== x.id); return next ? [x.id, ...rest] : [...rest, x.id] })
+  const dequeue = (id: string) => setQueueIds((p) => p.filter((x) => x !== id))
+  const moveQueue = (id: string, delta: -1 | 1) => setQueueIds((p) => { const n = [...p]; const from = n.indexOf(id); const to = from + delta; if (from < 0 || to < 0 || to >= n.length) return p; [n[from], n[to]] = [n[to], n[from]]; return n })
+  const nextItem = () => {
+    const queuedId = queueIds.find((id) => { const item = q.find((x) => x.id === id); return item && item.video === cur?.video && item.id !== cur?.id })
+    if (queuedId) return { item: q.find((x) => x.id === queuedId)!, queuedId }
+    const pool = q.map((x, k) => ({ x, k })).filter((o) => o.x.video === cur?.video)
+    if (!pool.length) return null
+    if (shuffle) { const options = pool.filter((o) => o.k !== i); const pick = options[Math.floor(Math.random() * options.length)]; return pick ? { item: pick.x, queuedId: '' } : null }
+    const p = pool.findIndex((o) => o.k === i)
+    if (p < 0 || (p === pool.length - 1 && repeat === 'off')) return null
+    return { item: pool[(p + 1) % pool.length].x, queuedId: '' }
+  }
   const step = (dir: 1 | -1) => {
+    cancelCrossfade()
     const pool = q.map((x, k) => ({ x, k })).filter((o) => o.x.video === cur?.video)
     if (!pool.length) return
-    if (shuffle && dir === 1) return setI(pool[Math.floor(Math.random() * pool.length)].k)
+    if (dir === 1) {
+      const queueAt = queueIds.findIndex((id) => { const item = q.find((x) => x.id === id); return item && item.video === cur?.video && item.id !== cur?.id })
+      if (queueAt >= 0) { const index = q.findIndex((x) => x.id === queueIds[queueAt]); const id = queueIds[queueAt]; setQueueIds((p) => p.filter((x) => x !== id)); if (index >= 0) { setI(index); return } }
+    }
+    if (shuffle && dir === 1) { const picks = pool.filter((o) => o.k !== i); if (picks.length) setI(picks[Math.floor(Math.random() * picks.length)].k); return }
     const p = pool.findIndex((o) => o.k === i)
     setI(pool[(p + dir + pool.length) % pool.length].k)
   }
@@ -186,9 +228,12 @@ export default function App() {
   const changeEqBand = (j: number, value: number) => { const next = [...customEq]; next[j] = value; setCustomEq(next); setEq(EQS.length - 1); if (bands.current[j]) bands.current[j].gain.value = value }
   const initAudio = () => {
     if (ac.current) { void ac.current.resume(); return }
-    if (!m.current) return
+    if (!m.current || !nextMedia.current) return
     try {
-      const c = new AudioContext(); const src = c.createMediaElementSource(m.current)
+      const c = new AudioContext(); const src = c.createMediaElementSource(m.current); const nextSrc = c.createMediaElementSource(nextMedia.current)
+      const mainFade = c.createGain(); mainFade.gain.value = 1
+      const nextFade = c.createGain(); nextFade.gain.value = 0
+      fadeMain.current = mainFade; fadeNext.current = nextFade
       bands.current = BANDS.map((f, j) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0); return b })
       const gn = c.createGain(); gn.gain.value = boost / 100
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
@@ -198,10 +243,34 @@ export default function App() {
       const convolver = c.createConvolver(); convolver.buffer = impulse
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
       gainN.current = gn; anN.current = an; wetN.current = wet
-      ;[src, ...bands.current, gn, lim].reduce((a, b) => (a.connect(b), b))
+      src.connect(mainFade); nextSrc.connect(nextFade); mainFade.connect(bands.current[0]); nextFade.connect(bands.current[0])
+      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(lim)
       lim.connect(an); an.connect(c.destination); lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination)
       ac.current = c
     } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
+  }
+  const maybeCrossfade = async (ct: number) => {
+    if (crossfade <= 0 || !cur || cur.video || !d || d < crossfade + 2 || !m.current || !nextMedia.current || !fadeMain.current || !fadeNext.current || nextStartedFor.current === cur.id || ct < d - crossfade) return
+    const next = nextItem()
+    if (!next || next.item.video || next.item.id === cur.id) return
+    const secondary = nextMedia.current
+    nextStartedFor.current = cur.id
+    secondary.src = next.item.url; secondary.playbackRate = SPEEDS[speed]; secondary.currentTime = 0
+    const context = ac.current
+    if (!context) { nextStartedFor.current = null; return }
+    const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now)
+    fadeMain.current.gain.setValueAtTime(1, now); fadeNext.current.gain.setValueAtTime(0, now)
+    try { await secondary.play() } catch { nextStartedFor.current = null; fadeMain.current.gain.setValueAtTime(1, context.currentTime); return }
+    const end = context.currentTime + crossfade
+    fadeMain.current.gain.linearRampToValueAtTime(0.0001, end); fadeNext.current.gain.linearRampToValueAtTime(1, end)
+    crossfadeTimer.current = window.setTimeout(() => {
+      const position = secondary.currentTime
+      handoff.current = { id: next.item.id, pos: position }
+      m.current?.pause()
+      if (next.queuedId) setQueueIds((p) => p.filter((x) => x !== next.queuedId))
+      const nextIndex = q.findIndex((x) => x.id === next.item.id)
+      if (nextIndex >= 0) setI(nextIndex)
+    }, Math.max(250, crossfade * 1000))
   }
   const fav = (x: Track) => {
     const f = !x.fav
@@ -295,7 +364,7 @@ export default function App() {
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = () => {
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية')
@@ -304,9 +373,10 @@ export default function App() {
     if (!file) return
     try {
       const data = JSON.parse(await file.text()) as Record<string, unknown>
-      if (data.app !== 'HEMA ROKSI PLAYER' || data.schemaVersion !== 1) throw new Error('BACKUP_VERSION')
+      if (data.app !== 'HEMA ROKSI PLAYER' || (data.schemaVersion !== 1 && data.schemaVersion !== 2)) throw new Error('BACKUP_VERSION')
       if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) { const safeLists = Object.entries(data.lists as Record<string, unknown>).filter(([name, value]) => !!name.trim() && Array.isArray(value)).map(([name, value]) => [name.trim(), [...new Set((value as unknown[]).filter((id): id is string => typeof id === 'string'))]]); setLists(Object.fromEntries(safeLists) as Record<string, string[]>) }
       if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
+      if (Array.isArray(data.queueIds)) setQueueIds([...new Set(data.queueIds.filter((x): x is string => typeof x === 'string'))].slice(0, 500))
       if (Array.isArray(data.favorites)) localStorage.setItem('hema_favs', JSON.stringify(data.favorites.filter((x): x is string => typeof x === 'string')))
       if (data.positions && typeof data.positions === 'object') localStorage.setItem('hema_pos', JSON.stringify(data.positions))
       if (data.stats && typeof data.stats === 'object') localStorage.setItem('hema_stats', JSON.stringify(data.stats))
@@ -318,6 +388,9 @@ export default function App() {
       if (typeof data.spatial === 'boolean') setSpatial(data.spatial)
       if (typeof data.bookMode === 'boolean') setBookMode(data.bookMode)
       if (typeof data.lyrOffset === 'number' && data.lyrOffset >= -10 && data.lyrOffset <= 10) setLyrOffset(data.lyrOffset)
+      if (typeof data.crossfade === 'number' && [0, 2, 3, 5, 8].includes(data.crossfade)) setCrossfade(data.crossfade)
+      if (typeof data.cueSize === 'number' && data.cueSize >= 80 && data.cueSize <= 200) setCueSize(data.cueSize)
+      if (typeof data.cueColor === 'string' && ['#ffffff', '#ffe082', '#80deea', '#f48fb1'].includes(data.cueColor)) setCueColor(data.cueColor)
       if (typeof data.shake === 'boolean') setShake(data.shake)
       if (typeof data.adhan === 'boolean') setAdhan(data.adhan)
       if (typeof data.quran === 'boolean') setQuran(data.quran)
@@ -334,17 +407,49 @@ export default function App() {
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
   const ended = () => { if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
 
-  const findDuplicates = () => {
+  const findDuplicates = async () => {
+    setBackupMsg('جارٍ فحص التكرار بالبصمة الرقمية...')
     const groups = new Map<string, Track[]>()
+    const hashes = new Map<string, string>()
     for (const x of q) {
-      const key = [x.video ? 'video' : 'audio', clean(x.title).toLocaleLowerCase(), (x.artist ?? '').toLocaleLowerCase().trim()].join('|')
-      if (!key.split('|')[1]) continue
-      const group = groups.get(key) ?? []
-      group.push(x); groups.set(key, group)
+      let key = ''
+      if (x.blob && crypto.subtle) {
+        try { const bytes = await x.blob.arrayBuffer(); const digest = await crypto.subtle.digest('SHA-256', bytes); const hash = [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join(''); hashes.set(x.id, hash); key = (x.video ? 'v:sha:' : 'a:sha:') + hash } catch { /* metadata fallback */ }
+      }
+      if (!key) {
+        const title = clean(x.title).toLocaleLowerCase(); if (!title) continue
+        key = [x.video ? 'v:meta' : 'a:meta', title, (x.artist ?? '').toLocaleLowerCase().trim(), x.size ?? x.blob?.size ?? 0, Math.round(x.dur ?? 0)].join('|')
+      }
+      const group = groups.get(key) ?? []; group.push(x); groups.set(key, group)
     }
+    setQ((p) => p.map((x) => hashes.has(x.id) ? { ...x, fingerprint: hashes.get(x.id) } : x))
     setDuplicates([...groups.values()].filter((g) => g.length > 1))
+    setBackupMsg('انتهى الفحص: SHA-256 للملفات المستوردة، وبيانات الاسم/الحجم/المدة لملفات الجهاز.')
   }
 
+  const unlockVaultUi = async () => {
+    setVaultBusy(true); setVaultMsg('')
+    try { const pin = vaultPinInput.trim(); await unlockVault(pin); setVaultPin(pin); setVaultUnlocked(true); setVaultKnown(true); const items = await listVaultFiles(pin); setVaultItems(items); setVaultMsg('الخزنة مفتوحة. الملفات مشفّرة محليًا.') }
+    catch (e) { const code = (e as Error).message; setVaultMsg(code === 'VAULT_WRONG_PIN' ? 'رمز خاطئ أو سجل خزنة غير صالح.' : code === 'VAULT_PIN_TOO_SHORT' ? 'استخدم رمزًا أو عبارة من 6 أحرف/أرقام على الأقل.' : code === 'VAULT_CRYPTO_UNAVAILABLE' ? 'التشفير غير مدعوم في بيئة التشغيل.' : 'تعذر فتح الخزنة.') }
+    finally { setVaultBusy(false) }
+  }
+  const vaultAdd = async (files?: FileList | null) => {
+    if (!files || !vaultPin) return
+    setVaultBusy(true); setVaultMsg('')
+    try { for (const file of Array.from(files)) await saveVaultFile(file, vaultPin); setVaultItems(await listVaultFiles(vaultPin)); setVaultMsg('تم تشفير الملفات وحفظها داخل خزنة التطبيق.') }
+    catch (e) { const code = (e as Error).message; setVaultMsg(code === 'VAULT_FILE_TOO_LARGE' ? 'الحد الحالي للملف الواحد 120 MB.' : 'فشل التشفير أو الحفظ؛ تحقق من مساحة التخزين.') }
+    finally { setVaultBusy(false) }
+  }
+  const vaultRestore = async (item: VaultItem) => {
+    try { const file = await restoreVaultFile(item.id, vaultPin); const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = file.name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 2500); setVaultMsg('تم فك التشفير وتصدير نسخة من الملف.') }
+    catch { setVaultMsg('تعذر فك تشفير هذا الملف.') }
+  }
+  const vaultRemove = async (item: VaultItem) => {
+    if (!window.confirm('حذف الملف المشفّر من الخزنة نهائيًا؟')) return
+    try { await deleteVaultFile(item.id); setVaultItems((p) => p.filter((x) => x.id !== item.id)); setVaultMsg('حُذف الملف المشفّر.') }
+    catch { setVaultMsg('فشل حذف الملف.') }
+  }
+  const openVaultUi = async () => { setSettings(false); setVaultOpen(true); setVaultMsg(''); setVaultPinInput(''); setVaultPin(''); setVaultUnlocked(false); try { setVaultKnown(await vaultExists()) } catch { setVaultKnown(false) } }
   const smart = async () => {
     const list = q.filter((x) => !x.video)
     if (!ask.trim() || !list.length) return
