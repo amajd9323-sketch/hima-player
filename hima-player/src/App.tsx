@@ -1402,6 +1402,13 @@ export default function App() {
                   <a href={ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/'} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic(ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/') }} className="rounded-xl px-3 py-3 text-center text-xs font-semibold text-white" style={{ background: A }}>{ytMusicQuery.trim() ? 'بحث في YouTube Music' : 'فتح YouTube Music'}</a>
                   <a href="https://music.youtube.com/" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic('https://music.youtube.com/') }} className="rounded-xl bg-white/10 px-3 py-3 text-center text-xs">الرئيسية</a>
                 </div>
+                <button onClick={() => {
+                  const query = [cur?.title, cur?.artist].filter(Boolean).join(' ').trim()
+                  if (!query || cur?.video) { setOnlineMsg('اختر أغنية صوتية من مكتبة HEMA أولًا، ثم ابحث عنها هنا.'); return }
+                  setYtMusicQuery(query)
+                  localStorage.setItem('hema_ytm_query', JSON.stringify(query))
+                  void launchYouTubeMusic(`https://music.youtube.com/search?q=${encodeURIComponent(query)}`)
+                }} className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs font-medium">ابحث عن الأغنية الحالية في YouTube Music</button>
                 <p className="mt-2 text-xs leading-5 opacity-55">هذا ربط بالمنصة الرسمية عبر الرابط، وليس مزامنة حساب أو استخراج صوت. فتح التطبيق يعتمد على إعدادات Android وتثبيت YouTube Music.</p>
               </div>
               <div className="mt-4 space-y-2">
