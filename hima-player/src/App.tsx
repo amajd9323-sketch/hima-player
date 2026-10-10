@@ -6,7 +6,7 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio, getVideoThumbnail, getGenres, discoverCastDevices, castMedia, stopCast } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio, getVideoThumbnail, getGenres, discoverCastDevices, castMedia, stopCast, setHeadphonePause as setNativeHeadphonePause, addAudioNoisyListener } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
@@ -186,6 +186,7 @@ export default function App() {
     return saved
   })
   const [autoVolume, setAutoVolume] = useState<boolean>(() => ls('hema_auto_volume', false))
+  const [headphonePause, setHeadphonePause] = useState<boolean>(() => ls('hema_headphone_pause', false))
   const [editingMeta, setEditingMeta] = useState<Track | null>(null)
   const [editTitle, setEditTitle] = useState('')
   const [editArtist, setEditArtist] = useState('')
@@ -676,6 +677,26 @@ export default function App() {
     if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
     noticeTimer.current = window.setTimeout(() => { setNotice(''); noticeTimer.current = null }, 5000)
   }
+  useEffect(() => {
+    localStorage.setItem('hema_headphone_pause', JSON.stringify(headphonePause))
+    if (!canScan()) return
+    let active = true
+    let listener: Awaited<ReturnType<typeof addAudioNoisyListener>> = null
+    const connect = async () => {
+      try {
+        await setNativeHeadphonePause(headphonePause)
+        if (!headphonePause || !active) { if (!active) await setNativeHeadphonePause(false); return }
+        const handle = await addAudioNoisyListener(() => {
+          const element = m.current
+          if (element && !element.paused) { element.pause(); notify('توقف التشغيل عند فصل السماعة لحماية خصوصيتك.') }
+        })
+        if (active) listener = handle
+        else { await handle?.remove(); await setNativeHeadphonePause(false) }
+      } catch { if (active && headphonePause) notify('تعذر تفعيل إيقاف الصوت عند فصل السماعة على هذا الجهاز.') }
+    }
+    void connect()
+    return () => { active = false; void listener?.remove(); void setNativeHeadphonePause(false).catch(() => {}) }
+  }, [headphonePause])
   const convertVideoToMusic = (x: Track) => {
     if (!x.video) return
     if (!canScan()) { notify('تحويل الفيديو متاح لفيديوهات مكتبة الهاتف.'); return }
@@ -1999,6 +2020,8 @@ export default function App() {
             <label className="inline-flex cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">استيراد قائمة HEMA<input type="file" accept="application/json,.json" hidden onChange={(e) => { void importPlaylist(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
             <Opt on={autoVolume} onClick={() => setAutoVolume(!autoVolume)}>توازن الصوت تلقائيًا</Opt>
             <p className="text-xs opacity-50">التوازن يقرأ مستوى الصوت أثناء التشغيل ويعدّل الكسب تدريجيًا؛ النتيجة تختلف حسب الملف والجهاز.</p>
+            <Opt on={headphonePause} onClick={() => setHeadphonePause((value) => !value)}>إيقاف عند فصل السماعة</Opt>
+            <p className="text-xs opacity-50">يتوقف المقطع عند فصل سماعة الرأس أو Bluetooth؛ لا يبدأ التشغيل تلقائيًا عند إعادة التوصيل.</p>
             <p className="text-sm opacity-60">النسخ الاحتياطي</p>
             <div className="flex flex-wrap gap-2">
               <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
