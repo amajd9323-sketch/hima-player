@@ -4,10 +4,10 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip } from './scan'
 
 type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string }
-type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'ai'
+type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.5, 2, 0.75]
@@ -65,6 +65,8 @@ export default function App() {
   const [acc, setAcc] = useState(() => ls('hema_acc', 0))
   const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
+  const [recent, setRecent] = useState<string[]>(() => ls('hema_recent', []))
+  const [backupMsg, setBackupMsg] = useState('')
   const [openFolder, setOpenFolder] = useState<string | null>(null)
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
@@ -93,6 +95,8 @@ export default function App() {
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
+  useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
+  useEffect(() => { if (!cur?.id) return; setRecent((p) => [cur.id, ...p.filter((id) => id !== cur.id)].slice(0, 100)) }, [cur?.id])
   const m = useRef<HTMLVideoElement>(null)
   const hide = useRef<number>()
   const ac = useRef<AudioContext>()
@@ -100,7 +104,7 @@ export default function App() {
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 ? k : a), -1)
-  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
+  const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
   const srt = (a: { x: Track }, b: { x: Track }) => (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
   const videos = q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt)
@@ -271,6 +275,34 @@ export default function App() {
     return () => hs.forEach((h) => window.clearTimeout(h))
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
+  const exportBackup = () => {
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); URL.revokeObjectURL(url)
+    setBackupMsg('تم تصدير النسخة الاحتياطية')
+  }
+  const importBackup = async (file?: File) => {
+    if (!file) return
+    try {
+      const data = JSON.parse(await file.text()) as Record<string, unknown>
+      if (data.app !== 'HEMA ROKSI PLAYER' || data.schemaVersion !== 1) throw new Error('BACKUP_VERSION')
+      if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) setLists(data.lists as Record<string, string[]>)
+      if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
+      if (Array.isArray(data.favorites)) localStorage.setItem('hema_favs', JSON.stringify(data.favorites.filter((x): x is string => typeof x === 'string')))
+      if (data.positions && typeof data.positions === 'object') localStorage.setItem('hema_pos', JSON.stringify(data.positions))
+      if (data.stats && typeof data.stats === 'object') localStorage.setItem('hema_stats', JSON.stringify(data.stats))
+      if (typeof data.accent === 'number' && data.accent >= 0 && data.accent < ACCENTS.length) setAcc(data.accent)
+      if (typeof data.sort === 'string' && SORTS.some(([k]) => k === data.sort)) setSort(data.sort)
+      if (typeof data.boost === 'number') setBoost(Math.max(100, Math.min(300, data.boost)))
+      if (typeof data.shake === 'boolean') setShake(data.shake)
+      if (typeof data.adhan === 'boolean') setAdhan(data.adhan)
+      if (typeof data.quran === 'boolean') setQuran(data.quran)
+      if (data.city && typeof data.city === 'object') setCity(data.city as { c: string; k: string })
+      setQ((p) => p.map((x) => ({ ...x, fav: favSet().has(x.id) })))
+      setBackupMsg('تم استيراد الإعدادات والقوائم. أعد فحص الملفات لتحديث المفضلة.')
+    } catch { setBackupMsg('ملف النسخة الاحتياطية غير صالح أو من إصدار غير مدعوم.') }
+  }
+  const pip = async () => { await requestPip() }
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
   const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran) && sp < e.duration - 5) e.currentTime = sp }
   const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
@@ -350,7 +382,7 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
       </div>
       {tab !== 'ai' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
@@ -465,6 +497,12 @@ export default function App() {
             </div>
             {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
             <Opt on={false} onClick={() => { setSettings(false); makeWrapped() }}>ملخصي Hema Wrapped</Opt>
+            <p className="text-sm opacity-60">النسخ الاحتياطي</p>
+            <div className="flex flex-wrap gap-2">
+              <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
+              <label className="cursor-pointer rounded-full px-4 py-2 text-sm" style={{ background: '#ffffff1a' }}>استيراد نسخة احتياطية<input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { void importBackup(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
+            </div>
+            {backupMsg && <p role="status" className="text-sm opacity-70">{backupMsg}</p>
             <p className="text-xs opacity-50">لا إعلانات. ملفاتك ما تغادر جوالك. الإنترنت فقط للكلمات والذكاء والأذان.</p>
           </div>
         </div>
@@ -505,6 +543,7 @@ export default function App() {
                 </label>
                 <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
+                <button onClick={(e) => { e.stopPropagation(); void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز')) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">PiP</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
               </div>
               <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-12" dir="ltr" onClick={(e) => e.stopPropagation()}>
