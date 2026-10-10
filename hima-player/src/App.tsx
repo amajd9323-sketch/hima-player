@@ -1735,7 +1735,7 @@ export default function App() {
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
       <video ref={m} playsInline onClick={toggleVideoUi}
-        className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
+        className={fs ? `fixed inset-0 z-[110] size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const availableTracks = (el as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } }).audioTracks; setAudioTracks(availableTracks?.length ? Array.from({ length: availableTracks.length }, (_, id) => ({ id, label: availableTracks[id].label || 'مسار صوت ' + (id + 1), language: availableTracks[id].language || '', enabled: availableTracks[id].enabled })) : []); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
@@ -2286,7 +2286,7 @@ export default function App() {
       )}
 
       {fs && cur?.video && (
-        <div className="fixed inset-0 z-50 select-none" onClick={toggleVideoUi}
+        <div className="fixed inset-0 z-[120] select-none" onClick={toggleVideoUi}
           onTouchStart={(e) => { if (lockedScreen) return; const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
           onTouchMove={(e) => {
             if (lockedScreen) return; const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
