@@ -1048,7 +1048,8 @@ export default function App() {
     }
     void findLyrics()
     return () => ctl.abort()
-  }, [cur?.id])  useEffect(() => {
+  }, [cur?.id]);
+  useEffect(() => {
     if (!adhan || !city.c) return
     const hs: number[] = []
     fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city.c)}&country=${encodeURIComponent(city.k)}`).then((r) => r.json()).then((j) => {
