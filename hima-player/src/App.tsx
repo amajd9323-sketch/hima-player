@@ -235,7 +235,7 @@ export default function App() {
     const raw = input.trim()
     if (!raw) { setOnlineMsg('الصق رابط فيديو أولًا.'); return }
     try {
-      let parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : \`https://\${raw}\`)
+      let parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`)
       if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') { setOnlineMsg('استخدم رابط HTTP أو HTTPS فقط.'); return }
       let platform: OnlinePlatform
       let videoId = ''
@@ -249,7 +249,7 @@ export default function App() {
           ? parsed.pathname.split('/').filter(Boolean)[0] ?? ''
           : parsed.searchParams.get('v') || parsed.pathname.match(/^\/(?:embed|shorts|live|v)\/([^/?]+)/)?.[1] || ''
         if (!/^[\w-]{11}$/.test(videoId)) { setOnlineMsg('رابط YouTube غير صالح أو لا يحتوي على فيديو واحد.'); return }
-        targetUrl = \`https://www.youtube.com/watch?v=\${videoId}\`
+        targetUrl = `https://www.youtube.com/watch?v=${videoId}`
       } else if (isTikTok) {
         platform = 'tiktok'
         videoId = parsed.pathname.match(/\/video\/(\d+)/)?.[1] || parsed.pathname.match(/\/player\/v1\/(\d+)/)?.[1] || ''
@@ -269,9 +269,9 @@ export default function App() {
         setOnlineMsg('الرابط غير مدعوم. استخدم رابط YouTube أو TikTok.')
         return
       }
-      const key = \`\${platform}:\${videoId || targetUrl}\`
+      const key = `${platform}:${videoId || targetUrl}`
       const previous = [...onlineSaved, ...onlineHistory, ...onlineQueue, ...(onlineMedia ? [onlineMedia] : [])].find((item) => item.key === key)
-      const title = requestedTitle.trim() || previous?.title || \`\${platform === 'youtube' ? 'YouTube' : 'TikTok'} · \${videoId || 'رابط فيديو'}\`
+      const title = requestedTitle.trim() || previous?.title || `${platform === 'youtube' ? 'YouTube' : 'TikTok'} · ${videoId || 'رابط فيديو'}`
       const item: OnlineLink = { key, platform, videoId, url: targetUrl, title }
       setOnlineMedia(item)
       setOnlineUrl(targetUrl)
@@ -969,8 +969,8 @@ export default function App() {
                       key={onlineMedia.key}
                       title={onlineMedia.platform === 'youtube' ? 'YouTube video player' : 'TikTok video player'}
                       src={onlineMedia.platform === 'youtube'
-                        ? \`https://www.youtube.com/embed/\${onlineMedia.videoId}?playsinline=1&rel=0&controls=1&enablejsapi=1&origin=\${encodeURIComponent(window.location.origin)}\`
-                        : \`https://www.tiktok.com/player/v1/\${onlineMedia.videoId}?controls=1&progress_bar=1&play_button=1&volume_control=1&music_info=1&description=1&autoplay=0&loop=0&timestamp=1\`}
+                        ? `https://www.youtube.com/embed/${onlineMedia.videoId}?playsinline=1&rel=0&controls=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                        : `https://www.tiktok.com/player/v1/${onlineMedia.videoId}?controls=1&progress_bar=1&play_button=1&volume_control=1&music_info=1&description=1&autoplay=0&loop=0&timestamp=1`}
                       className={onlineMedia.platform === 'youtube' ? 'block aspect-video w-full' : 'block size-full w-full'}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
