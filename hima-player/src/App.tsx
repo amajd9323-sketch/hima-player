@@ -1192,7 +1192,7 @@ export default function App() {
     const timer = window.setTimeout(applyOffset, 250)
     return () => { window.clearTimeout(timer); trackElement.removeEventListener('load', applyOffset) }
   }, [sub, subOffset])
-  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
+  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); setPlaying(false); void keepAlive(false); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
 
   const findDuplicates = async () => {
     setBackupMsg('جارٍ فحص التكرار بالبصمة الرقمية...')
@@ -1256,7 +1256,7 @@ export default function App() {
         if (found && !matched.includes(found.id)) matched.push(found.id)
       }
       const name = data.name.trim().slice(0, 80) || 'قائمة مستوردة'
-      setLists((p) => ({ ...p, [name]: matched })); setBackupMsg(`استيراد القائمة: ${matched.length} مقطع مطابق لمكتبتك. الملفات الصوتية نفسها لا تُنقل.`)
+      setLists((p) => ({ ...p, [name]: matched })); setBackupMsg(language === 'ar' ? `استيراد القائمة: ${matched.length} مقطع مطابق لمكتبتك. الملفات الصوتية نفسها لا تُنقل.` : language === 'pl' ? `Import playlisty: ${matched.length} pasujących pozycji. Pliki audio nie są kopiowane.` : `Playlist import: ${matched.length} matching items. The audio files themselves are not copied.`)
     } catch { setBackupMsg('ملف القائمة غير صالح.') }
   }
 
@@ -1382,7 +1382,7 @@ export default function App() {
       </div>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
-          <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : tab === 'queue' ? `${queueIds.length} في الطابور` : tab === 'top' ? 'الأكثر استماعًا' : `${videos.length + musics.length} عنصر`}</span>
+          <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
         </div>
       )}
