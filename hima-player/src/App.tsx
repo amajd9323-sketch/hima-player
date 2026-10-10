@@ -11,9 +11,9 @@ type Tab = 'video' | 'music' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
-const BANDS = [60, 230, 910, 3600, 14000]
-const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0] }, { n: 'باس', g: [7, 4, 0, 0, 0] }, { n: 'صوت', g: [-1, 0, 3, 4, 2] }, { n: 'روك', g: [5, 2, -1, 3, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, -1] }, { n: 'مخصص', g: [0, 0, 0, 0, 0] }]
-const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B']
+const BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
+const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { n: 'باس', g: [8, 7, 6, 4, 2, 0, 0, 0, 0, 0] }, { n: 'صوت', g: [-3, -2, 0, 3, 5, 5, 4, 2, 0, -1] }, { n: 'روك', g: [5, 4, 2, -1, -1, 1, 3, 5, 6, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, 2, 0, -1, -2, -3, -4] }, { n: 'مخصص', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }]
+const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B', '#FF6B6B', '#FFB84D', '#F472B6']
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 let A = ACCENTS[0]
 const ls = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? '') as T } catch { return d } }
@@ -57,7 +57,7 @@ export default function App() {
   const [repeat, setRepeat] = useState<Repeat>('off')
   const [speed, setSpeed] = useState(0)
   const [eq, setEq] = useState(0)
-  const [customEq, setCustomEq] = useState<number[]>(() => ls('hema_custom_eq', [0, 0, 0, 0, 0]))
+  const [customEq, setCustomEq] = useState<number[]>(() => { const v = ls<number[]>('hema_custom_eq', Array(10).fill(0)); if (Array.isArray(v) && v.length === 10) return v.map((n) => Math.max(-12, Math.min(12, Number(n) || 0))); if (Array.isArray(v) && v.length === 5) { const n = Array(10).fill(0) as number[]; [1, 3, 5, 7, 9].forEach((j, k) => { n[j] = Math.max(-12, Math.min(12, Number(v[k]) || 0)) }); return n } return Array(10).fill(0) })
   const [sleep, setSleep] = useState(0)
   const [vol, setVol] = useState<number | null>(null)
   const [ask, setAsk] = useState('')
@@ -85,9 +85,15 @@ export default function App() {
   const [quran, setQuran] = useState(() => ls('hema_quran', false))
   const [city, setCity] = useState(() => ls('hema_city', { c: '', k: '' }))
   const [lyr, setLyr] = useState<{ t: number; x: string }[]>([])
+  const [lyrOffset, setLyrOffset] = useState(() => ls('hema_lyr_offset', 0))
+  const [bassBoost, setBassBoost] = useState(() => ls('hema_bass_boost', false))
+  const [spatial, setSpatial] = useState(() => ls('hema_spatial', false))
+  const [bookMode, setBookMode] = useState(() => ls('hema_book_mode', false))
+  const [lockedScreen, setLockedScreen] = useState(false)
   const [wrap, setWrap] = useState<string | null>(null)
   const [car, setCar] = useState(false)
   const gainN = useRef<GainNode>()
+  const wetN = useRef<GainNode>()
   const anN = useRef<AnalyserNode>()
   const cv = useRef<HTMLCanvasElement>(null)
   const lastCt = useRef(0)
@@ -98,6 +104,8 @@ export default function App() {
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
   useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
+  useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, bassBoost, spatial, bookMode])
+  useEffect(() => { bands.current.forEach((b, j) => { b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0) }) }, [eq, customEq, bassBoost])
   useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
   useEffect(() => { const id = q[i]?.id; if (!id) return; setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
   const m = useRef<HTMLVideoElement>(null)
@@ -106,7 +114,7 @@ export default function App() {
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
-  const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 ? k : a), -1)
+  const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
   const match = (x: Track) => (!find || x.title.toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recent.includes(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || (lists[openList ?? ''] ?? []).includes(x.id))
   const srt = (a: { x: Track }, b: { x: Track }) => (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0)
   const musics = q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt)
@@ -139,7 +147,7 @@ export default function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
-      if (e.altKey || e.ctrlKey || e.metaKey) return
+      if (lockedScreen || e.altKey || e.ctrlKey || e.metaKey) return
       if (e.code === 'Space') { e.preventDefault(); toggle() }
       else if (e.code === 'ArrowRight') { e.preventDefault(); seek((m.current?.currentTime ?? t) + (e.shiftKey ? 30 : 5)) }
       else if (e.code === 'ArrowLeft') { e.preventDefault(); seek((m.current?.currentTime ?? t) - (e.shiftKey ? 30 : 5)) }
@@ -150,7 +158,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cur?.id, t, i, shuffle, repeat, q])
+  }, [cur?.id, t, i, shuffle, repeat, q, lockedScreen])
 
   const add = (files: FileList | null) => {
     if (!files) return
@@ -177,16 +185,23 @@ export default function App() {
   const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = (k === EQS.length - 1 ? customEq : EQS[k].g)[j])) }
   const changeEqBand = (j: number, value: number) => { const next = [...customEq]; next[j] = value; setCustomEq(next); setEq(EQS.length - 1); if (bands.current[j]) bands.current[j].gain.value = value }
   const initAudio = () => {
-    if (ac.current) return void ac.current.resume()
+    if (ac.current) { void ac.current.resume(); return }
     if (!m.current) return
-    const c = new AudioContext(); const src = c.createMediaElementSource(m.current)
-    bands.current = BANDS.map((f) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[BANDS.indexOf(f)]; return b })
-    const gn = c.createGain(); gn.gain.value = boost / 100
-    const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
-    const an = c.createAnalyser(); an.fftSize = 64
-    gainN.current = gn; anN.current = an
-    ;[src, ...bands.current, gn, lim, an, c.destination].reduce((a, b) => (a.connect(b), b))
-    ac.current = c
+    try {
+      const c = new AudioContext(); const src = c.createMediaElementSource(m.current)
+      bands.current = BANDS.map((f, j) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0); return b })
+      const gn = c.createGain(); gn.gain.value = boost / 100
+      const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
+      const an = c.createAnalyser(); an.fftSize = 64
+      const length = Math.floor(c.sampleRate * 1.4); const impulse = c.createBuffer(2, length, c.sampleRate)
+      for (let ch = 0; ch < 2; ch++) { const data = impulse.getChannelData(ch); for (let j = 0; j < length; j++) data[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / length, 2.6) }
+      const convolver = c.createConvolver(); convolver.buffer = impulse
+      const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
+      gainN.current = gn; anN.current = an; wetN.current = wet
+      ;[src, ...bands.current, gn, lim].reduce((a, b) => (a.connect(b), b))
+      lim.connect(an); an.connect(c.destination); lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination)
+      ac.current = c
+    } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
   }
   const fav = (x: Track) => {
     const f = !x.fav
@@ -280,9 +295,9 @@ export default function App() {
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = () => {
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq }
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 1, exportedAt: new Date().toISOString(), lists, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); URL.revokeObjectURL(url)
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية')
   }
   const importBackup = async (file?: File) => {
@@ -290,7 +305,7 @@ export default function App() {
     try {
       const data = JSON.parse(await file.text()) as Record<string, unknown>
       if (data.app !== 'HEMA ROKSI PLAYER' || data.schemaVersion !== 1) throw new Error('BACKUP_VERSION')
-      if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) setLists(data.lists as Record<string, string[]>)
+      if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) { const safeLists = Object.entries(data.lists as Record<string, unknown>).filter(([name, value]) => !!name.trim() && Array.isArray(value)).map(([name, value]) => [name.trim(), [...new Set((value as unknown[]).filter((id): id is string => typeof id === 'string'))]]); setLists(Object.fromEntries(safeLists) as Record<string, string[]>) }
       if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
       if (Array.isArray(data.favorites)) localStorage.setItem('hema_favs', JSON.stringify(data.favorites.filter((x): x is string => typeof x === 'string')))
       if (data.positions && typeof data.positions === 'object') localStorage.setItem('hema_pos', JSON.stringify(data.positions))
@@ -298,19 +313,23 @@ export default function App() {
       if (typeof data.accent === 'number' && data.accent >= 0 && data.accent < ACCENTS.length) setAcc(data.accent)
       if (typeof data.sort === 'string' && SORTS.some(([k]) => k === data.sort)) setSort(data.sort)
       if (typeof data.boost === 'number') setBoost(Math.max(100, Math.min(300, data.boost)))
-      if (Array.isArray(data.customEq) && data.customEq.length === 5 && data.customEq.every((x) => typeof x === 'number' && x >= -12 && x <= 12)) setCustomEq(data.customEq as number[])
+      if (Array.isArray(data.customEq) && (data.customEq.length === 5 || data.customEq.length === 10) && data.customEq.every((x) => typeof x === 'number' && x >= -12 && x <= 12)) { if (data.customEq.length === 10) setCustomEq(data.customEq as number[]); else { const n = Array(10).fill(0) as number[]; [1, 3, 5, 7, 9].forEach((j, k) => { n[j] = (data.customEq as number[])[k] }); setCustomEq(n) } }
+      if (typeof data.bassBoost === 'boolean') setBassBoost(data.bassBoost)
+      if (typeof data.spatial === 'boolean') setSpatial(data.spatial)
+      if (typeof data.bookMode === 'boolean') setBookMode(data.bookMode)
+      if (typeof data.lyrOffset === 'number' && data.lyrOffset >= -10 && data.lyrOffset <= 10) setLyrOffset(data.lyrOffset)
       if (typeof data.shake === 'boolean') setShake(data.shake)
       if (typeof data.adhan === 'boolean') setAdhan(data.adhan)
       if (typeof data.quran === 'boolean') setQuran(data.quran)
-      if (data.city && typeof data.city === 'object') setCity(data.city as { c: string; k: string })
+      if (data.city && typeof data.city === 'object' && typeof (data.city as { c?: unknown }).c === 'string' && typeof (data.city as { k?: unknown }).k === 'string') setCity(data.city as { c: string; k: string })
       setQ((p) => p.map((x) => ({ ...x, fav: favSet().has(x.id) })))
       setBackupMsg('تم استيراد الإعدادات والقوائم. أعد فحص الملفات لتحديث المفضلة.')
     } catch { setBackupMsg('ملف النسخة الاحتياطية غير صالح أو من إصدار غير مدعوم.') }
   }
   const pip = async () => { await requestPip() }
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
-  const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran) && sp < e.duration - 5) e.currentTime = sp }
-  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
+  const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran || bookMode) && sp < e.duration - 5) e.currentTime = sp }
+  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
   const ended = () => { if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
@@ -331,10 +350,16 @@ export default function App() {
     if (!ask.trim() || !list.length) return
     setBusy(true); setMsg('')
     try {
-      const order = await aiOrder(ask, list.map((x) => x.title))
+      let order: number[] = []; let local = false
+      try { order = await aiOrder(ask, list.map((x) => x.title)) } catch {
+        local = true
+        const terms = clean(ask).toLocaleLowerCase().split(/\s+/).filter((x) => x.length > 1)
+        order = list.map((x, n) => ({ n, score: terms.reduce((sum, word) => sum + (clean(x.title + ' ' + (x.artist ?? '')).toLocaleLowerCase().includes(word) ? 3 : 0), 0) + (recent.includes(x.id) ? 1 : 0) })).sort((a, b) => b.score - a.score || a.n - b.n).map((x) => x.n)
+      }
       const picked = order.filter((n) => list[n]).map((n) => list[n])
       if (!picked.length) { setMsg('لا نتيجة. جرب وصف ثاني.'); return }
-      setLists((p) => ({ ...p, ['AI · ' + ask.slice(0, 24)]: picked.map((x) => x.id) })); setQ([...picked, ...q.filter((x) => !picked.includes(x))]); setI(0); setSheet(true); setMsg('انحفظت قائمة في «القوائم»')
+      const listName = (local ? 'DJ محلي · ' : 'AI DJ · ') + ask.slice(0, 24)
+      setLists((p) => ({ ...p, [listName]: picked.map((x) => x.id) })); setQ([...picked, ...q.filter((x) => !picked.includes(x))]); setI(0); setSheet(true); setMsg(local ? 'خدمة AI غير متاحة؛ أنشأت ترتيبًا محليًا حسب الأسماء وسجل الاستماع.' : 'انحفظت قائمة AI DJ في «القوائم».')
     } catch (e) { setMsg((e as Error).message === 'AI_URL_MISSING' ? 'AI غير مفعّل: اضبط VITE_AI_URL' : 'فشل AI. جرب لاحقا.') } finally { setBusy(false) }
   }
 
@@ -388,7 +413,7 @@ export default function App() {
         onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); resume(e.currentTarget); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
-        {find === null ? <h1 className="flex-1 text-2xl font-bold" style={{ color: A }}>Hema</h1>
+        {find === null ? <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div>
           : <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="بحث" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 outline-none" />}
         <button aria-label="إعدادات" onClick={() => setSettings(true)} className="p-2"><Icon n="gear" /></button>
         <button aria-label="بحث" onClick={() => setFind(find === null ? '' : null)} className="p-2"><Icon n={find === null ? 'search' : 'close'} /></button>
@@ -454,7 +479,7 @@ export default function App() {
           <canvas ref={cv} width={288} height={48} className="mx-auto" />
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
           {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}
-          <label className="mx-auto cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed) } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label>
+          <div className="flex flex-wrap items-center justify-center gap-2"><label className="cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed); setMsg('تم حفظ الكلمات محليًا') } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label><button aria-label="تأخير الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.max(-10, Math.round((v - 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">−0.5s</button><span className="text-xs opacity-60" dir="ltr">{lyrOffset > 0 ? '+' : ''}{lyrOffset.toFixed(1)}s</span><button aria-label="تقديم الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.min(10, Math.round((v + 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">+0.5s</button></div>
           {Bar({ big: true })}{Ctl()}
           <div dir="ltr" className="flex justify-around pb-2 opacity-90">
             <button aria-label="مفضلة" onClick={() => fav(cur)} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" /></button>
@@ -464,8 +489,9 @@ export default function App() {
             <button onClick={() => setCar(true)} className="text-sm font-semibold">قيادة</button>
           </div>
           {panel && (
-            <div className="absolute inset-x-0 bottom-0 z-10 space-y-3 rounded-t-3xl bg-[#1a1d26] p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-              <h2 className="font-semibold">{panel === 'eq' ? 'موازن الصوت' : 'إيقاف تلقائي'}</h2>
+            <div className="absolute inset-x-0 bottom-0 z-10 max-h-[78vh] space-y-3 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#151923]/95 p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl backdrop-blur-xl">
+              <h2 className="font-semibold">{panel === 'eq' ? 'HEMA Audio Lab · 10 نطاقات' : 'إيقاف تلقائي'}</h2>
+              {panel === 'eq' && <div className="flex flex-wrap gap-2"><Opt on={bassBoost} onClick={() => setBassBoost(!bassBoost)}>تعزيز الجهير</Opt><Opt on={spatial} onClick={() => setSpatial(!spatial)}>صدى محيطي</Opt></div>}
               <div className="flex flex-wrap gap-2">
                 {panel === 'eq' ? EQS.map((e, k) => <Opt key={e.n} on={eq === k} onClick={() => applyEq(k)}>{e.n}</Opt>)
                   : [0, 15, 30, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
@@ -513,6 +539,9 @@ export default function App() {
             <div className="flex flex-wrap gap-2">
               <Opt on={shake} onClick={() => setShake(!shake)}>هز = التالي</Opt>
               <Opt on={quran} onClick={() => setQuran(!quran)}>وضع القرآن (يكمل كل مقطع)</Opt>
+              <Opt on={bookMode} onClick={() => setBookMode(!bookMode)}>وضع الكتب الصوتية</Opt>
+              <Opt on={bassBoost} onClick={() => setBassBoost(!bassBoost)}>تعزيز الجهير</Opt>
+              <Opt on={spatial} onClick={() => setSpatial(!spatial)}>صدى محيطي</Opt>
               <Opt on={adhan} onClick={() => setAdhan(!adhan)}>إيقاف وقت الأذان</Opt>
             </div>
             {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
@@ -550,21 +579,22 @@ export default function App() {
       )}
 
       {fs && cur?.video && (
-        <div className="fixed inset-0 z-50 select-none" onClick={poke}
-          onTouchStart={(e) => { const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
+        <div className="fixed inset-0 z-50 select-none" onClick={() => { if (!lockedScreen) poke() }}
+          onTouchStart={(e) => { if (lockedScreen) return; const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
           onTouchMove={(e) => {
-            const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
+            if (lockedScreen) return; const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
             if (!G.ax && (Math.abs(dx) > 14 || Math.abs(dy) > 14)) G.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
             if (G.ax === 'y') {
               if (G.left) { const b = Math.max(0.05, Math.min(1, G.b + dy / 250)); setBright(b); setHud({ k: 'br', v: b }) }
               else { const v = Math.max(0, Math.min(1, G.v + dy / 250)); if (m.current) m.current.volume = v; setHud({ k: 'vol', v }) }
             } else if (G.ax === 'x') { G.nt = Math.max(0, Math.min(d, G.t + (dx / G.w) * 120)); setHud({ k: 'seek', v: G.nt }) }
           }}
-          onTouchEnd={() => { const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
+          onTouchEnd={() => { if (lockedScreen) return; const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
           <div className="absolute inset-y-0 start-0 w-1/3" onDoubleClick={() => seek(t - 10)} />
           <div className="absolute inset-y-0 end-0 w-1/3" onDoubleClick={() => seek(t + 10)} />
           {hud && <div className="absolute start-1/2 top-1/3 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-4 py-2">{hud.k === 'br' && <Icon n="sun" s={20} />}{hud.k === 'seek' ? `${fmt(hud.v)} / ${fmt(d)}` : `${Math.round(hud.v * 100)}%`}</div>}
-          {ui && (
+          {lockedScreen && <button onClick={(e) => { e.stopPropagation(); setLockedScreen(false); poke() }} className="absolute inset-x-0 bottom-10 z-[60] mx-auto w-fit rounded-full bg-black/75 px-5 py-3 text-sm text-white shadow-xl">اضغط لفتح اللمس</button>}
+          {ui && !lockedScreen && (
             <>
               <div className="absolute inset-x-0 top-0 flex items-center gap-2 bg-gradient-to-b from-black/80 to-transparent p-3 pt-8">
                 <button aria-label="رجوع" onClick={(e) => { e.stopPropagation(); closeVideo() }} className="p-1"><Icon n="back" /></button>
@@ -574,6 +604,7 @@ export default function App() {
                 </label>
                 <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
+                <button onClick={(e) => { e.stopPropagation(); setLockedScreen(!lockedScreen) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{lockedScreen ? 'فتح اللمس' : 'قفل اللمس'}</button>
                 <button onClick={(e) => { e.stopPropagation(); void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز')) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">PiP</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
               </div>
