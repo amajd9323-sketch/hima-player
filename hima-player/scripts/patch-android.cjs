@@ -68,6 +68,11 @@ if (!m.includes('HEMA_SHARE_WEB_INTENTS')) {
 }
 if (!m.includes('android.permission.INTERNET'))
   m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\n    <application')
+if (!m.includes('android.permission.ACCESS_WIFI_STATE'))
+  m = m.replace('<application', '<uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />\n    <application')
+if (!m.includes('android.permission.CHANGE_WIFI_MULTICAST_STATE'))
+  m = m.replace('<application', '<uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />\n    <application')
+if (!m.includes('android:usesCleartextTraffic')) m = m.replace('<application', '<application android:usesCleartextTraffic="true"')
 if (!m.includes('supportsPictureInPicture')) m = m.replace('<activity', '<activity android:supportsPictureInPicture="true"')
 for (const p of ['READ_MEDIA_AUDIO', 'READ_MEDIA_VIDEO'])
   if (!m.includes(p)) m = m.replace('<application', `<uses-permission android:name="android.permission.${p}" />\n    <application`)

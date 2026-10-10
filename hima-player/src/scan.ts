@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
-export type Item = { id: string; title: string; uri: string; video: boolean; duration: number; size: number; height: number; artist?: string; folder?: string }
-const P = registerPlugin<{ scan(o: { offset: number; limit: number }): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }>; downloadMedia(o: { url: string; title?: string }): Promise<{ downloadId: number; fileName: string }>; extractAudio(o: { uri: string; title: string }): Promise<{ fileName: string; uri?: string }> }>('MediaScan')
+export type Item = { id: string; title: string; uri: string; video: boolean; duration: number; size: number; height: number; artist?: string; album?: string; albumId?: string; folder?: string }
+const P = registerPlugin<{ scan(o: { offset: number; limit: number }): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }>; downloadMedia(o: { url: string; title?: string }): Promise<{ downloadId: number; fileName: string }>; extractAudio(o: { uri: string; title: string; startMs?: number; endMs?: number }): Promise<{ fileName: string; uri?: string }>; getVideoThumbnail(o: { uri: string }): Promise<{ dataUrl: string }>; getGenres(): Promise<{ items: { id: string; genre: string }[] }>; discoverCastDevices(): Promise<{ devices: { id: string; name: string }[] }>; castMedia(o: { deviceId: string; uri: string; title: string; video: boolean }): Promise<{ url?: string }>; stopCast(o: { deviceId: string }): Promise<{ stopped: boolean }> }>('MediaScan')
 export const canScan = () => Capacitor.isNativePlatform()
 export async function scan(offset = 0, limit = 80) {
   const r = await P.scan({ offset, limit })
@@ -17,4 +17,16 @@ export const consumeSharedUrl = async () => { if (!canScan()) return ''; try { r
 export const resolveTikTokUrl = async (url: string) => { if (!canScan()) return url; try { return (await P.resolveTikTokUrl({ url })).url ?? url } catch { return url } }
 
 export const downloadMedia = async (url: string, title?: string) => { if (!canScan()) throw new Error('DOWNLOAD_NATIVE_ONLY'); return await P.downloadMedia({ url, title }) }
-export const extractAudio = async (uri: string, title: string) => { if (!canScan()) throw new Error('CONVERSION_NATIVE_ONLY'); return await P.extractAudio({ uri, title }) }
+export const extractAudio = async (uri: string, title: string, startMs = 0, endMs = 0) => { if (!canScan()) throw new Error('CONVERSION_NATIVE_ONLY'); return await P.extractAudio({ uri, title, startMs, endMs }) }
+const videoThumbCache = new Map<string, string>()
+export const getVideoThumbnail = async (uri: string) => {
+  const cached = videoThumbCache.get(uri)
+  if (cached) return cached
+  const { dataUrl } = await P.getVideoThumbnail({ uri })
+  if (dataUrl) videoThumbCache.set(uri, dataUrl)
+  return dataUrl ?? ''
+}
+export const getGenres = async () => { if (!canScan()) return []; return (await P.getGenres()).items ?? [] }
+export const discoverCastDevices = async () => { if (!canScan()) return []; return (await P.discoverCastDevices()).devices ?? [] }
+export const castMedia = async (deviceId: string, uri: string, title: string, video: boolean) => { if (!canScan()) throw new Error('CAST_NATIVE_ONLY'); return await P.castMedia({ deviceId, uri, title, video }) }
+export const stopCast = async (deviceId: string) => { if (!canScan()) throw new Error('CAST_NATIVE_ONLY'); return await P.stopCast({ deviceId }) }
