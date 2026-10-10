@@ -19,6 +19,9 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.content.Intent;
+import android.content.BroadcastReceiver;
+import android.content.IntentFilter;
+import android.media.AudioManager;
 import android.app.PictureInPictureParams;
 import android.app.DownloadManager;
 import android.os.Environment;
@@ -76,6 +79,7 @@ import com.getcapacitor.annotation.PermissionCallback;
 public class MediaScanPlugin extends Plugin {
 
     private static volatile String pendingSharedUrl = "";
+    private BroadcastReceiver headphonePauseReceiver;
     private static final Map<String, CastDevice> castDevices = new ConcurrentHashMap<>();
     private static volatile ServerSocket castServer;
     private static volatile Uri castSource;
@@ -767,6 +771,41 @@ public class MediaScanPlugin extends Plugin {
                 added++;
             }
         } catch (Exception ignored) { }
+    }
+
+    @PluginMethod
+    public void setHeadphonePause(PluginCall call) {
+        Boolean requested = call.getBoolean("enabled");
+        boolean enabled = requested != null && requested;
+        try {
+            if (enabled) {
+                if (headphonePauseReceiver == null) {
+                    IntentFilter filter = new IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+                    BroadcastReceiver receiver = new BroadcastReceiver() {
+                        @Override public void onReceive(Context context, Intent intent) {
+                            if (intent != null && AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(intent.getAction())) {
+                                JSObject event = new JSObject();
+                                event.put("reason", "audio-output-disconnected");
+                                notifyListeners("audioNoisy", event);
+                            }
+                        }
+                    };
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        getContext().registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED);
+                    } else {
+                        getContext().registerReceiver(receiver, filter);
+                    }
+                    headphonePauseReceiver = receiver;
+                }
+            } else if (headphonePauseReceiver != null) {
+                try { getContext().unregisterReceiver(headphonePauseReceiver); } catch (IllegalArgumentException ignored) { }
+                headphonePauseReceiver = null;
+            }
+            call.resolve();
+        } catch (Exception e) {
+            headphonePauseReceiver = null;
+            call.reject("HEADPHONE_LISTENER_UNAVAILABLE", e);
+        }
     }
 
     @PluginMethod
