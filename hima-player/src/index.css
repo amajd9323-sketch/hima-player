@@ -435,3 +435,11 @@ main .rounded-2xl.border { box-shadow: none !important; }
   .media-track-actions { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .media-track-row { padding: 6px !important; }
 }
+
+
+/* HEMA discovery pages: clean controls without heavy animation or shadows */
+.media-track-row, .media-track-actions .media-action-button { box-shadow: none !important; }
+.media-track-actions .media-action-button { min-height: 42px !important; }
+@media (max-width: 380px) {
+  .media-track-actions { grid-template-columns: repeat(4,minmax(0,1fr)); }
+}

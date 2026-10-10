@@ -23,7 +23,7 @@ export const getVideoThumbnail = async (uri: string) => {
   const cached = videoThumbCache.get(uri)
   if (cached) return cached
   const { dataUrl } = await P.getVideoThumbnail({ uri })
-  if (dataUrl) videoThumbCache.set(uri, dataUrl)
+  if (dataUrl) { videoThumbCache.set(uri, dataUrl); while (videoThumbCache.size > 50) { const first = videoThumbCache.keys().next().value; if (!first) break; videoThumbCache.delete(first) } }
   return dataUrl ?? ''
 }
 export const getGenres = async () => { if (!canScan()) return []; return (await P.getGenres()).items ?? [] }

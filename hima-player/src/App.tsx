@@ -5,13 +5,13 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio, getVideoThumbnail, getGenres, discoverCastDevices, castMedia, stopCast } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
 
-type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
-type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online'
+type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; album?: string; albumId?: string; genre?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
+type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast'
 type Repeat = 'off' | 'all' | 'one'
 type OnlinePlatform = 'youtube' | 'tiktok'
 type OnlineLink = { key: string; platform: OnlinePlatform; videoId: string; url: string; title: string }
@@ -36,11 +36,42 @@ const srt2vtt = (x: string) => 'WEBVTT\n\n' + x.replace(/\r/g, '').replace(/(\d+
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
 
-function VThumb({ src }: { src: string; dur?: number; lite?: boolean }) {
-  // Lightweight artwork only. Video decoders are reserved for actual playback.
+const VIDEO_THUMBNAILS = new Map<string, string>()
+function VThumb({ src, uri }: { src: string; uri?: string; dur?: number; lite?: boolean }) {
+  const [thumb, setThumb] = useState(() => uri ? VIDEO_THUMBNAILS.get(uri) ?? '' : '')
+  const root = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    let active = true
+    let observer: IntersectionObserver | null = null
+    setThumb(uri ? VIDEO_THUMBNAILS.get(uri) ?? '' : '')
+    if (!uri || !canScan()) return
+    const loadThumbnail = async () => {
+      const cached = VIDEO_THUMBNAILS.get(uri)
+      if (cached) { if (active) setThumb(cached); return }
+      try {
+        const data = await getVideoThumbnail(uri)
+        if (active && data) {
+          VIDEO_THUMBNAILS.set(uri, data)
+          while (VIDEO_THUMBNAILS.size > 50) {
+            const first = VIDEO_THUMBNAILS.keys().next().value
+            if (!first) break
+            VIDEO_THUMBNAILS.delete(first)
+          }
+          setThumb(data)
+        }
+      } catch { /* keep lightweight artwork if thumbnail extraction fails */ }
+    }
+    if (root.current && 'IntersectionObserver' in window) {
+      observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) { observer?.disconnect(); void loadThumbnail() }
+      }, { rootMargin: '160px' })
+      observer.observe(root.current)
+    } else void loadThumbnail()
+    return () => { active = false; observer?.disconnect() }
+  }, [uri])
   return (
-    <span className="relative block aspect-video w-full overflow-hidden rounded-xl" style={art(src)}>
-      <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>
+    <span ref={root} className="relative block aspect-video w-full overflow-hidden rounded-xl" style={art(src)}>
+      {thumb ? <img src={thumb} alt="" loading="lazy" decoding="async" className="absolute inset-0 size-full object-cover" /> : <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>}
     </span>
   )
 }
@@ -54,6 +85,23 @@ export default function App() {
   const [nativeMore, setNativeMore] = useState({ audio: false, video: false })
   const [nativeLoading, setNativeLoading] = useState(false)
   const [convertingId, setConvertingId] = useState<string | null>(null)
+  const [convertTrack, setConvertTrack] = useState<Track | null>(null)
+  const [conversionStart, setConversionStart] = useState(0)
+  const [conversionEnd, setConversionEnd] = useState(0)
+  const [exploreMode, setExploreMode] = useState<'albums' | 'artists' | 'genres'>('albums')
+  const [exploreValue, setExploreValue] = useState<string | null>(null)
+  const [genresLoaded, setGenresLoaded] = useState(false)
+  const [genreLoading, setGenreLoading] = useState(false)
+  const [castDevices, setCastDevices] = useState<{ id: string; name: string }[]>([])
+  const [castDeviceId, setCastDeviceId] = useState('')
+  const [castLoading, setCastLoading] = useState(false)
+  const [castMsg, setCastMsg] = useState('')
+  const [audioTracks, setAudioTracks] = useState<{ id: number; label: string; language: string; enabled: boolean }[]>([])
+  const [audioTrackMenu, setAudioTrackMenu] = useState(false)
+  const [subOffset, setSubOffset] = useState<number>(() => ls('hema_sub_offset', 0))
+  const subCueBase = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>())
+  const [plainLyrics, setPlainLyrics] = useState('')
+  const [lyricsLoading, setLyricsLoading] = useState(false)
   const [notice, setNotice] = useState('')
   const noticeTimer = useRef<number | null>(null)
   useEffect(() => () => { if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current) }, [])
@@ -197,7 +245,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('hema_auto_volume', JSON.stringify(autoVolume)); if (normN.current && ac.current && !autoVolume) normN.current.gain.setTargetAtTime(1, ac.current.currentTime, 0.4) }, [autoVolume])
   useEffect(() => { localStorage.setItem('hema_cue_size', JSON.stringify(cueSize)); document.documentElement.style.setProperty('--hema-cue-size', cueSize + '%'); localStorage.setItem('hema_cue_color', cueColor); document.documentElement.style.setProperty('--hema-cue-color', cueColor) }, [cueSize, cueColor])
   useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
-  useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, bassBoost, spatial, bookMode])
+  useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_sub_offset', JSON.stringify(subOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, subOffset, bassBoost, spatial, bookMode])
   useEffect(() => { bands.current.forEach((b, j) => { b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0) }) }, [eq, customEq, bassBoost])
   useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
   useEffect(() => { localStorage.setItem('hema_online_saved', JSON.stringify(onlineSaved.slice(0, 300))) }, [onlineSaved])
@@ -221,17 +269,33 @@ export default function App() {
   const queueIdSet = useMemo(() => new Set(queueIds), [queueIds])
   const queuePosition = useMemo(() => new Map(queueIds.map((id, index) => [id, index])), [queueIds])
   const listIdSet = useMemo(() => new Set(lists[openList ?? ''] ?? []), [lists, openList])
-  const match = useMemo(() => (x: Track) => (!find || (x.title + ' ' + (x.artist ?? '')).toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recentIdSet.has(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || listIdSet.has(x.id)) && (tab !== 'queue' || queueIdSet.has(x.id)) && (tab !== 'top' || topIds.has(x.id)), [find, tab, recentIdSet, openFolder, listIdSet, queueIdSet, topIds])
+  const match = useMemo(() => (x: Track) => (!find || (x.title + ' ' + (x.artist ?? '') + ' ' + (x.album ?? '') + ' ' + (x.genre ?? '')).toLowerCase().includes(find.toLowerCase())) && (tab !== 'fav' || x.fav) && (tab !== 'recent' || recentIdSet.has(x.id)) && (tab !== 'folders' || x.folder === openFolder) && (tab !== 'lists' || listIdSet.has(x.id)) && (tab !== 'queue' || queueIdSet.has(x.id)) && (tab !== 'top' || topIds.has(x.id)) && (tab !== 'explore' || exploreValue === null || (exploreMode === 'albums' ? x.album?.trim() || 'ألبوم غير معروف' : exploreMode === 'artists' ? (x.artist && !x.artist.toLowerCase().includes('unknown') ? x.artist.trim() : 'فنان غير معروف') : x.genre?.trim() || 'غير مصنّف') === exploreValue), [find, tab, recentIdSet, openFolder, listIdSet, queueIdSet, topIds, exploreValue, exploreMode])
   const srt = useMemo(() => (a: { x: Track }, b: { x: Track }) => tab === 'queue' ? (queuePosition.get(a.x.id) ?? 0) - (queuePosition.get(b.x.id) ?? 0) : (sort === 'name' ? a.x.title.localeCompare(b.x.title) : sort === 'dur' ? (b.x.dur ?? 0) - (a.x.dur ?? 0) : sort === 'size' ? (b.x.size ?? 0) - (a.x.size ?? 0) : 0), [tab, queuePosition, sort])
   const musics = useMemo(() => q.map((x, k) => ({ x, k })).filter((o) => !o.x.video && match(o.x)).sort(srt), [q, match, srt])
   const videos = useMemo(() => q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt), [q, match, srt])
   const visibleMusics = useMemo(() => musics.slice(0, renderLimit), [musics, renderLimit])
   const visibleVideos = useMemo(() => videos.slice(0, renderLimit), [videos, renderLimit])
-  useEffect(() => { setRenderLimit(30) }, [tab, find, sort, openFolder, openList])
+  useEffect(() => { setRenderLimit(30) }, [tab, find, sort, openFolder, openList, exploreValue, exploreMode])
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
-  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
+  const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || (tab === 'explore' && exploreValue !== null) || open
   const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
   const folderMap = useMemo(() => q.reduce((mm, x) => (x.folder ? mm.set(x.folder, (mm.get(x.folder) ?? 0) + 1) : mm), new Map<string, number>()), [q])
+  const exploreGroups = useMemo(() => {
+    const grouped = new Map<string, Track[]>()
+    for (const track of q) {
+      if (track.video) continue
+      const key = exploreMode === 'albums'
+        ? track.album?.trim() || 'ألبوم غير معروف'
+        : exploreMode === 'artists'
+          ? (track.artist && !track.artist.toLowerCase().includes('unknown') ? track.artist.trim() : 'فنان غير معروف')
+          : track.genre?.trim() || 'غير مصنّف'
+      const group = grouped.get(key) ?? []
+      group.push(track)
+      grouped.set(key, group)
+    }
+    return [...grouped.entries()].map(([name, tracks]) => ({ name, tracks }))
+      .sort((a, b) => a.name.localeCompare(b.name, language === 'ar' ? 'ar' : 'en'))
+  }, [q, exploreMode, language])
 
   const favSet = () => new Set<string>(JSON.parse(localStorage.getItem('hema_favs') || '[]'))
   const load = async () => {
@@ -244,7 +308,7 @@ export default function App() {
         const firstPage = await scan(0, MEDIA_PAGE_SIZE)
         nativeOffset.current = MEDIA_PAGE_SIZE
         setNativeMore({ audio: firstPage.filter((x) => !x.video).length >= MEDIA_PAGE_SIZE, video: firstPage.filter((x) => x.video).length >= MEDIA_PAGE_SIZE })
-        lib = firstPage.map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
+        lib = firstPage.map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, album: x.album, albumId: x.albumId, folder: x.folder, fav: fv.has(id) } })
       } catch { setScanMsg('اسمح بالوصول للملفات من إعدادات التطبيق، ثم اضغط تحديث') }
     }
     if (!canScan()) setNativeMore({ audio: false, video: false })
@@ -267,7 +331,7 @@ export default function App() {
       const favorites = favSet()
       let rows: Track[] = page.map((x) => {
         const id = 'n' + x.id + (x.video ? 'v' : 'a')
-        return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: favorites.has(id), sourceTitle: x.title, sourceArtist: x.artist }
+        return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, album: x.album, albumId: x.albumId, folder: x.folder, fav: favorites.has(id), sourceTitle: x.title, sourceArtist: x.artist }
       })
       try {
         const overrides = await allTrackMeta()
@@ -563,24 +627,104 @@ export default function App() {
     if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
     noticeTimer.current = window.setTimeout(() => { setNotice(''); noticeTimer.current = null }, 5000)
   }
-  const convertVideoToMusic = async (x: Track) => {
+  const convertVideoToMusic = (x: Track) => {
     if (!x.video) return
     if (!canScan()) { notify('تحويل الفيديو متاح لفيديوهات مكتبة الهاتف.'); return }
-    if (!x.uri) { notify('اختر الفيديو من مكتبة الهاتف؛ الملفات المستوردة داخل التطبيق غير مدعومة للتحويل بعد.'); return }
+    if (!x.uri) { notify('اختر فيديو من مكتبة الهاتف؛ الملفات المستوردة داخل التطبيق غير مدعومة للتحويل بعد.'); return }
+    setConvertTrack(x)
+    setConversionStart(0)
+    setConversionEnd(Math.max(0, Math.round(x.dur ?? 0)))
+  }
+  const runAudioExtraction = async () => {
+    const x = convertTrack
+    if (!x?.uri) return
+    const end = Math.max(0, conversionEnd)
+    if (end > 0 && end <= conversionStart) { notify('وقت النهاية يجب أن يكون أكبر من وقت البداية.'); return }
     if (convertingId !== null) return
     setConvertingId(x.id)
     try {
-      const result = await extractAudio(x.uri, x.title)
-      notify('تم حفظ الصوت داخل Music/HEMA ROKSI: ' + result.fileName)
+      const result = await extractAudio(x.uri, x.title, Math.round(conversionStart * 1000), Math.round(end * 1000))
+      notify('تم حفظ الصوت بصيغة M4A: ' + result.fileName)
+      setConvertTrack(null)
       await load()
     } catch (error) {
       const message = String(error)
       notify(message.includes('VIDEO_HAS_NO_AUDIO_TRACK')
         ? 'هذا الفيديو لا يحتوي على مسار صوتي.'
         : 'تعذر استخراج الصوت. جرّب فيديو MP4 بصوت AAC.')
-    } finally {
-      setConvertingId(null)
+    } finally { setConvertingId(null) }
+  }
+  const loadGenreMetadata = async () => {
+    if (genresLoaded || genreLoading) return
+    setGenreLoading(true)
+    try {
+      const rows = await getGenres()
+      const byId = new Map(rows.map((row) => ['n' + row.id + 'a', row.genre]))
+      setQ((previous) => previous.map((track) => byId.has(track.id) ? { ...track, genre: byId.get(track.id) } : track))
+      setGenresLoaded(true)
+    } catch { notify('تعذّر تحميل الأنواع من مكتبة الهاتف.') }
+    finally { setGenreLoading(false) }
+  }
+  const playSmartList = (kind: 'recent' | 'short' | 'top' | 'favorites' | 'random' | 'chill') => {
+    const audio = q.filter((track) => !track.video)
+    let pool = [...audio]
+    if (kind === 'recent') pool = audio.sort((a, b) => (recent.indexOf(a.id) < 0 ? 9999 : recent.indexOf(a.id)) - (recent.indexOf(b.id) < 0 ? 9999 : recent.indexOf(b.id)))
+    if (kind === 'short') pool = audio.filter((track) => (track.dur ?? 0) > 0 && (track.dur ?? 0) <= 180)
+    if (kind === 'top') pool = audio.filter((track) => topIds.has(track.id))
+    if (kind === 'favorites') pool = audio.filter((track) => track.fav)
+    if (kind === 'chill') {
+      const calm = audio.filter((track) => /calm|chill|ambient|acoustic|classical|jazz|هادئ|روقان|ناعم/i.test((track.genre ?? '') + ' ' + track.title))
+      pool = calm.length ? calm : audio
     }
+    if (kind === 'random') pool = audio.sort(() => Math.random() - 0.5)
+    const ids = pool.slice(0, 100).map((track) => track.id)
+    if (!ids.length) { notify('لا توجد أغنيات مناسبة لهذه القائمة حتى الآن.'); return }
+    setQueueIds(ids)
+    setI(q.findIndex((track) => track.id === ids[0]))
+    setTab('queue')
+    setOpenList(null)
+    setSheet(false)
+    notify('تم تجهيز قائمة ذكية من ' + ids.length + ' أغنية.')
+  }
+  const refreshCastDevices = async () => {
+    setCastLoading(true)
+    setCastMsg('جارٍ البحث عن أجهزة DLNA على شبكة Wi-Fi نفسها…')
+    try {
+      const devices = await discoverCastDevices()
+      setCastDevices(devices)
+      setCastDeviceId(devices[0]?.id ?? '')
+      setCastMsg(devices.length ? 'اختر التلفاز ثم اضغط إرسال الملف الحالي.' : 'لم نعثر على تلفاز متوافق. تأكد أن الهاتف والتلفاز على شبكة Wi-Fi نفسها وأن DLNA/UPnP مفعّل.')
+    } catch { setCastMsg('تعذّر البحث. تأكد من اتصال Wi-Fi وأن التلفاز يدعم DLNA/UPnP.') }
+    finally { setCastLoading(false) }
+  }
+  const sendCurrentToCast = async () => {
+    if (!castDeviceId) { notify('ابحث عن التلفاز واختره أولًا.'); return }
+    if (!cur?.uri) { notify('اختر أغنية أو فيديو من مكتبة الهاتف أولًا؛ الملفات المستوردة لا يمكن بثها مباشرة حاليًا.'); return }
+    setCastLoading(true)
+    setCastMsg('جارٍ إرسال الملف إلى التلفاز…')
+    try {
+      await castMedia(castDeviceId, cur.uri, cur.title, cur.video)
+      setCastMsg('تم إرسال الطلب إلى التلفاز. تحكّم بالتشغيل من التلفاز أو من زر الإيقاف هنا.')
+    } catch { setCastMsg('لم يبدأ البث. قد لا يدعم التلفاز DLNA أو صيغة الملف الحالي.') }
+    finally { setCastLoading(false) }
+  }
+  const stopCurrentCast = async () => {
+    if (!castDeviceId) return
+    setCastLoading(true)
+    try { await stopCast(castDeviceId); setCastMsg('تم إرسال أمر إيقاف البث.') }
+    catch { setCastMsg('تعذّر إيقاف البث من الهاتف.') }
+    finally { setCastLoading(false) }
+  }
+  const refreshAudioTracks = () => {
+    const tracks = (m.current as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } } | null)?.audioTracks
+    if (!tracks?.length) { setAudioTracks([]); notify('اختيار مسارات الصوت يعتمد على دعم Android WebView لصيغة الفيديو.'); return }
+    setAudioTracks(Array.from({ length: tracks.length }, (_, id) => ({ id, label: tracks[id].label || 'مسار صوت ' + (id + 1), language: tracks[id].language || '', enabled: tracks[id].enabled })))
+  }
+  const chooseAudioTrack = (index: number) => {
+    const tracks = (m.current as unknown as { audioTracks?: { length: number; [index: number]: { enabled: boolean } } } | null)?.audioTracks
+    if (!tracks?.length || !tracks[index]) { notify('هذه الصيغة لا تسمح بتغيير مسار الصوت في مشغل الهاتف.'); return }
+    for (let j = 0; j < tracks.length; j++) tracks[j].enabled = j === index
+    refreshAudioTracks()
   }
 
   // Handle Android system Back without accidentally closing HEMA.
@@ -855,16 +999,56 @@ export default function App() {
   }, [sheet, playing])
   useEffect(() => {
     setLyr([])
+    setPlainLyrics('')
     if (!cur || cur.video) return
-    const key = 'lyr_' + cur.id; const cached = localStorage.getItem(key)
-    if (cached) { setLyr(lrcParse(cached)); return }
+    const key = 'lyr_' + cur.id
+    const cached = localStorage.getItem(key)
+    if (cached) {
+      const parsed = lrcParse(cached)
+      if (parsed.length) { setLyr(parsed); return }
+    }
+    const plainKey = 'lyr_plain_' + cur.id
+    const plainCached = localStorage.getItem(plainKey)
+    if (plainCached) { setPlainLyrics(plainCached); return }
     const ctl = new AbortController()
-    const who = cur.artist && !cur.artist.includes('unknown') ? cur.artist + ' ' : ''
-    fetch('https://lrclib.net/api/search?q=' + encodeURIComponent(clean(who + cur.title)), { signal: ctl.signal })
-      .then((r) => r.json()).then((a: { syncedLyrics?: string }[]) => { const l = a.find((y) => y.syncedLyrics)?.syncedLyrics; if (l) { localStorage.setItem(key, l); setLyr(lrcParse(l)) } }).catch(() => {})
+    const findLyrics = async () => {
+      setLyricsLoading(true)
+      try {
+        const params = new URLSearchParams({ track_name: clean(cur.title) })
+        if (cur.artist && !cur.artist.toLowerCase().includes('unknown')) params.set('artist_name', cur.artist)
+        if (cur.album) params.set('album_name', cur.album)
+        if (cur.dur && cur.dur > 0 && cur.dur < 3600) params.set('duration', String(Math.round(cur.dur)))
+        let record: { syncedLyrics?: string | null; plainLyrics?: string | null } | null = null
+        const exact = await fetch('https://lrclib.net/api/get?' + params.toString(), {
+          signal: ctl.signal,
+          headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA ROKSI PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
+        })
+        if (exact.ok) record = await exact.json()
+        else if (exact.status !== 404 && exact.status !== 400) return
+        if (!record) {
+          const query = new URLSearchParams({ q: clean((cur.artist ?? '') + ' ' + cur.title) })
+          const response = await fetch('https://lrclib.net/api/search?' + query.toString(), {
+            signal: ctl.signal,
+            headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA ROKSI PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
+          })
+          if (!response.ok) return
+          const choices = await response.json() as { syncedLyrics?: string | null; plainLyrics?: string | null }[]
+          record = choices.find((candidate) => candidate.syncedLyrics) ?? choices.find((candidate) => candidate.plainLyrics) ?? null
+        }
+        if (ctl.signal.aborted || !record) return
+        if (record.syncedLyrics) {
+          localStorage.setItem(key, record.syncedLyrics)
+          setLyr(lrcParse(record.syncedLyrics))
+        } else if (record.plainLyrics) {
+          localStorage.setItem(plainKey, record.plainLyrics)
+          setPlainLyrics(record.plainLyrics)
+        }
+      } catch { /* offline or lyrics unavailable */ }
+      finally { if (!ctl.signal.aborted) setLyricsLoading(false) }
+    }
+    void findLyrics()
     return () => ctl.abort()
-  }, [cur?.id])
-  useEffect(() => {
+  }, [cur?.id])  useEffect(() => {
     if (!adhan || !city.c) return
     const hs: number[] = []
     fetch(`https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(city.c)}&country=${encodeURIComponent(city.k)}`).then((r) => r.json()).then((j) => {
@@ -959,7 +1143,30 @@ export default function App() {
   const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran || bookMode) && sp < e.duration - 5) e.currentTime = sp }
   const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 15) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
-  useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
+  useEffect(() => {
+    const video = m.current
+    const trackElement = video?.querySelector('track')
+    if (!sub || !video || !trackElement) return
+    const track = trackElement.track
+    track.mode = 'showing'
+    const applyOffset = () => {
+      if (!track.cues) return
+      for (let index = 0; index < track.cues.length; index++) {
+        const cue = track.cues[index]
+        const prior = subCueBase.current.get(cue)
+        if (!prior) subCueBase.current.set(cue, { start: cue.startTime, end: cue.endTime })
+        const base = subCueBase.current.get(cue)!
+        try {
+          const editable = cue as VTTCue
+          editable.startTime = Math.max(0, base.start + subOffset)
+          editable.endTime = Math.max(editable.startTime + 0.05, base.end + subOffset)
+        } catch { /* some Android WebViews expose read-only cue times */ }
+      }
+    }
+    trackElement.addEventListener('load', applyOffset)
+    const timer = window.setTimeout(applyOffset, 250)
+    return () => { window.clearTimeout(timer); trackElement.removeEventListener('load', applyOffset) }
+  }, [sub, subOffset])
   const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
 
   const findDuplicates = async () => {
@@ -1105,7 +1312,7 @@ export default function App() {
   const VRow = ({ x, k }: { x: Track; k: number }) => (
     <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className="media-track-row">
       <button onClick={() => openVideo(k)} className="media-track-main block w-full text-start">
-        <VThumb src={x.url} dur={x.dur} lite={batterySaver} />
+        <VThumb src={x.url} uri={x.uri} dur={x.dur} lite={batterySaver} />
         <div className="flex min-w-0 items-center gap-2 px-1 pt-2">
           <span className="min-w-0 flex-1 truncate text-sm font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span>
           {k === i && playing && <span className="shrink-0" style={{ color: A }}><Icon n="eq" s={16} /></span>}
@@ -1131,7 +1338,7 @@ export default function App() {
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const availableTracks = (el as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } }).audioTracks; setAudioTracks(availableTracks?.length ? Array.from({ length: availableTracks.length }, (_, id) => ({ id, label: availableTracks[id].label || 'مسار صوت ' + (id + 1), language: availableTracks[id].language || '', enabled: availableTracks[id].enabled })) : []); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
       {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121824] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
 
@@ -1146,9 +1353,9 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'يوتيوب / تيك توك']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['explore', 'استكشاف'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم الذكية'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'يوتيوب / تيك توك'], ['cast', 'التلفاز']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null); if (k === 'explore') setExploreValue(null) }}>{l}</Opt>)}
       </div>
-      {tab !== 'ai' && tab !== 'online' && (
+      {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : tab === 'queue' ? `${queueIds.length} في الطابور` : tab === 'top' ? 'الأكثر استماعًا' : `${videos.length + musics.length} عنصر`}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
@@ -1277,9 +1484,52 @@ export default function App() {
             </div>}
           </section>
         )}
+        {tab === 'explore' && (
+          <section className="mb-4 space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <button onClick={() => { setExploreMode('albums'); setExploreValue(null) }} className="rounded-xl px-2 py-3 text-sm" style={{ background: exploreMode === 'albums' ? A : 'rgba(255,255,255,.07)' }}>الألبومات</button>
+              <button onClick={() => { setExploreMode('artists'); setExploreValue(null) }} className="rounded-xl px-2 py-3 text-sm" style={{ background: exploreMode === 'artists' ? A : 'rgba(255,255,255,.07)' }}>الفنانون</button>
+              <button onClick={() => { setExploreMode('genres'); setExploreValue(null); void loadGenreMetadata() }} className="rounded-xl px-2 py-3 text-sm" style={{ background: exploreMode === 'genres' ? A : 'rgba(255,255,255,.07)' }}>الأنواع</button>
+            </div>
+            {genreLoading && exploreMode === 'genres' && <p className="text-center text-sm opacity-60">جارٍ قراءة أنواع الموسيقى…</p>}
+            {exploreValue !== null
+              ? <button onClick={() => setExploreValue(null)} className="w-full rounded-xl bg-white/10 px-3 py-3 text-start text-sm">← كل {exploreMode === 'albums' ? 'الألبومات' : exploreMode === 'artists' ? 'الفنانين' : 'الأنواع'} · {exploreValue}</button>
+              : <div className="space-y-2">
+                  <p className="text-xs opacity-50">{exploreGroups.length} مجموعة في الملفات المحمّلة</p>
+                  {exploreGroups.map((group) => <button key={group.name} onClick={() => setExploreValue(group.name)} className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-start">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-xl text-lg font-bold text-white" style={art(group.name)}>{exploreMode === 'albums' ? '♫' : exploreMode === 'artists' ? '♙' : '◉'}</span>
+                    <span className="min-w-0 flex-1"><span className="block truncate font-medium">{group.name}</span><span className="block text-xs opacity-55">{group.tracks.length} أغنية</span></span>
+                    <span className="opacity-50">‹</span>
+                  </button>)}
+                </div>}
+          </section>
+        )}
+        {tab === 'cast' && (
+          <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+            <div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>HEMA CONNECT</p><h2 className="mt-1 text-lg font-bold">بث إلى التلفاز</h2><p className="mt-1 text-xs leading-6 opacity-60">يعثر على أجهزة DLNA/UPnP المتوافقة على شبكة Wi-Fi نفسها. اختر ملفًا من مكتبة الهاتف أولًا ثم أرسله. دعم الصيغ يختلف حسب التلفاز.</p></div>
+            <button onClick={() => void refreshCastDevices()} disabled={castLoading} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{castLoading ? 'جارٍ الاتصال…' : 'البحث عن أجهزة التلفاز'}</button>
+            {castDevices.map((device) => <button key={device.id} onClick={() => setCastDeviceId(device.id)} className="flex w-full items-center gap-3 rounded-xl border p-3 text-start" style={{ borderColor: castDeviceId === device.id ? A : 'rgba(255,255,255,.1)', background: castDeviceId === device.id ? 'rgba(137,87,255,.13)' : 'rgba(255,255,255,.035)' }}><Icon n="video" s={22} /><span className="min-w-0 flex-1 truncate">{device.name}</span><span>{castDeviceId === device.id ? '✓' : ''}</span></button>)}
+            <div className="rounded-xl bg-black/20 p-3"><p className="text-xs opacity-55">الملف الحالي</p><p className="mt-1 truncate text-sm font-medium">{cur?.title ?? 'لم تختر ملفًا بعد'}</p>{cur && <p className="mt-1 text-xs opacity-50">{cur.video ? 'فيديو' : 'موسيقى'} · {cur.uri ? 'من مكتبة الهاتف' : 'ملف مستورد غير قابل للبث المباشر'}</p>}</div>
+            <button onClick={() => void sendCurrentToCast()} disabled={castLoading || !castDeviceId || !cur?.uri} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-40" style={{ background: A }}>إرسال الملف الحالي إلى التلفاز</button>
+            <button onClick={() => void stopCurrentCast()} disabled={castLoading || !castDeviceId} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-40">إيقاف البث</button>
+            {castMsg && <p role="status" className="rounded-xl bg-white/5 p-3 text-sm leading-6 opacity-80">{castMsg}</p>}
+          </section>
+        )}
         {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
         {tab === 'lists' && openList === null && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <section className="space-y-2 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+              <h3 className="font-semibold">قوائم ذكية تلقائية</h3>
+              <p className="text-xs opacity-50">تُبنى من المكتبة الحالية ولا تنسخ الملفات.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={() => playSmartList('recent')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">آخر ما استمعت إليه</span><span className="text-xs opacity-50">حسب السجل</span></button>
+                <button onClick={() => playSmartList('short')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">أغانٍ قصيرة</span><span className="text-xs opacity-50">3 دقائق أو أقل</span></button>
+                <button onClick={() => playSmartList('top')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">الأكثر تشغيلًا</span><span className="text-xs opacity-50">حسب الإحصاءات</span></button>
+                <button onClick={() => playSmartList('favorites')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">المفضلة</span><span className="text-xs opacity-50">تشغيل متتابع</span></button>
+                <button onClick={() => playSmartList('chill')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">أجواء هادئة</span><span className="text-xs opacity-50">حسب البيانات</span></button>
+                <button onClick={() => playSmartList('random')} className="rounded-xl bg-white/5 px-3 py-3 text-start text-sm"><span className="block font-semibold">خلط ذكي</span><span className="text-xs opacity-50">ترتيب عشوائي</span></button>
+              </div>
+            </section>
             <div className="flex gap-2"><input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="قائمة جديدة" className="min-w-0 flex-1 rounded-xl bg-white/10 px-4 py-2 outline-none" /><button onClick={() => { if (newList.trim()) { setLists((p) => ({ ...p, [newList.trim()]: [] })); setNewList('') } }} className="rounded-xl px-4 text-white" style={{ background: A }}>إنشاء</button></div>
             {Object.entries(lists).map(([n, ids]) => <div key={n} className="flex items-center rounded-xl bg-white/5"><button onClick={() => setOpenList(n)} className="flex min-w-0 flex-1 items-center gap-3 p-3 text-start"><span style={{ color: A }}><Icon n="list" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{ids.length}</span></button><button aria-label="تشغيل القائمة" title="تشغيل القائمة" onClick={() => { const valid = ids.filter((id) => q.some((x) => x.id === id)); if (valid.length) { setQueueIds(valid); setI(q.findIndex((x) => x.id === valid[0])); setTab('queue') } }} className="p-2 text-sm" style={{ color: A }}>▶</button><button aria-label="تصدير القائمة" title="تصدير القائمة" onClick={() => exportPlaylist(n)} className="p-2 text-sm opacity-70">JSON</button><button aria-label="حذف" onClick={() => setLists((p) => { const c = { ...p }; delete c[n]; return c })} className="p-2 opacity-40"><Icon n="trash" s={20} /></button></div>)}
           </div>
@@ -1291,7 +1541,7 @@ export default function App() {
           {showV && videos.length > visibleVideos.length && <button onClick={() => setRenderLimit((n) => n + 30)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الفيديوهات ({visibleVideos.length}/{videos.length})</button>}
         </div>}
         {canScan() && (nativeMore.audio || nativeMore.video) && <button onClick={() => void loadMoreNativeMedia()} disabled={nativeLoading} className="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-50">{nativeLoading ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد من ملفات الهاتف'}</button>}
-        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
+        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : tab === 'explore' ? exploreValue !== null && !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
@@ -1328,7 +1578,7 @@ export default function App() {
           </div>
           <canvas ref={cv} width={288} height={48} className="mx-auto" />
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
-          {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}
+          {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}{!lyr.length && plainLyrics && <div className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-xl bg-black/20 p-3 text-center text-sm leading-7 opacity-85">{plainLyrics}</div>}{!lyr.length && !plainLyrics && lyricsLoading && <p className="text-center text-xs opacity-50">جارٍ البحث عن كلمات الأغنية…</p>}
           <div className="flex flex-wrap items-center justify-center gap-2"><label className="cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed); setMsg('تم حفظ الكلمات محليًا') } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label><button aria-label="تأخير الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.max(-10, Math.round((v - 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">−0.5s</button><span className="text-xs opacity-60" dir="ltr">{lyrOffset > 0 ? '+' : ''}{lyrOffset.toFixed(1)}s</span><button aria-label="تقديم الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.min(10, Math.round((v + 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">+0.5s</button></div>
           {Bar({ big: true })}{Ctl()}
           <div className="flex items-center justify-center gap-2 text-xs"><button onClick={() => { setLoopA(t); setLoopB(null) }} className="rounded-lg bg-white/10 px-3 py-2" style={{ color: loopA !== null ? A : undefined }}>A {loopA === null ? '—' : fmt(loopA)}</button><button onClick={() => { if (loopA === null || t <= loopA) setMsg('حدد A أولًا، ثم B بعده.'); else setLoopB(t) }} className="rounded-lg bg-white/10 px-3 py-2" style={{ color: loopB !== null ? A : undefined }}>B {loopB === null ? '—' : fmt(loopB)}</button><button onClick={() => { setLoopA(null); setLoopB(null) }} className="rounded-lg bg-white/10 px-3 py-2">مسح التكرار</button></div>
@@ -1506,7 +1756,11 @@ export default function App() {
             } else if (G.ax === 'x') { G.nt = Math.max(0, Math.min(d, G.t + (dx / G.w) * 120)); setHud({ k: 'seek', v: G.nt }) }
           }}
           onTouchEnd={() => { if (lockedScreen) return; const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
-          <div className="absolute inset-y-0 start-0 w-1/3" onDoubleClick={() => seek(t - 10)} />
+          {audioTrackMenu && <div className="absolute end-3 top-20 z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#101522]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                <p className="mb-2 text-sm font-semibold">مسارات الصوت</p>
+                {audioTracks.length ? audioTracks.map((track) => <button key={track.id} onClick={() => chooseAudioTrack(track.id)} className="mb-1 flex w-full items-center gap-2 rounded-xl bg-white/5 p-3 text-start text-sm" style={{ color: track.enabled ? A : undefined }}><span className="min-w-0 flex-1 truncate">{track.label}</span><span className="text-xs opacity-50">{track.language}</span>{track.enabled ? '✓' : ''}</button>) : <p className="text-xs opacity-65">لم يعرض Android WebView مسارات صوت منفصلة لهذا الفيديو.</p>}
+              </div>}
+              <div className="absolute inset-y-0 start-0 w-1/3" onDoubleClick={() => seek(t - 10)} />
           <div className="absolute inset-y-0 end-0 w-1/3" onDoubleClick={() => seek(t + 10)} />
           {hud && <div className="absolute start-1/2 top-1/3 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/70 px-4 py-2">{hud.k === 'br' && <Icon n="sun" s={20} />}{hud.k === 'seek' ? `${fmt(hud.v)} / ${fmt(d)}` : `${Math.round(hud.v * 100)}%`}</div>}
           {lockedScreen && <button onClick={(e) => { e.stopPropagation(); setLockedScreen(false); poke() }} className="absolute inset-x-0 bottom-10 z-[60] mx-auto w-fit rounded-full bg-black/75 px-5 py-3 text-sm text-white shadow-xl">اضغط لفتح اللمس</button>}
@@ -1526,6 +1780,12 @@ export default function App() {
                 <button onClick={(e) => { e.stopPropagation(); setLockedScreen(!lockedScreen) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{lockedScreen ? 'فتح اللمس' : 'قفل اللمس'}</button>
                 <button onClick={(e) => { e.stopPropagation(); void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز')) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">PiP</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
+                <button onClick={(e) => { e.stopPropagation(); setAudioTrackMenu((v) => !v); refreshAudioTracks() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">مسار الصوت</button>
+                <div className="flex items-center gap-1 rounded-lg bg-white/10 px-1">
+                  <button aria-label="تأخير الترجمة" onClick={(e) => { e.stopPropagation(); setSubOffset((v) => Math.max(-10, Math.round((v - 0.25) * 100) / 100)) }} className="px-2 py-1 text-xs">CC −</button>
+                  <span className="text-[10px]" dir="ltr">{subOffset.toFixed(2)}s</span>
+                  <button aria-label="تقديم الترجمة" onClick={(e) => { e.stopPropagation(); setSubOffset((v) => Math.min(10, Math.round((v + 0.25) * 100) / 100)) }} className="px-2 py-1 text-xs">CC +</button>
+                </div>
               </div>
               <div className="absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-12" dir="ltr" onClick={(e) => e.stopPropagation()}>
                 <button aria-label="رجوع 10 ثواني" onClick={() => { seek(t - 10); poke() }}><Icon n="rew" s={40} /></button>
@@ -1538,6 +1798,19 @@ export default function App() {
               </div>
             </>
           )}
+        </div>
+      )}
+      {convertTrack && (
+        <div className="fixed inset-0 z-[110] flex items-end bg-black/75" onClick={() => { if (convertingId === null) setConvertTrack(null) }}>
+          <div className="w-full space-y-4 rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>VIDEO TO MUSIC</p><h2 className="mt-1 text-xl font-bold">استخراج الصوت</h2><p className="mt-1 truncate text-sm opacity-60">{convertTrack.title}</p></div><button disabled={convertingId !== null} onClick={() => setConvertTrack(null)} className="rounded-xl bg-white/10 px-3 py-2">إغلاق</button></div>
+            <p className="text-sm leading-6 opacity-70">حدد الجزء المطلوب. اترك النهاية 0 لاستخراج الصوت حتى نهاية الفيديو. سيُحفظ الملف بصيغة M4A داخل Music/HEMA ROKSI، ودعم الصيغة يعتمد على مسار الصوت داخل الفيديو.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="space-y-2 text-sm"><span>البداية (ثانية)</span><input type="number" min={0} max={Math.max(0, Math.ceil(convertTrack.dur ?? 86400))} step={1} value={conversionStart} onChange={(e) => setConversionStart(Math.max(0, Number(e.target.value) || 0))} className="w-full rounded-xl bg-white/5 px-3 py-3" /></label>
+              <label className="space-y-2 text-sm"><span>النهاية (ثانية، 0 = الكل)</span><input type="number" min={0} max={Math.max(0, Math.ceil(convertTrack.dur ?? 86400))} step={1} value={conversionEnd} onChange={(e) => setConversionEnd(Math.max(0, Number(e.target.value) || 0))} className="w-full rounded-xl bg-white/5 px-3 py-3" /></label>
+            </div>
+            <button onClick={() => void runAudioExtraction()} disabled={convertingId !== null} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{convertingId === convertTrack.id ? 'جارٍ استخراج الصوت…' : 'استخراج وحفظ M4A'}</button>
+          </div>
         </div>
       )}
       {msg === 'اضغط مرة أخرى للخروج' && <div role="status" className="fixed inset-x-4 bottom-24 z-[120] mx-auto w-fit rounded-full border border-white/10 bg-[#171923]/95 px-5 py-3 text-center text-sm font-medium text-white shadow-2xl">اضغط مرة أخرى للخروج</div>}
