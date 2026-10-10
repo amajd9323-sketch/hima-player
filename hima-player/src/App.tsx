@@ -253,6 +253,107 @@ export default function App() {
   const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
   const [roksiLetter, setRoksiLetter] = useState<string>(() => ls('hema_roksi_letter', ROKSI_LETTERS.pl))
   const [roksiStoryTitle, setRoksiStoryTitle] = useState<string>(() => ls('hema_roksi_story_title', 'Hema × Roksi'))
+  const roksiCopy = ({
+    ar: {
+      eyebrow: 'هدية صغيرة صُنعت بكل الحب',
+      heroDescription: 'لكِ يا روكسي، قطعة صغيرة من عالمي صنعتها في غزة وأنا أفكر بكِ.',
+      glowOn: '♡ الإضاءة الرومانسية: تعمل',
+      glowOff: '♡ الإضاءة الرومانسية: متوقفة',
+      songsTitle: 'أغانينا ♫',
+      songsDescription: 'اختاري الأغاني من المكتبة لتحتفظي بها في قائمتنا الخاصة. تُحفظ القائمة على هذا الهاتف.',
+      saved: 'محفوظة',
+      playSongs: '▶ تشغيل أغانينا',
+      addFavorites: '♡ إضافة المفضلة',
+      noSavedSongs: 'أضيفي بعض الأغاني إلى قائمتنا أولًا.',
+      noFavorites: 'لا توجد أغانٍ مفضلة بعد.',
+      favoritesAdded: 'أُضيفت الأغاني المفضلة إلى قائمتنا.',
+      emptyLibrary: 'أضيفي ملفات الموسيقى من زر + بالأعلى، ثم عودي لاختيار أغانينا.',
+      unknownArtist: 'فنان غير معروف',
+      addSong: 'إضافة إلى أغانينا',
+      removeSong: 'إزالة من أغانينا',
+      limitNotice: 'تظهر أول 100 أغنية للحفاظ على سرعة التطبيق.',
+      letterEyebrow: 'رسالة لكِ',
+      letterTitle: 'رسالة من هيما 💌',
+      letterDescription: 'هذه الرسالة محفوظة على هذا الهاتف فقط، ويمكنك تعديلها.',
+      letterLanguage: 'لغة الرسالة',
+      letterField: 'رسالتك إلى روكسي',
+      letterPlaceholder: 'اكتبي كلماتك الخاصة هنا…',
+      autoSaved: 'حفظ تلقائي',
+      copyLetter: 'نسخ الرسالة',
+      copySuccess: 'تم نسخ الرسالة.',
+      copyFailure: 'تعذر النسخ على هذا الجهاز.',
+      storyEyebrow: 'حكايتنا الصغيرة',
+      storyDescription: 'المسافة بين غزة وبولندا لا تمنعنا من مشاركة الأغاني والذكريات. أضيفوا هنا أغانيكم وكلماتكم والتواريخ المهمة.',
+      storyTitleLabel: 'عنوان قصتنا (قابل للتعديل)',
+      poland: 'بولندا',
+    },
+    en: {
+      eyebrow: 'A LITTLE GIFT · MADE WITH LOVE',
+      heroDescription: 'For you, Roksi — a little piece of my world, made in Gaza while thinking of you.',
+      glowOn: '♡ Romantic glow: ON',
+      glowOff: '♡ Romantic glow: OFF',
+      songsTitle: 'Our Songs ♫',
+      songsDescription: 'Choose songs from your library to keep in our special list. This list is saved on this phone.',
+      saved: 'saved',
+      playSongs: '▶ Play Our Songs',
+      addFavorites: '♡ Add favorites',
+      noSavedSongs: 'Add some songs to Our Songs first.',
+      noFavorites: 'There are no favorite songs yet.',
+      favoritesAdded: 'Favorite songs were added to Our Songs.',
+      emptyLibrary: 'Add music with the + button above, then come back to choose our songs.',
+      unknownArtist: 'Unknown artist',
+      addSong: 'Add to Our Songs',
+      removeSong: 'Remove from Our Songs',
+      limitNotice: 'Only the first 100 songs are shown to keep the app fast.',
+      letterEyebrow: 'A LETTER FOR YOU',
+      letterTitle: 'A letter from Hema 💌',
+      letterDescription: 'This message is saved only on this phone, and you can edit it.',
+      letterLanguage: 'Message language',
+      letterField: 'Your message to Roksi',
+      letterPlaceholder: 'Write your own words here…',
+      autoSaved: 'auto-saved',
+      copyLetter: 'Copy message',
+      copySuccess: 'Message copied.',
+      copyFailure: 'Could not copy on this device.',
+      storyEyebrow: 'OUR LITTLE STORY',
+      storyDescription: 'Distance between Gaza and Poland cannot stop us from sharing songs and memories. Add your songs, words, and important dates here.',
+      storyTitleLabel: 'Story title (editable)',
+      poland: 'Poland',
+    },
+    pl: {
+      eyebrow: 'MAŁY PREZENT · STWORZONY Z MIŁOŚCIĄ',
+      heroDescription: 'Dla Ciebie, Roksi — mały kawałek mojego świata, stworzony w Gazie z myślą o Tobie.',
+      glowOn: '♡ Romantyczna poświata: WŁ.',
+      glowOff: '♡ Romantyczna poświata: WYŁ.',
+      songsTitle: 'Nasze piosenki ♫',
+      songsDescription: 'Wybierz utwory z biblioteki, aby zachować je na naszej liście. Lista zapisuje się na tym telefonie.',
+      saved: 'zapisanych',
+      playSongs: '▶ Odtwórz nasze piosenki',
+      addFavorites: '♡ Dodaj ulubione',
+      noSavedSongs: 'Najpierw dodaj utwory do naszej listy.',
+      noFavorites: 'Nie ma jeszcze ulubionych utworów.',
+      favoritesAdded: 'Ulubione utwory dodano do naszej listy.',
+      emptyLibrary: 'Dodaj muzykę przyciskiem + u góry, a potem wróć, aby wybrać nasze piosenki.',
+      unknownArtist: 'Nieznany wykonawca',
+      addSong: 'Dodaj do naszych piosenek',
+      removeSong: 'Usuń z naszych piosenek',
+      limitNotice: 'Dla płynnego działania aplikacji wyświetlono pierwsze 100 utworów.',
+      letterEyebrow: 'LIST DLA CIEBIE',
+      letterTitle: 'List od Hemy 💌',
+      letterDescription: 'Ta wiadomość jest zapisana tylko na tym telefonie i możesz ją zmienić.',
+      letterLanguage: 'Język wiadomości',
+      letterField: 'Twoja wiadomość do Roksi',
+      letterPlaceholder: 'Wpisz tutaj swoje słowa…',
+      autoSaved: 'zapisano automatycznie',
+      copyLetter: 'Kopiuj wiadomość',
+      copySuccess: 'Wiadomość skopiowana.',
+      copyFailure: 'Nie można skopiować na tym urządzeniu.',
+      storyEyebrow: 'NASZA MAŁA HISTORIA',
+      storyDescription: 'Odległość między Gazą a Polską nie przeszkadza nam dzielić się muzyką i wspomnieniami. Dodajcie tu swoje piosenki, słowa i ważne daty.',
+      storyTitleLabel: 'Tytuł naszej historii (do zmiany)',
+      poland: 'Polska',
+    },
+  } as const)[language]
   useEffect(() => {
     const updateSystemLanguage = () => {
       const detected = detectSystemLanguage()
@@ -1896,37 +1997,37 @@ export default function App() {
             <section className="roksi-hero relative overflow-hidden rounded-3xl border p-5">
               <div className="roksi-orb roksi-orb-one" /><div className="roksi-orb roksi-orb-two" />
               <div className="relative z-10 space-y-3">
-                <p className="text-[10px] font-bold tracking-[.24em] text-pink-200">A LITTLE GIFT · MADE WITH LOVE</p>
+                <p className="text-[10px] font-bold tracking-[.24em] text-pink-200">{roksiCopy.eyebrow}</p>
                 <h2 className="text-3xl font-bold tracking-tight">{roksiStoryTitle || 'Hema × Roksi'} <span className="text-pink-300">♡</span></h2>
-                <p className="max-w-sm text-sm leading-7 text-white/75">Dla Ciebie, Roksi. Mały kawałek mojego świata — stworzony przeze mnie w Gazie, z myślą o Tobie.</p>
+                <p className="max-w-sm text-sm leading-7 text-white/75">{roksiCopy.heroDescription}</p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇸 Gaza · Hema</span>
-                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇱 Poland · Roksi</span>
+                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇱 {roksiCopy.poland} · Roksi</span>
                 </div>
-                <button type="button" onClick={() => setRoksiGlow((value) => !value)} aria-pressed={roksiGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{roksiGlow ? '♡ Romantic glow: ON' : '♡ Romantic glow: OFF'}</button>
+                <button type="button" onClick={() => setRoksiGlow((value) => !value)} aria-pressed={roksiGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{roksiGlow ? roksiCopy.glowOn : roksiCopy.glowOff}</button>
               </div>
             </section>
             <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">OUR SONGS</p><h3 className="mt-1 text-lg font-bold">Nasze piosenki ♫</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} saved</span></div>
-              <p className="mb-3 text-xs leading-5 opacity-60">Wybierz utwory z biblioteki, które chcesz zachować na naszej liście. Lista zapisuje się na tym telefonie.</p>
+              <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{language === 'ar' ? 'أغانينا' : language === 'pl' ? 'NASZE PIOSENKI' : 'OUR SONGS'}</p><h3 className="mt-1 text-lg font-bold">{roksiCopy.songsTitle}</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} {roksiCopy.saved}</span></div>
+              <p className="mb-3 text-xs leading-5 opacity-60">{roksiCopy.songsDescription}</p>
               <div className="mb-3 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { const ids = roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)); if (!ids.length) { notify('أضيفي أغاني إلى Our Songs أولًا.'); return } setQueueIds(ids); const first = q.findIndex((x) => x.id === ids[0]); if (first >= 0) { setI(first); setSheet(true); setTab('queue') } }} className="rounded-xl bg-pink-500/90 px-3 py-3 text-sm font-bold text-white">▶ Play Our Songs</button>
-                <button type="button" onClick={() => { const ids = q.filter((x) => !x.video && x.fav).map((x) => x.id); if (!ids.length) { notify('لا توجد أغاني مفضلة بعد.'); return } setRoksiSongIds((old) => [...new Set([...old, ...ids])]); notify('أُضيفت الأغاني المفضلة إلى Our Songs.') }} className="rounded-xl bg-white/10 px-3 py-3 text-sm">♡ Add favorites</button>
+                <button type="button" onClick={() => { const ids = roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)); if (!ids.length) { notify(roksiCopy.noSavedSongs); return } setQueueIds(ids); const first = q.findIndex((x) => x.id === ids[0]); if (first >= 0) { setI(first); setSheet(true); setTab('queue') } }} className="rounded-xl bg-pink-500/90 px-3 py-3 text-sm font-bold text-white">{roksiCopy.playSongs}</button>
+                <button type="button" onClick={() => { const ids = q.filter((x) => !x.video && x.fav).map((x) => x.id); if (!ids.length) { notify(roksiCopy.noFavorites); return } setRoksiSongIds((old) => [...new Set([...old, ...ids])]); notify(roksiCopy.favoritesAdded) }} className="rounded-xl bg-white/10 px-3 py-3 text-sm">{roksiCopy.addFavorites}</button>
               </div>
-              {q.filter((x) => !x.video).length === 0 ? <p className="rounded-xl bg-black/20 p-4 text-center text-sm opacity-65">أضف ملفات موسيقى من زر + في الأعلى، ثم ارجع إلى هنا لاختيار أغانيكم.</p> : <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain rounded-xl bg-black/15 p-2">{q.filter((x) => !x.video).slice(0, 100).map((track) => { const added = roksiSongIds.includes(track.id); return <div key={track.id} className="flex min-w-0 items-center gap-2 rounded-xl p-2"><span className="grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold" style={art(track.title)}>{track.cover ? <img src={track.cover} alt="" loading="lazy" className="size-full rounded-lg object-cover" /> : '♫'}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs opacity-50">{track.artist || 'Unknown artist'}</span></span><button type="button" aria-label={added ? 'Remove from Our Songs' : 'Add to Our Songs'} onClick={() => setRoksiSongIds((ids) => added ? ids.filter((id) => id !== track.id) : [...ids, track.id])} className="min-h-10 min-w-10 rounded-xl px-3 text-lg" style={{ background: added ? 'rgba(244,114,182,.2)' : 'rgba(255,255,255,.07)', color: added ? '#f9a8d4' : '#fff' }}>{added ? '♥' : '+'}</button></div> })}</div>}
-              {q.filter((x) => !x.video).length > 100 && <p className="mt-2 text-[10px] opacity-45">تُعرض أول 100 أغنية لتبقى الصفحة خفيفة.</p>}
+              {q.filter((x) => !x.video).length === 0 ? <p className="rounded-xl bg-black/20 p-4 text-center text-sm opacity-65">{roksiCopy.emptyLibrary}</p> : <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain rounded-xl bg-black/15 p-2">{q.filter((x) => !x.video).slice(0, 100).map((track) => { const added = roksiSongIds.includes(track.id); return <div key={track.id} className="flex min-w-0 items-center gap-2 rounded-xl p-2"><span className="grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold" style={art(track.title)}>{track.cover ? <img src={track.cover} alt="" loading="lazy" className="size-full rounded-lg object-cover" /> : '♫'}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs opacity-50">{track.artist || roksiCopy.unknownArtist}</span></span><button type="button" aria-label={added ? roksiCopy.removeSong : roksiCopy.addSong} onClick={() => setRoksiSongIds((ids) => added ? ids.filter((id) => id !== track.id) : [...ids, track.id])} className="min-h-10 min-w-10 rounded-xl px-3 text-lg" style={{ background: added ? 'rgba(244,114,182,.2)' : 'rgba(255,255,255,.07)', color: added ? '#f9a8d4' : '#fff' }}>{added ? '♥' : '+'}</button></div> })}</div>}
+              {q.filter((x) => !x.video).length > 100 && <p className="mt-2 text-[10px] opacity-45">{roksiCopy.limitNotice}</p>}
             </section>
             <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[.035] p-4">
-              <div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">A LETTER FOR YOU</p><h3 className="mt-1 text-lg font-bold">List od Hemy 💌</h3><p className="mt-1 text-xs opacity-60">Ta wiadomość jest zapisana tylko na tym urządzeniu i możesz ją zmienić.</p></div>
-              <label className="block text-xs opacity-60">لغة الرسالة / Message language</label>
+              <div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{roksiCopy.letterEyebrow}</p><h3 className="mt-1 text-lg font-bold">{roksiCopy.letterTitle}</h3><p className="mt-1 text-xs opacity-60">{roksiCopy.letterDescription}</p></div>
+              <label className="block text-xs opacity-60">{roksiCopy.letterLanguage}</label>
               <div className="grid grid-cols-3 gap-2">{([{id:'pl',label:'Polski 🇵🇱'},{id:'en',label:'English'},{id:'ar',label:'العربية'}] as const).map((opt) => <button key={opt.id} type="button" aria-pressed={roksiLetterLang === opt.id} onClick={() => { setRoksiLetterLang(opt.id); setRoksiLetter(ROKSI_LETTERS[opt.id]) }} className="rounded-xl border px-2 py-2.5 text-xs font-semibold" style={roksiLetterLang === opt.id ? {background:'rgba(244,114,182,.2)',borderColor:'#f472b6',color:'#fbcfe8'} : {background:'rgba(255,255,255,.045)',borderColor:'rgba(255,255,255,.1)'}}>{opt.label}</button>)}</div>
-              <label className="block space-y-2"><span className="text-xs opacity-65">رسالتك إلى روكسي</span><textarea value={roksiLetter} onChange={(e) => setRoksiLetter(e.target.value)} maxLength={2500} rows={7} className="w-full resize-y rounded-xl border border-pink-200/10 bg-black/25 p-3 text-sm leading-7 outline-none focus:border-pink-300/60" placeholder="اكتب كلماتك الخاصة هنا…" /></label>
-              <div className="flex items-center justify-between gap-2"><span className="text-[10px] opacity-45">{roksiLetter.length}/2500 · auto-saved</span><button type="button" onClick={() => { navigator.clipboard?.writeText(roksiLetter).then(() => notify('تم نسخ الرسالة.')).catch(() => notify('تعذر النسخ في هذا الجهاز.')) }} className="rounded-xl bg-pink-500/80 px-4 py-2.5 text-xs font-semibold text-white">نسخ الرسالة</button></div>
+              <label className="block space-y-2"><span className="text-xs opacity-65">{roksiCopy.letterField}</span><textarea value={roksiLetter} onChange={(e) => setRoksiLetter(e.target.value)} maxLength={2500} rows={7} className="w-full resize-y rounded-xl border border-pink-200/10 bg-black/25 p-3 text-sm leading-7 outline-none focus:border-pink-300/60" placeholder={roksiCopy.letterPlaceholder} /></label>
+              <div className="flex items-center justify-between gap-2"><span className="text-[10px] opacity-45">{roksiLetter.length}/2500 · {roksiCopy.autoSaved}</span><button type="button" onClick={() => { navigator.clipboard?.writeText(roksiLetter).then(() => notify(roksiCopy.copySuccess)).catch(() => notify(roksiCopy.copyFailure)) }} className="rounded-xl bg-pink-500/80 px-4 py-2.5 text-xs font-semibold text-white">{roksiCopy.copyLetter}</button></div>
             </section>
             <section className="rounded-2xl border border-pink-200/10 bg-gradient-to-br from-pink-500/[.10] to-violet-500/[.06] p-4">
-              <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">OUR LITTLE STORY</p><h3 className="mt-1 text-lg font-bold">Gaza ♡ Poland</h3>
-              <p className="mt-2 text-sm leading-7 opacity-75">المسافة بين مكانين لا تمنع شخصين من مشاركة الأغاني والذكريات. هذه المساحة لكما؛ أضيفوا إليها أغانيكم وكلماتكم وتواريخكم المهمة عندما تريدان.</p>
-              <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">عنوان قصتكم (قابل للتعديل)</span><input value={roksiStoryTitle} onChange={(e) => setRoksiStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Roksi" /></label>
+              <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{roksiCopy.storyEyebrow}</p><h3 className="mt-1 text-lg font-bold">{language === 'ar' ? 'غزة ♡ بولندا' : 'Gaza ♡ Poland'}</h3>
+              <p className="mt-2 text-sm leading-7 opacity-75">{roksiCopy.storyDescription}</p>
+              <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">{roksiCopy.storyTitleLabel}</span><input value={roksiStoryTitle} onChange={(e) => setRoksiStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Roksi" /></label>
             </section>
           </div>
         )}
