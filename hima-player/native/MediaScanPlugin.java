@@ -20,6 +20,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.content.Intent;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
 import android.content.IntentFilter;
 import android.media.AudioManager;
 import android.app.PictureInPictureParams;
@@ -771,6 +772,41 @@ public class MediaScanPlugin extends Plugin {
                 added++;
             }
         } catch (Exception ignored) { }
+    }
+
+    @PluginMethod
+    public void shareMedia(PluginCall call) {
+        String raw = call.getString("uri");
+        String title = call.getString("title", "HEMA media");
+        boolean video = call.getBoolean("video", false);
+        if (raw == null || raw.trim().isEmpty()) {
+            call.reject("SHARE_URI_REQUIRED");
+            return;
+        }
+        Uri source = Uri.parse(raw);
+        if (!"content".equalsIgnoreCase(source.getScheme())) {
+            call.reject("SHARE_CONTENT_URI_REQUIRED");
+            return;
+        }
+        try {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType(video ? "video/*" : "audio/*");
+            send.putExtra(Intent.EXTRA_STREAM, source);
+            send.putExtra(Intent.EXTRA_SUBJECT, title);
+            send.putExtra(Intent.EXTRA_TEXT, title + " · HEMA ROKSI PLAYER");
+            send.setClipData(ClipData.newUri(getContext().getContentResolver(), title, source));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            Intent chooser = Intent.createChooser(send, "مشاركة عبر HEMA Drop");
+            chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (getActivity() == null) {
+                call.reject("SHARE_ACTIVITY_UNAVAILABLE");
+                return;
+            }
+            getActivity().startActivity(chooser);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("SHARE_MEDIA_FAILED", e);
+        }
     }
 
     @PluginMethod
