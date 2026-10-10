@@ -571,7 +571,9 @@ export default function App() {
         if (!raw || typeof raw !== 'object') continue
         const row = raw as { id?: unknown; title?: unknown; artist?: unknown; video?: unknown }
         const exact = typeof row.id === 'string' ? q.find((x) => x.id === row.id) : undefined
-        const fallback = !exact && typeof row.title === 'string' ? q.find((x) => x.video === (row.video === true) && x.title.trim().toLocaleLowerCase() === row.title.trim().toLocaleLowerCase() && (x.artist ?? '').trim().toLocaleLowerCase() === (typeof row.artist === 'string' ? row.artist.trim().toLocaleLowerCase() : '')) : undefined
+        const rowTitle = typeof row.title === 'string' ? row.title.trim().toLocaleLowerCase() : ''
+        const rowArtist = typeof row.artist === 'string' ? row.artist.trim().toLocaleLowerCase() : ''
+        const fallback = !exact && rowTitle ? q.find((x) => x.video === (row.video === true) && x.title.trim().toLocaleLowerCase() === rowTitle && (x.artist ?? '').trim().toLocaleLowerCase() === rowArtist) : undefined
         const found = exact ?? fallback
         if (found && !matched.includes(found.id)) matched.push(found.id)
       }
