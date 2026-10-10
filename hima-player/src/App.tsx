@@ -9,7 +9,7 @@ import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unloc
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 
 type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
-type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai'
+type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online'
 type Repeat = 'off' | 'all' | 'one'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
 const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
@@ -46,6 +46,9 @@ export default function App() {
   const qRef = useRef<Track[]>([]); qRef.current = q
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
+  const [onlineUrl, setOnlineUrl] = useState('')
+  const [onlineMedia, setOnlineMedia] = useState<{ platform: 'youtube' | 'tiktok'; id: string; url: string } | null>(null)
+  const [onlineMsg, setOnlineMsg] = useState('')
   const [scanMsg, setScanMsg] = useState('')
   const [find, setFind] = useState<string | null>(null)
   const [sheet, setSheet] = useState(false)
@@ -206,6 +209,34 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cur?.id, t, i, shuffle, repeat, q, lockedScreen])
+
+  const openOnline = () => {
+    const raw = onlineUrl.trim()
+    if (!raw) { setOnlineMsg('الصق رابط فيديو أولًا.'); return }
+    try {
+      const parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`)
+      const host = parsed.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '')
+      if (['youtube.com', 'youtu.be', 'youtube-nocookie.com', 'music.youtube.com'].includes(host) || host.endsWith('.youtube.com')) {
+        const id = host === 'youtu.be'
+          ? parsed.pathname.split('/').filter(Boolean)[0]
+          : parsed.searchParams.get('v') || parsed.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1]
+        if (!id || !/^[\w-]{11}$/.test(id)) { setOnlineMsg('رابط YouTube غير صالح أو لا يحتوي على فيديو واحد.'); return }
+        setOnlineMedia({ platform: 'youtube', id, url: `https://www.youtube.com/watch?v=${id}` })
+        setOnlineMsg('')
+        return
+      }
+      if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) {
+        const id = parsed.pathname.match(/\/video\/(\d+)/)?.[1] || parsed.pathname.match(/\/player\/v1\/(\d+)/)?.[1]
+        if (!id) { setOnlineMsg('هذا رابط TikTok مختصر. افتح الفيديو في TikTok ثم انسخ رابط الفيديو الكامل.'); return }
+        setOnlineMedia({ platform: 'tiktok', id, url: parsed.href })
+        setOnlineMsg('')
+        return
+      }
+      setOnlineMsg('الرابط غير مدعوم. استخدم رابط فيديو من YouTube أو TikTok.')
+    } catch {
+      setOnlineMsg('الرابط غير صالح. تأكد من نسخه كاملًا.')
+    }
+  }
 
   const add = (files: FileList | null) => {
     if (!files) return
@@ -716,9 +747,9 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'يوتيوب / تيك توك']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
       </div>
-      {tab !== 'ai' && (
+      {tab !== 'ai' && tab !== 'online' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? `${videos.length} فيديو` : tab === 'music' ? `${musics.length} أغنية` : tab === 'queue' ? `${queueIds.length} في الطابور` : tab === 'top' ? 'الأكثر استماعًا' : `${videos.length + musics.length} عنصر`}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
@@ -728,6 +759,47 @@ export default function App() {
       <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع · اسحب لإعادة الترتيب</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
+        {tab === 'online' && (
+          <section className="space-y-4 py-2">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs font-semibold tracking-[0.2em]" style={{ color: A }}>HEMA ONLINE</p>
+              <h2 className="mt-1 text-lg font-bold">YouTube و TikTok</h2>
+              <p className="mt-2 text-sm leading-6 opacity-70">الصق رابط فيديو لتشغيله من المشغّل الرسمي داخل HEMA، مع الصوت وأدوات المنصة الأصلية.</p>
+              <div className="mt-4 flex gap-2">
+                <input value={onlineUrl} onChange={(e) => setOnlineUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') openOnline() }} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://youtu.be/... أو TikTok URL" className="min-w-0 flex-1 rounded-xl bg-black/30 px-3 py-3 text-sm outline-none" />
+                <button onClick={openOnline} className="rounded-xl px-4 text-sm font-semibold text-white" style={{ background: A }}>تشغيل</button>
+              </div>
+              {onlineMsg && <p role="status" className="mt-3 text-sm text-amber-200">{onlineMsg}</p>}
+            </div>
+            {onlineMedia ? (
+              <div className="space-y-3">
+                <div className={onlineMedia.platform === 'youtube' ? 'overflow-hidden rounded-2xl border border-white/10 bg-black' : 'mx-auto h-[min(68vh,640px)] min-h-[420px] max-w-[390px] overflow-hidden rounded-2xl border border-white/10 bg-black'}>
+                  <iframe
+                    key={onlineMedia.platform + ':' + onlineMedia.id}
+                    title={onlineMedia.platform === 'youtube' ? 'YouTube video player' : 'TikTok video player'}
+                    src={onlineMedia.platform === 'youtube'
+                      ? `https://www.youtube.com/embed/${onlineMedia.id}?playsinline=1&rel=0&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
+                      : `https://www.tiktok.com/player/v1/${onlineMedia.id}?controls=1&progress_bar=1&play_button=1&volume_control=1&music_info=1&description=1&autoplay=0&loop=0`}
+                    className={onlineMedia.platform === 'youtube' ? 'block aspect-video w-full' : 'block size-full w-full'}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/5 p-3">
+                  <span className="text-sm opacity-70">{onlineMedia.platform === 'youtube' ? 'YouTube · تشغيل داخل التطبيق' : 'TikTok · تشغيل داخل التطبيق'}</span>
+                  <div className="flex gap-2">
+                    <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white/10 px-3 py-2 text-xs">فتح على المنصة</a>
+                    <button onClick={() => { setOnlineMedia(null); setOnlineMsg('تم إغلاق الفيديو.') }} className="rounded-full px-3 py-2 text-xs" style={{ background: A }}>إغلاق</button>
+                  </div>
+                </div>
+                <p className="text-xs leading-5 opacity-55">يجب بقاء مشغّل YouTube ظاهرًا وفق شروط المنصة؛ لا يوجد استخراج للصوت أو تشغيل خلفي من هذا الرابط. يمكن أن تتعذر بعض الفيديوهات بسبب العمر أو قيود التضمين.</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl bg-white/[0.03] p-5 text-center text-sm leading-6 opacity-60">بعد لصق الرابط، اضغط «تشغيل». روابط TikTok المختصرة تحتاج نسخ الرابط الكامل من صفحة الفيديو.</div>
+            )}
+          </section>
+        )}
         {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
         {tab === 'lists' && openList === null && (
           <div className="space-y-2">
