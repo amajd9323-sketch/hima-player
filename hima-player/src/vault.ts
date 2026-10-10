@@ -54,7 +54,8 @@ const encrypt = (key: CryptoKey, bytes: ArrayBuffer) => {
 const decrypt = (key: CryptoKey, iv: string, cipher: ArrayBuffer) => crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64ToBytes(iv) }, key, cipher)
 const keyFor = async (pin: string, salt: Uint8Array) => {
   const material = await crypto.subtle.importKey('raw', encoder.encode(pin), 'PBKDF2', false, ['deriveKey'])
-  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
+  const saltBuffer = new Uint8Array(salt).buffer as ArrayBuffer
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: saltBuffer, iterations: 310000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt'])
 }
 const verifier = async (pin: string) => {
   if (!globalThis.crypto?.subtle) throw new Error('VAULT_CRYPTO_UNAVAILABLE')
