@@ -1644,7 +1644,7 @@ export default function App() {
               {panel === 'eq' && <div className="flex flex-wrap gap-2"><Opt on={bassBoost} onClick={() => setBassBoost(!bassBoost)}>تعزيز الجهير</Opt><Opt on={spatial} onClick={() => setSpatial(!spatial)}>صدى محيطي</Opt></div>}
               <div className="flex flex-wrap gap-2">
                 {panel === 'eq' ? EQS.map((e, k) => <Opt key={e.n} on={eq === k} onClick={() => applyEq(k)}>{e.n}</Opt>)
-                  : [0, 15, 20, 40, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
+                  : [0, 15, 20, 40, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? (language === 'ar' ? `${n} د` : `${n} min`) : 'إيقاف'}</Opt>)}
               </div>
               {panel === 'sleep' && (
                 <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3">
