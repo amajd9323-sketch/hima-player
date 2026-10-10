@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { App as CapacitorApp } from '@capacitor/app'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
@@ -89,6 +90,7 @@ export default function App() {
   const [vol, setVol] = useState<number | null>(null)
   const [ask, setAsk] = useState('')
   const [msg, setMsg] = useState('')
+  const lastBackAt = useRef(0)
   const [busy, setBusy] = useState(false)
   const [acc, setAcc] = useState(() => ls('hema_acc', 0))
   const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
@@ -467,6 +469,43 @@ export default function App() {
   const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
   const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
   const closeVideo = () => { setFs(false); void bars(false); void lock(false) }
+
+  // Handle Android system Back without accidentally closing HEMA.
+  useEffect(() => {
+    let toastTimer: number | undefined
+    const listener = CapacitorApp.addListener('backButton', () => {
+      if (lockedScreen) { setLockedScreen(false); poke(); return }
+      if (fs) { closeVideo(); return }
+      if (editingMeta) { setEditingMeta(null); setEditCover(null); setEditCoverUrl(null); return }
+      if (plSheet) { setPlSheet(null); return }
+      if (sheet) { setSheet(false); return }
+      if (panel) { setPanel(null); return }
+      if (settings) { setSettings(false); return }
+      if (vaultOpen) { setVaultOpen(false); setVaultUnlocked(false); setVaultItems([]); return }
+      if (wrap) { setWrap(null); return }
+      if (party) { setParty(false); return }
+      if (duplicates) { setDuplicates(null); return }
+      if (sub) { setSub(null); return }
+      if (onlineMedia) { setOnlineMedia(null); setOnlinePlaying(false); return }
+      if (openFolder !== null) { setOpenFolder(null); return }
+      if (openList !== null) { setOpenList(null); return }
+      if (tab !== 'video') { setTab('video'); setFind(null); return }
+
+      const now = Date.now()
+      if (now - lastBackAt.current < 2000) {
+        void CapacitorApp.exitApp()
+        return
+      }
+      lastBackAt.current = now
+      setMsg('اضغط مرة أخرى للخروج')
+      if (toastTimer) window.clearTimeout(toastTimer)
+      toastTimer = window.setTimeout(() => setMsg((current) => current === 'اضغط مرة أخرى للخروج' ? '' : current), 2000)
+    })
+    return () => {
+      if (toastTimer) window.clearTimeout(toastTimer)
+      void listener.then((handle) => handle.remove())
+    }
+  }, [lockedScreen, fs, editingMeta, plSheet, sheet, panel, settings, vaultOpen, wrap, party, duplicates, sub, onlineMedia, openFolder, openList, tab])
   const poke = () => { setUi(true); window.clearTimeout(hide.current); hide.current = window.setTimeout(() => setUi(false), 3500) }
   const cycleSpeed = () => { const n = (speed + 1) % SPEEDS.length; setSpeed(n); if (m.current) m.current.playbackRate = SPEEDS[n] }
   const saveEqProfile = () => {
@@ -1307,6 +1346,7 @@ export default function App() {
           )}
         </div>
       )}
+      {msg === 'اضغط مرة أخرى للخروج' && <div role="status" className="fixed inset-x-4 bottom-24 z-[120] mx-auto w-fit rounded-full border border-white/10 bg-[#171923]/95 px-5 py-3 text-center text-sm font-medium text-white shadow-2xl">اضغط مرة أخرى للخروج</div>}
     </div>
   )
 }
