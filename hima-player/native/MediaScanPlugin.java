@@ -115,7 +115,7 @@ public class MediaScanPlugin extends Plugin {
                 boolean entered = getActivity().enterPictureInPictureMode(params);
                 if (entered) call.resolve(); else call.reject("PIP_NOT_ENTERED");
             } catch (Exception e) {
-                call.reject("PIP_FAILED", e);
+                call.reject("PIP_FAILED");
             }
         });
     }
