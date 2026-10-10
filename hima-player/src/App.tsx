@@ -107,6 +107,12 @@ export default function App() {
   const [wrap, setWrap] = useState<string | null>(null)
   const [car, setCar] = useState(false)
   const partyCanvas = useRef<HTMLCanvasElement>(null)
+  const nextMedia = useRef<HTMLAudioElement>(null)
+  const fadeMain = useRef<GainNode>()
+  const fadeNext = useRef<GainNode>()
+  const crossfadeTimer = useRef<number | undefined>(undefined)
+  const nextStartedFor = useRef<string | null>(null)
+  const handoff = useRef<{ id: string; pos: number } | null>(null)
   const gainN = useRef<GainNode>()
   const wetN = useRef<GainNode>()
   const anN = useRef<AnalyserNode>()
@@ -261,8 +267,8 @@ export default function App() {
     const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now)
     fadeMain.current.gain.setValueAtTime(1, now); fadeNext.current.gain.setValueAtTime(0, now)
     try { await secondary.play() } catch { nextStartedFor.current = null; fadeMain.current.gain.setValueAtTime(1, context.currentTime); return }
-    const end = context.currentTime + crossfade
-    fadeMain.current.gain.linearRampToValueAtTime(0.0001, end); fadeNext.current.gain.linearRampToValueAtTime(1, end)
+    const start = context.currentTime
+    fadeMain.current.gain.linearRampToValueAtTime(0.0001, start + crossfade); fadeNext.current.gain.linearRampToValueAtTime(1, start + crossfade)
     crossfadeTimer.current = window.setTimeout(() => {
       const position = secondary.currentTime
       handoff.current = { id: next.item.id, pos: position }
@@ -280,7 +286,16 @@ export default function App() {
   }
   const remove = (x: Track) => { del(x.id).catch(() => {}); const k = q.indexOf(x); setQ((p) => p.filter((y) => y !== x)); if (k === i) { m.current?.pause(); setI(-1); setSheet(false) } else if (k < i) setI(i - 1) }
 
-  useEffect(() => { if (cur && m.current) { setSub(null); counted.current = ''; lastCt.current = 0; m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {}) } }, [cur?.id])
+  useEffect(() => {
+    if (!cur || !m.current) return
+    setSub(null); counted.current = ''; lastCt.current = 0
+    const pending = handoff.current
+    if (pending?.id !== cur.id) {
+      cancelCrossfade()
+      if (ac.current) { const now = ac.current.currentTime; fadeMain.current?.gain.setValueAtTime(1, now); fadeNext.current?.gain.setValueAtTime(0, now) }
+    }
+    m.current.src = cur.url; m.current.playbackRate = SPEEDS[speed]; m.current.play().catch(() => {})
+  }, [cur?.id])
   useEffect(() => {
     if (sleep <= 0) return
     const a = window.setTimeout(() => { const c = ac.current, gn = gainN.current; if (c && gn) { gn.gain.setValueAtTime(gn.gain.value, c.currentTime); gn.gain.linearRampToValueAtTime(0.0001, c.currentTime + 8) } }, Math.max(0, sleep * 60000 - 8000))
@@ -302,6 +317,20 @@ export default function App() {
   })
   const stepRef = useRef(step)
   stepRef.current = step
+  const toggleRef = useRef(toggle)
+  toggleRef.current = toggle
+  useEffect(() => {
+    if (!canScan()) return
+    void updateWidget(cur?.title ?? 'HEMA ROKSI PLAYER', cur?.artist ?? (cur?.video ? 'Video' : 'مكتبة Hema'), playing)
+    let polling = false
+    const timer = window.setInterval(async () => {
+      if (polling) return
+      polling = true
+      try { const command = await consumeWidgetCommand(); if (command === 'toggle') toggleRef.current(); else if (command === 'next') stepRef.current(1); else if (command === 'prev') stepRef.current(-1) }
+      finally { polling = false }
+    }, 750)
+    return () => window.clearInterval(timer)
+  }, [cur?.id, cur?.artist, cur?.video, playing])
   const tick = (ct: number) => {
     const dt = ct - lastCt.current; lastCt.current = ct
     if (!cur || dt <= 0 || dt > 1.5) return
@@ -405,7 +434,7 @@ export default function App() {
   const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
-  const ended = () => { if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
+  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && !queueIds.some((id) => { const x = q.find((y) => y.id === id); return x?.video === cur.video }) && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
 
   const findDuplicates = async () => {
     setBackupMsg('جارٍ فحص التكرار بالبصمة الرقمية...')
@@ -485,10 +514,12 @@ export default function App() {
   )
   const Row = ({ x, k }: { x: Track; k: number }) => (
     <li key={x.id} className="flex items-center gap-1 rounded-xl active:bg-white/5">
-      <button onClick={() => { setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
+      <button onClick={() => { cancelCrossfade(); setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
         <span className="grid size-12 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(x.title)}>{k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
         <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
       </button>
+      <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="p-2" style={{ color: queueIds.includes(x.id) ? A : '#fff8' }}><Icon n="plus" s={20} /></button>
+      {tab === 'queue' && <div className="flex flex-col"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="px-1 text-xs opacity-70">↑</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="px-1 text-xs opacity-70">↓</button></div>}
       <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="p-2 opacity-60"><Icon n="list" s={20} /></button>
       {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
@@ -501,6 +532,7 @@ export default function App() {
         <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
         <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
       </button>
+      <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="absolute end-1 bottom-1 rounded-full bg-black/55 p-1.5" style={{ color: queueIds.includes(x.id) ? A : '#fffc' }}><Icon n="plus" s={18} /></button>
       <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
       <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="absolute start-1 top-1 rounded-full bg-black/40 p-1.5 text-white/80"><Icon n="list" s={18} /></button>
     </li>
@@ -512,10 +544,11 @@ export default function App() {
 
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { setD(e.currentTarget.duration); resume(e.currentTarget); if (fs && e.currentTarget.videoWidth > e.currentTarget.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime); void maybeCrossfade(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div>
@@ -528,7 +561,7 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['queue', `الطابور · ${queueIds.length}`], ['lists', 'القوائم'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null) }}>{l}</Opt>)}
       </div>
       {tab !== 'ai' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
@@ -548,7 +581,7 @@ export default function App() {
         )}
         {showM && musics.length > 0 && <ul>{musics.map(({ x, k }) => Row({ x, k }))}</ul>}
         {showV && videos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{videos.map(({ x, k }) => VRow({ x, k }))}</ul>}
-        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && empty}
+        {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
             <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
@@ -569,6 +602,7 @@ export default function App() {
             </button>
             <button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="p-1"><Icon n={playing ? 'pause' : 'play'} s={30} /></button>
             <button aria-label="التالي" onClick={() => step(1)} className="p-1"><Icon n="next" s={30} /></button>
+            <button aria-label="الطابور" title="الطابور" onClick={() => setTab('queue')} className="rounded-lg bg-white/10 px-2 py-1 text-xs">Q {queueIds.length}</button>
           </div>
         </div>
       )}
@@ -592,6 +626,7 @@ export default function App() {
             <button aria-label="موازن صوت" onClick={() => setPanel(panel === 'eq' ? null : 'eq')} style={{ color: eq ? A : undefined }}><Icon n="eq" /></button>
             <button aria-label="السرعة" onClick={cycleSpeed} className="text-sm font-semibold">{SPEEDS[speed]}x</button>
             <button onClick={() => setCar(true)} className="text-sm font-semibold">قيادة</button>
+            <button onClick={() => setParty(true)} className="text-sm font-semibold">Party</button>
           </div>
           {panel && (
             <div className="absolute inset-x-0 bottom-0 z-10 max-h-[78vh] space-y-3 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#151923]/95 p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-2xl backdrop-blur-xl">
@@ -608,6 +643,26 @@ export default function App() {
               <button onClick={() => setPanel(null)} className="w-full py-2 opacity-70">تم</button>
             </div>
           )}
+        </div>
+      )}
+
+      {party && (
+        <div className="fixed inset-0 z-[75] flex flex-col gap-4 bg-[#05070d] p-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+          <div className="flex items-center justify-between"><div><p className="text-xs font-semibold tracking-[0.24em]" style={{ color: A }}>HEMA STUDIO</p><h2 className="text-xl font-bold">Party Visualizer</h2></div><button onClick={() => setParty(false)} className="rounded-full bg-white/10 px-4 py-2">خروج</button></div>
+          <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/10 bg-black/30"><canvas ref={partyCanvas} className="size-full" /><div className="pointer-events-none absolute inset-x-0 bottom-4 text-center"><p className="truncate px-5 text-lg font-semibold">{cur?.title ?? 'اختر أغنية'}</p><p className="text-xs opacity-55">تأثير بصري يتفاعل مع الصوت</p></div></div>
+          <div dir="ltr" className="flex items-center justify-center gap-10"><button aria-label="السابق" onClick={() => step(-1)}><Icon n="prev" s={36} /></button><button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="grid size-16 place-items-center rounded-full text-white" style={{ background: A }}><Icon n={playing ? 'pause' : 'play'} s={34} /></button><button aria-label="التالي" onClick={() => step(1)}><Icon n="next" s={36} /></button></div>
+        </div>
+      )}
+
+      {vaultOpen && (
+        <div className="fixed inset-0 z-[90] flex items-end bg-black/75" onClick={() => { setVaultOpen(false); setVaultUnlocked(false); setVaultPin(''); setVaultItems([]) }}>
+          <div className="max-h-[92%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[0.22em]" style={{ color: A }}>HEMA SECURITY</p><h2 className="text-xl font-bold">الخزنة الخاصة المشفّرة</h2><p className="mt-1 text-xs opacity-55">AES-GCM 256-bit · PBKDF2-SHA-256 · PIN لا يُحفظ</p></div><button onClick={() => { setVaultOpen(false); setVaultUnlocked(false); setVaultPin(''); setVaultItems([]) }} className="rounded-full bg-white/10 px-3 py-2">إغلاق</button></div>
+            {!vaultUnlocked ? <div className="space-y-3"><p className="text-sm opacity-70">{vaultKnown ? 'أدخل رمز الخزنة لفتح الملفات.' : 'أنشئ رمزًا لا يقل عن 6 أحرف/أرقام. نسيان الرمز يعني فقدان إمكانية فك الملفات.'}</p><input type="password" autoComplete="new-password" value={vaultPinInput} onChange={(e) => setVaultPinInput(e.target.value)} placeholder="PIN أو عبارة سرية (6+)" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none" /><button disabled={vaultBusy} onClick={() => void unlockVaultUi()} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{vaultBusy ? '…' : vaultKnown ? 'فتح الخزنة' : 'إنشاء خزنة مشفّرة'}</button></div> : <div className="space-y-3"><label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-4 text-sm">+ تشفير واستيراد ملفات<input type="file" accept="audio/*,video/*,image/*,application/pdf" multiple hidden onChange={(e) => { void vaultAdd(e.target.files); e.currentTarget.value = '' }} /></label><p className="text-xs opacity-55">يُنشأ ملف مشفّر منفصل داخل مساحة التطبيق؛ الأصل في مكتبة الهاتف لا يُحذف. حد الملف 120 MB.</p>
+              {vaultItems.length === 0 ? <p className="py-5 text-center text-sm opacity-55">الخزنة فارغة.</p> : vaultItems.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white/5 p-3"><span className="grid size-10 shrink-0 place-items-center rounded-lg" style={{ background: A + '30' }}><Icon n="folder" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs opacity-50">{(item.size / 1048576).toFixed(1)} MB · مشفّر</p></div><button aria-label="تصدير وفك تشفير" onClick={() => void vaultRestore(item)} className="rounded-lg bg-white/10 px-3 py-2 text-xs">استعادة</button><button aria-label="حذف من الخزنة" onClick={() => void vaultRemove(item)} className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">حذف</button></div>)}
+              <button onClick={() => { setVaultUnlocked(false); setVaultPin(''); setVaultItems([]); setVaultPinInput(''); setVaultMsg('تم قفل الجلسة.')} } className="w-full rounded-xl bg-white/10 py-3 text-sm">قفل الخزنة</button></div>}
+            {vaultMsg && <p role="status" className="rounded-xl bg-white/5 p-3 text-sm opacity-80">{vaultMsg}</p>}
+          </div>
         </div>
       )}
 
@@ -639,6 +694,10 @@ export default function App() {
             <p className="text-sm opacity-60">الترتيب</p>
             <div className="flex flex-wrap gap-2">{SORTS.map(([k, l]) => <Opt key={k} on={sort === k} onClick={() => setSort(k)}>{l}</Opt>)}</div>
             <Opt on={false} onClick={() => { setSettings(false); void load() }}>إعادة مسح الملفات</Opt>
+            <p className="text-sm opacity-60">انتقال بين الأغاني</p>
+            <div className="flex flex-wrap gap-2">{[0, 2, 3, 5, 8].map((n) => <Opt key={n} on={crossfade === n} onClick={() => setCrossfade(n)}>{n === 0 ? 'إيقاف' : `${n} ث`}</Opt>)}</div>
+            <p className="text-xs opacity-50">Crossfade متداخل فعليًا للموسيقى؛ الفيديو لا يتأثر.</p>
+            <p className="text-sm opacity-60">الترجمة</p><div className="flex flex-wrap items-center gap-2"><button onClick={() => setCueSize((v) => Math.max(80, v - 10))} className="rounded-full bg-white/10 px-3 py-2 text-sm">A−</button><span className="text-sm opacity-70">{cueSize}%</span><button onClick={() => setCueSize((v) => Math.min(200, v + 10))} className="rounded-full bg-white/10 px-3 py-2 text-sm">A+</button><button onClick={() => setCueColor((v) => v === '#ffffff' ? '#ffe082' : v === '#ffe082' ? '#80deea' : v === '#80deea' ? '#f48fb1' : '#ffffff')} className="rounded-full bg-white/10 px-3 py-2 text-sm" style={{ color: cueColor }}>لون الترجمة</button></div>
             <p className="text-sm opacity-60">الصوت والتحكم</p>
             <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
             <div className="flex flex-wrap gap-2">
@@ -652,7 +711,9 @@ export default function App() {
             {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
             <Opt on={false} onClick={() => { setSettings(false); makeWrapped() }}>ملخصي Hema Wrapped</Opt>
             <p className="text-sm opacity-60">إدارة المكتبة</p>
-            <Opt on={false} onClick={findDuplicates}>فحص الملفات المكررة</Opt>
+            <Opt on={false} onClick={() => { setTab('queue'); setSettings(false) }}>إدارة طابور التشغيل ({queueIds.length})</Opt>
+            <Opt on={false} onClick={openVaultUi}>خزنة خاصة مشفّرة</Opt>
+            <Opt on={false} onClick={findDuplicates}>فحص الملفات المكررة SHA-256</Opt>
             {duplicates && <div className="space-y-2 rounded-xl bg-black/20 p-3">
               <div className="flex items-center justify-between gap-2"><span className="text-sm">مجموعات مكررة: {duplicates.length}</span><button onClick={() => setDuplicates(null)} className="text-sm opacity-60">إغلاق</button></div>
               {duplicates.length === 0 ? <p className="text-sm opacity-60">لم نعثر على تكرار حسب الاسم والفنان.</p> : duplicates.map((group) => <div key={group[0].id} className="rounded-lg bg-white/5 p-2">
@@ -668,7 +729,7 @@ export default function App() {
               <label className="cursor-pointer rounded-full px-4 py-2 text-sm" style={{ background: '#ffffff1a' }}>استيراد نسخة احتياطية<input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { void importBackup(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
             </div>
             {backupMsg && <p role="status" className="text-sm opacity-70">{backupMsg}</p>}
-            <p className="text-xs opacity-50">لا إعلانات. ملفاتك ما تغادر جوالك. الإنترنت فقط للكلمات والذكاء والأذان.</p>
+            <p className="text-xs opacity-50">لا إعلانات. الخزنة تستخدم AES-GCM ومفتاح PBKDF2 محليًا. ملفات الخزنة لا تدخل النسخة الاحتياطية العادية.</p>
           </div>
         </div>
       )}
@@ -709,6 +770,9 @@ export default function App() {
                 </label>
                 <button aria-label="تدوير" onClick={(e) => { e.stopPropagation(); void rotate() }} className="p-1"><Icon n="rotate" s={22} /></button>
                 <button onClick={(e) => { e.stopPropagation(); cycleSpeed() }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{SPEEDS[speed]}x</button>
+                <button onClick={(e) => { e.stopPropagation(); setCueSize((v) => Math.min(200, v + 10)) }} className="rounded-lg bg-white/15 px-2 py-1 text-xs">CC A+</button>
+                <button onClick={(e) => { e.stopPropagation(); setCueColor((v) => v === '#ffffff' ? '#ffe082' : v === '#ffe082' ? '#80deea' : v === '#80deea' ? '#f48fb1' : '#ffffff') }} className="rounded-lg bg-white/15 px-2 py-1 text-xs" style={{ color: cueColor }}>لون CC</button>
+                <button onClick={(e) => { e.stopPropagation(); setCueSize((v) => Math.max(80, v - 10)) }} className="rounded-lg bg-white/15 px-2 py-1 text-xs">CC A−</button>
                 <button onClick={(e) => { e.stopPropagation(); setLockedScreen(!lockedScreen) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{lockedScreen ? 'فتح اللمس' : 'قفل اللمس'}</button>
                 <button onClick={(e) => { e.stopPropagation(); void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز')) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">PiP</button>
                 <button onClick={(e) => { e.stopPropagation(); setCover(!cover) }} className="rounded-lg bg-white/15 px-3 py-1 text-sm">{cover ? 'ملء' : 'احتواء'}</button>
