@@ -41,6 +41,16 @@ const MOOD_PRESETS: { id: Mood; title: string; subtitle: string; icon: string }[
 ]
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 const MEDIA_PAGE_SIZE = 80
+const detectSystemLanguage = (): Language => {
+  const locales = typeof navigator === 'undefined'
+    ? []
+    : [...Array.from(navigator.languages ?? []), navigator.language].filter(Boolean)
+  for (const locale of locales) {
+    const code = locale.toLowerCase().split(/[-_]/)[0]
+    if (code === 'ar' || code === 'en' || code === 'pl') return code
+  }
+  return 'en'
+}
 let A = ACCENTS[0]
 
 /** Stable identity prevents every option button from remounting on player ticks. */
@@ -124,8 +134,27 @@ export default function App() {
   const noticeTimer = useRef<number | null>(null)
   useEffect(() => () => { if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current) }, [])
   const nativeOffset = useRef(MEDIA_PAGE_SIZE)
-  const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
-  const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
+  const [languageMode, setLanguageMode] = useState<'system' | 'manual'>(() => ls<string>('hema_language_mode', 'system') === 'manual' ? 'manual' : 'system')
+  const [systemLanguage, setSystemLanguage] = useState<Language>(() => detectSystemLanguage())
+  const [manualLanguage, setManualLanguage] = useState<Language>(() => {
+    const saved = ls<Language>('hema_language', 'en')
+    return saved === 'ar' || saved === 'pl' ? saved : 'en'
+  })
+  const language: Language = languageMode === 'system' ? systemLanguage : manualLanguage
+  const changeLanguage = (value: Language | 'system') => {
+    if (value === 'system') {
+      const detected = detectSystemLanguage()
+      setSystemLanguage(detected)
+      setLanguageMode('system')
+      localStorage.setItem('hema_language_mode', JSON.stringify('system'))
+      localStorage.setItem('hema_language', JSON.stringify(detected))
+      return
+    }
+    setManualLanguage(value)
+    setLanguageMode('manual')
+    localStorage.setItem('hema_language_mode', JSON.stringify('manual'))
+    localStorage.setItem('hema_language', JSON.stringify(value))
+  }
   const [batterySaver, setBatterySaver] = useState<boolean>(() => ls('hema_battery_saver', false))
   const [onlineUrl, setOnlineUrl] = useState('')
   const [downloadUrl, setDownloadUrl] = useState('')
@@ -224,6 +253,15 @@ export default function App() {
   const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
   const [roksiLetter, setRoksiLetter] = useState<string>(() => ls('hema_roksi_letter', ROKSI_LETTERS.pl))
   const [roksiStoryTitle, setRoksiStoryTitle] = useState<string>(() => ls('hema_roksi_story_title', 'Hema × Roksi'))
+  useEffect(() => {
+    const updateSystemLanguage = () => {
+      const detected = detectSystemLanguage()
+      setSystemLanguage(detected)
+      if (languageMode === 'system') localStorage.setItem('hema_language', JSON.stringify(detected))
+    }
+    window.addEventListener('languagechange', updateSystemLanguage)
+    return () => window.removeEventListener('languagechange', updateSystemLanguage)
+  }, [languageMode])
   useEffect(() => initLocalization(language), [language])
   useEffect(() => { localStorage.setItem('hema_roksi_mode', JSON.stringify(roksiGlow)); localStorage.setItem('hema_roksi_songs', JSON.stringify(roksiSongIds)); localStorage.setItem('hema_roksi_letter_lang', JSON.stringify(roksiLetterLang)); localStorage.setItem('hema_roksi_letter', JSON.stringify(roksiLetter)); localStorage.setItem('hema_roksi_story_title', JSON.stringify(roksiStoryTitle)) }, [roksiGlow, roksiSongIds, roksiLetterLang, roksiLetter, roksiStoryTitle])
   useEffect(() => { localStorage.setItem('hema_battery_saver', JSON.stringify(batterySaver)); document.body.classList.toggle('hema-battery-saver', batterySaver) }, [batterySaver])
@@ -1599,7 +1637,13 @@ export default function App() {
           <span className="hema-current-eyebrow">{language === 'ar' ? 'أنت الآن في' : language === 'pl' ? 'Bieżąca sekcja' : 'CURRENT SECTION'}</span>
           <strong>{activeNavItem?.label ?? (language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library')}</strong>
         </div>
-        <button type="button" className="hema-menu-toggle" aria-expanded={navMenuOpen} onClick={() => setNavMenuOpen((value) => !value)}>
+        <button type="button" className="hema-menu-toggle" aria-expanded={navMenuOpen} onClick={() => {
+          const opening = !navMenuOpen
+          setNavMenuOpen(opening)
+          if (opening && !navGroupOpen) {
+            setNavGroupOpen(navGroups.find((group) => group.items.some((item) => item.key === tab))?.id ?? 'library')
+          }
+        }}>
           <Icon n={navMenuOpen ? 'close' : 'list'} s={19} />
           <span>{language === 'ar' ? (navMenuOpen ? 'إغلاق القوائم' : 'قوائم الأقسام') : language === 'pl' ? (navMenuOpen ? 'Zamknij menu' : 'Menu sekcji') : (navMenuOpen ? 'Close menu' : 'Browse sections')}</span>
           <Icon n="down" s={17} />
@@ -2031,7 +2075,8 @@ export default function App() {
             <h2 className="font-semibold">الإعدادات</h2>
             <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
               <span className="text-sm font-medium">لغة التطبيق</span>
-              <select aria-label="لغة التطبيق" value={language} onChange={(e) => changeLanguage(e.target.value as Language)} className="max-w-[58%] rounded-xl border border-white/10 bg-[#111722] px-3 py-2 text-sm outline-none">
+              <select aria-label="لغة التطبيق" value={languageMode === 'system' ? 'system' : language} onChange={(e) => changeLanguage(e.target.value as Language | 'system')} className="max-w-[58%] rounded-xl border border-white/10 bg-[#111722] px-3 py-2 text-sm outline-none">
+                <option value="system">لغة الهاتف (تلقائي)</option>
                 <option value="ar">العربية</option>
                 <option value="en">English</option>
                 <option value="pl">Polski</option>
