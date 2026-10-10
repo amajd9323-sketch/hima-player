@@ -359,6 +359,7 @@ const strings: Record<string, Pair> = {
   "لون CC": ["Subtitle color", "Kolor napisów"],
   "النسخة الاحتياطية": ["Backup", "Kopia zapasowa"],
   "حجم الملف": ["File size", "Rozmiar pliku"]
+  "مسح التكرار": ["Clear duplicates", "Wyczyść duplikaty"],
 }
 
 const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length)
