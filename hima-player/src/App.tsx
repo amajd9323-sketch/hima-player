@@ -432,6 +432,7 @@ export default function App() {
   useEffect(() => { const id = q[i]?.id; if (!id) return; localStorage.setItem('hema_last_track', id); setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
   const m = useRef<HTMLVideoElement>(null)
   const hide = useRef<number>()
+  const suppressVideoTap = useRef(false)
   const ac = useRef<AudioContext>()
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
@@ -810,6 +811,7 @@ export default function App() {
   const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
   const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
   const closeVideo = () => {
+    window.clearTimeout(hide.current)
     if (cur?.video) {
       m.current?.pause()
       setPlaying(false)
@@ -1045,7 +1047,25 @@ export default function App() {
       void listener.then((handle) => handle.remove())
     }
   }, [lockedScreen, fs, editingMeta, plSheet, sheet, panel, settings, vaultOpen, wrap, party, duplicates, sub, onlineMedia, openFolder, openList, tab])
-  const poke = () => { setUi(true); window.clearTimeout(hide.current); hide.current = window.setTimeout(() => setUi(false), 3500) }
+  const poke = () => {
+    setUi(true)
+    window.clearTimeout(hide.current)
+    hide.current = window.setTimeout(() => setUi(false), 3500)
+  }
+  const toggleVideoUi = () => {
+    if (lockedScreen) return
+    if (suppressVideoTap.current) {
+      suppressVideoTap.current = false
+      return
+    }
+    if (ui) {
+      window.clearTimeout(hide.current)
+      setUi(false)
+      setAudioTrackMenu(false)
+      return
+    }
+    poke()
+  }
   const cycleSpeed = () => { const n = (speed + 1) % SPEEDS.length; setSpeed(n); if (m.current) m.current.playbackRate = SPEEDS[n] }
   const saveEqProfile = () => {
     if (!cur) { setMsg('اختر مقطعًا أولًا.'); return }
@@ -1714,7 +1734,7 @@ export default function App() {
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
-      <video ref={m} playsInline onClick={poke}
+      <video ref={m} playsInline onClick={toggleVideoUi}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const availableTracks = (el as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } }).audioTracks; setAudioTracks(availableTracks?.length ? Array.from({ length: availableTracks.length }, (_, id) => ({ id, label: availableTracks[id].label || 'مسار صوت ' + (id + 1), language: availableTracks[id].language || '', enabled: availableTracks[id].enabled })) : []); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
@@ -2266,7 +2286,7 @@ export default function App() {
       )}
 
       {fs && cur?.video && (
-        <div className="fixed inset-0 z-50 select-none" onClick={() => { if (!lockedScreen) poke() }}
+        <div className="fixed inset-0 z-50 select-none" onClick={toggleVideoUi}
           onTouchStart={(e) => { if (lockedScreen) return; const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
           onTouchMove={(e) => {
             if (lockedScreen) return; const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
@@ -2276,7 +2296,16 @@ export default function App() {
               else { const v = Math.max(0, Math.min(1, G.v + dy / 250)); if (m.current) m.current.volume = v; setHud({ k: 'vol', v }) }
             } else if (G.ax === 'x') { G.nt = Math.max(0, Math.min(d, G.t + (dx / G.w) * 120)); setHud({ k: 'seek', v: G.nt }) }
           }}
-          onTouchEnd={() => { if (lockedScreen) return; const G = g.current; if (G.ax === 'x' && G.nt >= 0) seek(G.nt); window.setTimeout(() => setHud(null), 600) }}>
+          onTouchEnd={() => {
+            if (lockedScreen) return
+            const G = g.current
+            if (G.ax) {
+              suppressVideoTap.current = true
+              window.setTimeout(() => { suppressVideoTap.current = false }, 450)
+            }
+            if (G.ax === 'x' && G.nt >= 0) seek(G.nt)
+            window.setTimeout(() => setHud(null), 600)
+          }}>
 
               <div className="absolute inset-y-0 start-0 w-1/3" onDoubleClick={() => seek(t - 10)} />
           <div className="absolute inset-y-0 end-0 w-1/3" onDoubleClick={() => seek(t + 10)} />
