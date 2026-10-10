@@ -5,7 +5,7 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 
@@ -51,6 +51,8 @@ export default function App() {
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
   const [onlineUrl, setOnlineUrl] = useState('')
+  const [downloadUrl, setDownloadUrl] = useState('')
+  const [downloadBusy, setDownloadBusy] = useState(false)
   const [onlineTitleInput, setOnlineTitleInput] = useState('')
   const [onlineMedia, setOnlineMedia] = useState<OnlineLink | null>(null)
   const [onlineMsg, setOnlineMsg] = useState('')
@@ -1014,6 +1016,21 @@ export default function App() {
                 <button onClick={() => void openOnline()} className="w-full rounded-xl px-4 py-3 text-sm font-semibold text-white" style={{ background: A }}>تشغيل الرابط</button>
               </div>
               {onlineMsg && <p role="status" className="mt-3 text-sm text-amber-200">{onlineMsg}</p>}
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+                <h3 className="text-sm font-semibold">تنزيل ملف وسائط مباشر</h3>
+                <p className="mt-1 text-xs leading-5 opacity-65">الصق رابط HTTPS مباشر لملف MP4 أو MP3 تملك حق تنزيله. سيُحفظ في مجلد Downloads ويظهر تقدم التنزيل في إشعارات Android. روابط صفحات YouTube وTikTok لا تكفي للتنزيل.</p>
+                <input value={downloadUrl} onChange={(e) => setDownloadUrl(e.target.value)} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://example.com/video.mp4" className="mt-3 w-full rounded-xl bg-white/5 px-3 py-3 text-sm outline-none" />
+                <button disabled={downloadBusy || !downloadUrl.trim()} onClick={async () => {
+                  setDownloadBusy(true)
+                  try {
+                    const result = await downloadMedia(downloadUrl.trim(), onlineTitleInput.trim() || 'HEMA_media')
+                    setOnlineMsg('بدأ التنزيل: ' + result.fileName + '. تابع التقدم من إشعارات الهاتف.')
+                    setDownloadUrl('')
+                  } catch (e) {
+                    setOnlineMsg(e instanceof Error && e.message === 'DOWNLOAD_NATIVE_ONLY' ? 'التنزيل متاح داخل نسخة Android فقط.' : (e instanceof Error ? e.message : 'تعذر بدء التنزيل. استخدم رابط ملف مباشر.'))
+                  } finally { setDownloadBusy(false) }
+                }} className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: A }}>{downloadBusy ? 'جارٍ بدء التنزيل…' : 'تنزيل إلى الهاتف'}</button>
+              </div>
             </div>}
             {onlineMedia && (
               <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">

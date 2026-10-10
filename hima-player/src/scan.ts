@@ -1,6 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 export type Item = { id: string; title: string; uri: string; video: boolean; duration: number; size: number; height: number; artist?: string; folder?: string }
-const P = registerPlugin<{ scan(): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }> }>('MediaScan')
+const P = registerPlugin<{ scan(): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }>; downloadMedia(o: { url: string; title?: string }): Promise<{ downloadId: number; fileName: string }> }>('MediaScan')
 export const canScan = () => Capacitor.isNativePlatform()
 export async function scan() {
   const r = await P.scan()
@@ -15,3 +15,5 @@ export const updateWidget = async (title: string, artist: string, playing: boole
 export const consumeWidgetCommand = async () => { if (!canScan()) return ''; try { return (await P.consumeWidgetCommand()).command ?? '' } catch { return '' } }
 export const consumeSharedUrl = async () => { if (!canScan()) return ''; try { return (await P.consumeSharedUrl()).url ?? '' } catch { return '' } }
 export const resolveTikTokUrl = async (url: string) => { if (!canScan()) return url; try { return (await P.resolveTikTokUrl({ url })).url ?? url } catch { return url } }
+
+export const downloadMedia = async (url: string, title?: string) => { if (!canScan()) throw new Error('DOWNLOAD_NATIVE_ONLY'); return await P.downloadMedia({ url, title }) }

@@ -7,6 +7,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.content.Intent;
 import android.app.PictureInPictureParams;
+import android.app.DownloadManager;
+import android.os.Environment;
 import android.util.Rational;
 import android.view.WindowManager;
 import java.io.File;
@@ -102,6 +104,55 @@ public class MediaScanPlugin extends Plugin {
     }
     private String[] aliases() {
         return Build.VERSION.SDK_INT >= 33 ? new String[] { "audio", "video" } : new String[] { "storage" };
+    }
+
+    @PluginMethod
+    public void downloadMedia(PluginCall call) {
+        String raw = call.getString("url");
+        String requestedName = call.getString("title", "HEMA_media");
+        if (raw == null || raw.trim().isEmpty()) {
+            call.reject("أدخل رابط ملف مباشر.");
+            return;
+        }
+        try {
+            Uri uri = Uri.parse(raw.trim());
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || !scheme.equalsIgnoreCase("https") || host == null) {
+                call.reject("استخدم رابط HTTPS مباشر لملف وسائط.");
+                return;
+            }
+            String h = host.toLowerCase(Locale.US);
+            if (h.equals("youtube.com") || h.endsWith(".youtube.com") || h.equals("youtu.be") ||
+                h.equals("youtube-nocookie.com") || h.endsWith(".youtube-nocookie.com") ||
+                h.equals("tiktok.com") || h.endsWith(".tiktok.com")) {
+                call.reject("رابط صفحة YouTube/TikTok ليس ملف تنزيل مباشر. استخدم خيار التنزيل الرسمي أو رابط ملف تملكه.");
+                return;
+            }
+            String name = requestedName == null ? "HEMA_media" : requestedName.trim();
+            name = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            if (name.isEmpty()) name = "HEMA_media";
+            if (!name.matches("(?i).*\\.(mp4|webm|m4v|mov|mkv|mp3|m4a|aac|wav|ogg|flac|opus)$")) name += ".mp4";
+            DownloadManager dm = (DownloadManager) getContext().getSystemService(android.content.Context.DOWNLOAD_SERVICE);
+            if (dm == null) {
+                call.reject("DOWNLOAD_SERVICE_UNAVAILABLE");
+                return;
+            }
+            DownloadManager.Request req = new DownloadManager.Request(uri);
+            req.setTitle(name);
+            req.setDescription("HEMA ROKSI PLAYER · Downloads");
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            req.setAllowedOverMetered(true);
+            req.setAllowedOverRoaming(false);
+            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+            long id = dm.enqueue(req);
+            JSObject out = new JSObject();
+            out.put("downloadId", id);
+            out.put("fileName", name);
+            call.resolve(out);
+        } catch (Exception e) {
+            call.reject("تعذر بدء التنزيل. تأكد أن الرابط مباشر ومتاح.", e);
+        }
     }
 
     @PluginMethod
