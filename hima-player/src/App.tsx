@@ -246,6 +246,8 @@ export default function App() {
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
   const [settings, setSettings] = useState(false)
+  const [inputLoggerEnabled, setInputLoggerEnabled] = useState(false)
+  const [inputEvents, setInputEvents] = useState<{ time: string; key: string }[]>([])
   const [roksiGlow, setRoksiGlow] = useState<boolean>(() => ls('hema_roksi_mode', true))
   const [roksiSongIds, setRoksiSongIds] = useState<string[]>(() => ls<string[]>('hema_roksi_songs', []))
   const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
@@ -533,6 +535,10 @@ export default function App() {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return
+      if (inputLoggerEnabled) {
+        const key = e.key.slice(0, 40)
+        setInputEvents((previous) => [...previous.slice(-499), { time: new Date().toLocaleTimeString(), key }])
+      }
       if (lockedScreen || e.altKey || e.ctrlKey || e.metaKey) return
       if (e.code === 'Space') { e.preventDefault(); toggle() }
       else if (e.code === 'ArrowRight') { e.preventDefault(); seek((m.current?.currentTime ?? t) + (e.shiftKey ? 30 : 5)) }
@@ -544,7 +550,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [cur?.id, t, i, shuffle, repeat, q, lockedScreen])
+  }, [cur?.id, t, i, shuffle, repeat, q, lockedScreen, inputLoggerEnabled])
 
   const launchYouTubeMusic = async (url = 'https://music.youtube.com/') => {
     let target = 'https://music.youtube.com/'
@@ -2250,6 +2256,14 @@ export default function App() {
             <p className="text-xs opacity-50">التوازن يقرأ مستوى الصوت أثناء التشغيل ويعدّل الكسب تدريجيًا؛ النتيجة تختلف حسب الملف والجهاز.</p>
             <Opt on={headphonePause} onClick={() => setHeadphonePause((value) => !value)}>إيقاف عند فصل السماعة</Opt>
             <p className="text-xs opacity-50">يتوقف المقطع عند فصل سماعة الرأس أو Bluetooth؛ لا يبدأ التشغيل تلقائيًا عند إعادة التوصيل.</p>
+            <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div><h3 className="text-sm font-semibold">سجل لوحة المفاتيح داخل التطبيق</h3><p className="mt-1 text-xs opacity-55">يسجل أسماء المفاتيح فقط عندما يكون التطبيق مفتوحًا، ولا يسجل ما تكتبه داخل الحقول.</p></div>
+                <button type="button" aria-pressed={inputLoggerEnabled} onClick={() => setInputLoggerEnabled((enabled) => !enabled)} className="shrink-0 rounded-full px-3 py-2 text-xs font-semibold" style={{ background: inputLoggerEnabled ? A : '#ffffff1a' }}>{inputLoggerEnabled ? 'يعمل' : 'متوقف'}</button>
+              </div>
+              <div className="flex items-center justify-between gap-2"><span className="text-xs opacity-60">{inputEvents.length} حدث في الذاكرة الحالية · الحد الأقصى 500</span><button type="button" onClick={() => setInputEvents([])} className="rounded-full bg-white/10 px-3 py-2 text-xs">مسح السجل</button></div>
+              {inputEvents.length > 0 ? <div className="max-h-40 space-y-1 overflow-y-auto rounded-xl bg-black/20 p-2">{inputEvents.slice(-20).reverse().map((event, index) => <div key={inputEvents.length - index + '-' + event.time} className="flex items-center justify-between gap-3 text-xs"><span className="truncate font-mono">{event.key}</span><time className="shrink-0 opacity-50">{event.time}</time></div>)}</div> : <p className="text-xs opacity-45">لا توجد أحداث مسجلة. فعّل التسجيل ثم استخدم لوحة مفاتيح فعلية داخل التطبيق.</p>}
+            </section>
             <p className="text-sm opacity-60">النسخ الاحتياطي</p>
             <div className="flex flex-wrap gap-2">
               <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
