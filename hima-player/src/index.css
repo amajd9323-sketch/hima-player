@@ -22,3 +22,26 @@ video::cue{font-size:1.2rem;background:rgba(0,0,0,.72)}
 button,label{ -webkit-user-select:none; user-select:none }
 input[type=range]{min-height:24px;cursor:pointer}
 @media (max-width:420px){button{min-height:36px} video::cue{font-size:1rem}}
+
+/* HEMA ROKSI PLAYER · premium mobile finish */
+:root{--hema-line:rgba(255,255,255,.085);--hema-glass:rgba(20,25,37,.78)}
+body{background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--hema-purple) 14%,transparent),transparent 34%),radial-gradient(ellipse at 0% 90%,color-mix(in srgb,var(--hema-teal) 7%,transparent),transparent 30%),radial-gradient(ellipse at 50% -15%,#21183b 0,transparent 48%);background-color:var(--hema-bg)}
+header{position:relative;isolation:isolate}
+header:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.025),transparent);pointer-events:none}
+button{transition:transform .16s ease,opacity .16s ease,background-color .16s ease,color .16s ease}
+button:active:not(:disabled){transform:scale(.965)}
+button:disabled{cursor:not-allowed}
+input,select,textarea{color:var(--hema-text)}
+input::placeholder,textarea::placeholder{color:rgba(226,232,240,.42)}
+main>ul>li{animation:hema-enter .24s ease both}
+main>ul>li:nth-child(2){animation-delay:18ms}
+main>ul>li:nth-child(3){animation-delay:36ms}
+main>ul>li:nth-child(4){animation-delay:54ms}
+main>ul>li:nth-child(5){animation-delay:72ms}
+@keyframes hema-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+main button,.relative.mx-2.mb-2{border-color:var(--hema-line)}
+input[type=range]{min-height:28px;touch-action:pan-y}
+label{touch-action:manipulation}
+video{max-width:100%}
+@media(min-width:640px){body{background-attachment:fixed}}
+@media(prefers-reduced-motion:reduce){button,main>ul>li{transition:none!important;animation:none!important}}
