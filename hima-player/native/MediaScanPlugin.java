@@ -2,6 +2,12 @@ package com.hima.player;
 
 import android.Manifest;
 import android.content.ContentUris;
+import android.content.ContentValues;
+import android.media.MediaCodec;
+import android.media.MediaExtractor;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
+import android.media.MediaScannerConnection;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -12,6 +18,12 @@ import android.os.Environment;
 import android.util.Rational;
 import android.view.WindowManager;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Locale;
@@ -31,7 +43,8 @@ import com.getcapacitor.annotation.PermissionCallback;
 @CapacitorPlugin(name = "MediaScan", permissions = {
     @Permission(alias = "audio", strings = { Manifest.permission.READ_MEDIA_AUDIO }),
     @Permission(alias = "video", strings = { Manifest.permission.READ_MEDIA_VIDEO }),
-    @Permission(alias = "storage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE })
+    @Permission(alias = "storage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE }),
+    @Permission(alias = "writeStorage", strings = { Manifest.permission.WRITE_EXTERNAL_STORAGE })
 })
 public class MediaScanPlugin extends Plugin {
 
@@ -153,6 +166,140 @@ public class MediaScanPlugin extends Plugin {
         } catch (Exception e) {
             call.reject("تعذر بدء التنزيل. تأكد أن الرابط مباشر ومتاح.", e);
         }
+    }
+
+
+    @PluginMethod
+    public void extractAudio(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+            getPermissionState("writeStorage") != PermissionState.GRANTED) {
+            requestPermissionForAlias("writeStorage", call, "extractAudioPermCb");
+            return;
+        }
+        doExtractAudio(call);
+    }
+
+    @PermissionCallback
+    private void extractAudioPermCb(PluginCall call) {
+        if (getPermissionState("writeStorage") != PermissionState.GRANTED) {
+            call.reject("PERMISSION_DENIED");
+            return;
+        }
+        doExtractAudio(call);
+    }
+
+    private void doExtractAudio(PluginCall call) {
+        String raw = call.getString("uri");
+        String requested = call.getString("title", "HEMA_Audio");
+        if (raw == null || !raw.startsWith("content://")) {
+            call.reject("VIDEO_URI_REQUIRED");
+            return;
+        }
+        String safeTitle = requested == null ? "HEMA_Audio" : requested.trim();
+        safeTitle = safeTitle.replaceAll("[\\\\/:*?\"<>|]", "_");
+        safeTitle = safeTitle.replaceAll("\\s+", " ");
+        if (safeTitle.isEmpty()) safeTitle = "HEMA_Audio";
+        if (safeTitle.length() > 90) safeTitle = safeTitle.substring(0, 90);
+
+        final String fileTitle = safeTitle;
+        new Thread(() -> {
+            MediaExtractor extractor = null;
+            MediaMuxer muxer = null;
+            File temp = new File(getContext().getCacheDir(), "hema-audio-" + System.currentTimeMillis() + ".m4a");
+            Uri savedUri = null;
+            try {
+                extractor = new MediaExtractor();
+                extractor.setDataSource(getContext(), Uri.parse(raw), null);
+                int audioTrack = -1;
+                MediaFormat audioFormat = null;
+                for (int t = 0; t < extractor.getTrackCount(); t++) {
+                    MediaFormat format = extractor.getTrackFormat(t);
+                    String mime = format.getString(MediaFormat.KEY_MIME);
+                    if (mime != null && mime.startsWith("audio/")) {
+                        audioTrack = t;
+                        audioFormat = format;
+                        break;
+                    }
+                }
+                if (audioTrack < 0 || audioFormat == null) {
+                    call.reject("VIDEO_HAS_NO_AUDIO_TRACK");
+                    return;
+                }
+
+                extractor.selectTrack(audioTrack);
+                muxer = new MediaMuxer(temp.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+                int outputTrack = muxer.addTrack(audioFormat);
+                muxer.start();
+                ByteBuffer buffer = ByteBuffer.allocate(1024 * 1024);
+                MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+                while (true) {
+                    buffer.clear();
+                    int size = extractor.readSampleData(buffer, 0);
+                    if (size < 0) break;
+                    long sampleTime = extractor.getSampleTime();
+                    if (sampleTime < 0) break;
+                    info.offset = 0;
+                    info.size = size;
+                    info.presentationTimeUs = sampleTime;
+                    info.flags = (extractor.getSampleFlags() & MediaExtractor.SAMPLE_FLAG_SYNC) != 0
+                        ? MediaCodec.BUFFER_FLAG_KEY_FRAME : 0;
+                    muxer.writeSampleData(outputTrack, buffer, info);
+                    if (!extractor.advance()) break;
+                }
+                muxer.stop();
+                muxer.release();
+                muxer = null;
+                extractor.release();
+                extractor = null;
+                if (!temp.exists() || temp.length() < 128) throw new IOException("NO_AUDIO_DATA");
+
+                String fileName = fileTitle + ".m4a";
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp4");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/HEMA ROKSI");
+                    values.put(MediaStore.Audio.Media.IS_MUSIC, 1);
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                    savedUri = getContext().getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
+                    if (savedUri == null) throw new IOException("MEDIASTORE_INSERT_FAILED");
+                    OutputStream stream = getContext().getContentResolver().openOutputStream(savedUri, "w");
+                    if (stream == null) throw new IOException("MEDIASTORE_OUTPUT_FAILED");
+                    try (InputStream input = new FileInputStream(temp); OutputStream output = stream) {
+                        byte[] chunk = new byte[64 * 1024];
+                        int count;
+                        while ((count = input.read(chunk)) != -1) if (count > 0) output.write(chunk, 0, count);
+                    }
+                    ContentValues publish = new ContentValues();
+                    publish.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                    getContext().getContentResolver().update(savedUri, publish, null, null);
+                } else {
+                    File musicDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "HEMA ROKSI");
+                    if (!musicDir.exists() && !musicDir.mkdirs()) throw new IOException("MUSIC_FOLDER_FAILED");
+                    File outFile = new File(musicDir, fileName);
+                    try (InputStream input = new FileInputStream(temp); OutputStream output = new FileOutputStream(outFile)) {
+                        byte[] chunk = new byte[64 * 1024];
+                        int count;
+                        while ((count = input.read(chunk)) != -1) if (count > 0) output.write(chunk, 0, count);
+                    }
+                    savedUri = Uri.fromFile(outFile);
+                    MediaScannerConnection.scanFile(getContext(), new String[] { outFile.getAbsolutePath() }, new String[] { "audio/mp4" }, null);
+                }
+                JSObject out = new JSObject();
+                out.put("fileName", fileName);
+                out.put("uri", savedUri == null ? "" : savedUri.toString());
+                call.resolve(out);
+            } catch (Exception e) {
+                if (savedUri != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try { getContext().getContentResolver().delete(savedUri, null, null); } catch (Exception ignored) { }
+                }
+                call.reject("تعذر استخراج الصوت. قد تكون صيغة الصوت داخل الفيديو غير مدعومة.", e);
+            } finally {
+                if (muxer != null) { try { muxer.stop(); } catch (Exception ignored) { } try { muxer.release(); } catch (Exception ignored) { } }
+                if (extractor != null) { try { extractor.release(); } catch (Exception ignored) { } }
+                if (temp.exists()) temp.delete();
+            }
+        }, "HemaAudioExtractor").start();
     }
 
     @PluginMethod

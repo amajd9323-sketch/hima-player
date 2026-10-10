@@ -5,12 +5,12 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
 
-type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
+type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
 type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online'
 type Repeat = 'off' | 'all' | 'one'
 type OnlinePlatform = 'youtube' | 'tiktok'
@@ -53,6 +53,10 @@ export default function App() {
   const [renderLimit, setRenderLimit] = useState(30)
   const [nativeMore, setNativeMore] = useState({ audio: false, video: false })
   const [nativeLoading, setNativeLoading] = useState(false)
+  const [convertingId, setConvertingId] = useState<string | null>(null)
+  const [notice, setNotice] = useState('')
+  const noticeTimer = useRef<number | null>(null)
+  useEffect(() => () => { if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current) }, [])
   const nativeOffset = useRef(MEDIA_PAGE_SIZE)
   const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
   const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
@@ -240,7 +244,7 @@ export default function App() {
         const firstPage = await scan(0, MEDIA_PAGE_SIZE)
         nativeOffset.current = MEDIA_PAGE_SIZE
         setNativeMore({ audio: firstPage.filter((x) => !x.video).length >= MEDIA_PAGE_SIZE, video: firstPage.filter((x) => x.video).length >= MEDIA_PAGE_SIZE })
-        lib = firstPage.map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
+        lib = firstPage.map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
       } catch { setScanMsg('اسمح بالوصول للملفات من إعدادات التطبيق، ثم اضغط تحديث') }
     }
     if (!canScan()) setNativeMore({ audio: false, video: false })
@@ -263,7 +267,7 @@ export default function App() {
       const favorites = favSet()
       let rows: Track[] = page.map((x) => {
         const id = 'n' + x.id + (x.video ? 'v' : 'a')
-        return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: favorites.has(id), sourceTitle: x.title, sourceArtist: x.artist }
+        return { id, title: x.title, url: x.url, uri: x.uri, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: favorites.has(id), sourceTitle: x.title, sourceArtist: x.artist }
       })
       try {
         const overrides = await allTrackMeta()
@@ -451,7 +455,7 @@ export default function App() {
       } finally { running = false }
     }
     void pollSharedUrl()
-    const timer = window.setInterval(() => { void pollSharedUrl() }, 1200)
+    const timer = window.setInterval(() => { void pollSharedUrl() }, 3000)
     return () => { active = false; window.clearInterval(timer) }
   }, [])
 
@@ -528,7 +532,7 @@ export default function App() {
     const p = pool.findIndex((o) => o.k === i)
     setI(pool[(p + dir + pool.length) % pool.length].k)
   }
-  const toggle = () => { const e = m.current; if (e) { if (e.paused) void e.play(); else e.pause() } }
+  const toggle = () => { const e = m.current; if (e) { if (e.paused && cur?.video && !fs) { setFs(true); setUi(true); void bars(true); void e.play() } else if (e.paused) void e.play(); else e.pause() } }
   const updateUiTime = (value: number, force = false) => {
     if (!Number.isFinite(value)) return
     // Keep tiny progress elements fluid without repainting the entire screen on every media tick.
@@ -544,7 +548,40 @@ export default function App() {
   const lock = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } try { if (on) await ScreenOrientation.lock({ orientation: 'landscape' }); else await ScreenOrientation.unlock() } catch { /* web */ } }
   const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
   const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
-  const closeVideo = () => { setFs(false); void bars(false); void lock(false) }
+  const closeVideo = () => {
+    if (cur?.video) {
+      m.current?.pause()
+      setPlaying(false)
+      void keepAlive(false)
+    }
+    setFs(false)
+    void bars(false)
+    void lock(false)
+  }
+  const notify = (text: string) => {
+    setNotice(text)
+    if (noticeTimer.current !== null) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => { setNotice(''); noticeTimer.current = null }, 5000)
+  }
+  const convertVideoToMusic = async (x: Track) => {
+    if (!x.video) return
+    if (!canScan()) { notify('تحويل الفيديو متاح لفيديوهات مكتبة الهاتف.'); return }
+    if (!x.uri) { notify('اختر الفيديو من مكتبة الهاتف؛ الملفات المستوردة داخل التطبيق غير مدعومة للتحويل بعد.'); return }
+    if (convertingId !== null) return
+    setConvertingId(x.id)
+    try {
+      const result = await extractAudio(x.uri, x.title)
+      notify('تم حفظ الصوت داخل Music/HEMA ROKSI: ' + result.fileName)
+      await load()
+    } catch (error) {
+      const message = String(error)
+      notify(message.includes('VIDEO_HAS_NO_AUDIO_TRACK')
+        ? 'هذا الفيديو لا يحتوي على مسار صوتي.'
+        : 'تعذر استخراج الصوت. جرّب فيديو MP4 بصوت AAC.')
+    } finally {
+      setConvertingId(null)
+    }
+  }
 
   // Handle Android system Back without accidentally closing HEMA.
   useEffect(() => {
@@ -736,7 +773,7 @@ export default function App() {
         else if (command === 'prev') { if (cur) stepRef.current(-1); else { const last = ls<string>('hema_last_track', ''); const target = qRef.current.findIndex((x) => x.id === last); if (target >= 0) setI(target) } }
       }
       finally { polling = false }
-    }, 2500)
+    }, 6000)
     return () => window.clearInterval(timer)
   }, [cur?.id, cur?.artist, cur?.video, playing, q.length])
   const tick = (ct: number) => {
@@ -1048,29 +1085,43 @@ export default function App() {
     </div>
   )
   const Row = ({ x, k }: { x: Track; k: number }) => (
-    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className={'flex items-center gap-1 rounded-xl active:bg-white/5 ' + (tab === 'queue' ? 'cursor-grab' : '')}>
-      <button onClick={() => { cancelCrossfade(); setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="flex min-w-0 flex-1 items-center gap-3 p-2 text-start">
-        <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg font-semibold text-white" style={art(x.title)}>{x.cover ? <img src={x.cover} alt="" className="size-full object-cover" /> : k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
-        <span className="min-w-0"><span className="block truncate" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-50">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ')}</span></span>
+    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className="media-track-row">
+      <button onClick={() => { cancelCrossfade(); setI(k); setSheet(!x.video); if (x.video) openVideo(k) }} className="media-track-main flex min-w-0 items-center gap-3 rounded-xl p-2 text-start">
+        <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-xl font-semibold text-white" style={art(x.title)}>{x.cover ? <img src={x.cover} alt="" className="size-full object-cover" /> : k === i && playing ? <Icon n="eq" s={20} /> : [...x.title][0]}</span>
+        <span className="min-w-0 flex-1"><span className="block truncate font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-55">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'ملف موسيقى'}</span></span>
+        {k === i && playing && <Icon n="eq" s={19} />}
       </button>
-      {tab !== 'queue' ? <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="p-2" style={{ color: queueIds.includes(x.id) ? A : '#fff8' }}><Icon n="plus" s={20} /></button> : <><div className="flex flex-col"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="px-1 text-xs opacity-70">↑</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="px-1 text-xs opacity-70">↓</button></div><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="p-2 opacity-60"><Icon n="close" s={18} /></button></>}
-      <button aria-label="مفضلة" onClick={() => fav(x)} className="p-2" style={{ color: x.fav ? A : '#fff5' }}><Icon n="heart" s={22} /></button>
-      <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="p-2 opacity-60">✎</button>
-      <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="p-2 opacity-60"><Icon n="list" s={20} /></button>
-      {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="p-2 opacity-40"><Icon n="trash" s={20} /></button>}
+      <div className="media-track-actions">
+        {tab !== 'queue'
+          ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={18} /><span>الطابور</span></button>
+          : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
+        <button aria-label="مفضلة" title="المفضلة" onClick={() => fav(x)} className="media-action-button" style={{ color: x.fav ? A : undefined }}><Icon n="heart" s={18} /><span>مفضلة</span></button>
+        <button aria-label="قائمة" title="إضافة إلى قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={18} /><span>قائمة</span></button>
+        <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
+        {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
+      </div>
     </li>
   )
   const VRow = ({ x, k }: { x: Track; k: number }) => (
-    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className={'relative ' + (tab === 'queue' ? 'cursor-grab' : '')}>
-      <button onClick={() => openVideo(k)} className="block w-full text-start">
+    <li key={x.id} draggable={tab === 'queue'} onDragStart={(e) => { if (tab === 'queue') { e.dataTransfer.setData('text/plain', x.id); e.dataTransfer.effectAllowed = 'move' } }} onDragOver={(e) => { if (tab === 'queue') e.preventDefault() }} onDrop={(e) => { if (tab === 'queue') { e.preventDefault(); const from = e.dataTransfer.getData('text/plain'); if (from) reorderQueue(from, x.id) } }} className="media-track-row">
+      <button onClick={() => openVideo(k)} className="media-track-main block w-full text-start">
         <VThumb src={x.url} dur={x.dur} lite={batterySaver} />
-        <p className="mt-1 truncate px-1 text-sm" style={k === i ? { color: A } : undefined}>{x.title}</p>
-        <p className="px-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' | ')}</p>
+        <div className="flex min-w-0 items-center gap-2 px-1 pt-2">
+          <span className="min-w-0 flex-1 truncate text-sm font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span>
+          {k === i && playing && <span className="shrink-0" style={{ color: A }}><Icon n="eq" s={16} /></span>}
+        </div>
+        <p className="px-1 pt-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'فيديو'}</p>
       </button>
-      {tab === 'queue' ? <div className="absolute inset-x-1 bottom-1 flex items-center justify-between rounded-lg bg-black/65 px-2 py-1 text-white"><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)}>↑</button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)}>إزالة</button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)}>↓</button></div> : <button aria-label="تشغيل بعد الحالي" title="تشغيل بعد الحالي" onClick={() => enqueue(x, true)} className="absolute end-1 bottom-1 rounded-full bg-black/55 p-1.5" style={{ color: queueIds.includes(x.id) ? A : '#fffc' }}><Icon n="plus" s={18} /></button>}
-      <button aria-label="مفضلة" onClick={() => fav(x)} className="absolute end-1 top-1 rounded-full bg-black/40 p-1.5" style={{ color: x.fav ? A : '#fffc' }}><Icon n="heart" s={18} /></button>
-      <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="absolute start-1 top-1 rounded-full bg-black/40 p-1.5 text-white/80"><Icon n="list" s={18} /></button>
-      <button aria-label="تعديل بيانات العرض" onClick={() => editTrack(x)} className="absolute start-1 bottom-1 rounded-full bg-black/55 px-2 py-1 text-xs text-white">✎</button>
+      <div className="media-track-actions">
+        {tab !== 'queue'
+          ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={17} /><span>الطابور</span></button>
+          : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
+        <button aria-label="مفضلة" onClick={() => fav(x)} className="media-action-button" style={{ color: x.fav ? A : undefined }}><Icon n="heart" s={17} /><span>مفضلة</span></button>
+        <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={17} /><span>قائمة</span></button>
+        <button aria-label="تحويل الفيديو إلى موسيقى" title={x.uri ? 'حفظ مسار الصوت كملف M4A' : 'متاح لفيديوهات مكتبة الهاتف'} onClick={() => void convertVideoToMusic(x)} disabled={convertingId !== null} className="media-action-button" style={{ color: convertingId === x.id ? A : undefined }}><Icon n="music" s={17} /><span>{convertingId === x.id ? 'جارٍ…' : 'استخراج'}</span></button>
+        <button aria-label="تعديل بيانات العرض" title="تعديل الاسم" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
+        {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
+      </div>
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
@@ -1081,6 +1132,8 @@ export default function App() {
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
+
+      {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121824] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA ROKSI PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div></div>
