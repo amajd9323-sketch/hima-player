@@ -358,7 +358,7 @@ const strings: Record<string, Pair> = {
   "اضغط لفتح اللمس": ["Tap to unlock touch controls", "Dotknij, aby odblokować sterowanie dotykowe"],
   "لون CC": ["Subtitle color", "Kolor napisów"],
   "النسخة الاحتياطية": ["Backup", "Kopia zapasowa"],
-  "حجم الملف": ["File size", "Rozmiar pliku"]
+  "حجم الملف": ["File size", "Rozmiar pliku"],
   "مسح التكرار": ["Clear duplicates", "Wyczyść duplikaty"],
 }
 
