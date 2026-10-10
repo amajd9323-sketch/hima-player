@@ -1425,3 +1425,39 @@ main ul.grid > li > button:first-child { min-height: 0; }
   .hema-visualizer-controls > button { transition: none !important; }
   .music-player-screen .relative.grid { animation-duration: 0s !important; }
 }
+
+
+/* Roksi gift corner: local-only romantic styling; does not change the whole player's theme. */
+.roksi-page { color: var(--hema-text, #f4f6fc); }
+.roksi-page .roksi-hero {
+  isolation: isolate;
+  border-color: rgba(244,114,182,.24);
+  background: linear-gradient(135deg, #28152a 0%, #21172e 48%, #111722 100%);
+  box-shadow: 0 12px 36px rgba(0,0,0,.16);
+}
+.roksi-page.roksi-glow-on .roksi-hero {
+  border-color: rgba(249,168,212,.42);
+  box-shadow: 0 0 0 1px rgba(244,114,182,.07), 0 12px 34px rgba(190,55,135,.13);
+}
+.roksi-page .roksi-orb {
+  position: absolute;
+  z-index: -1;
+  width: 150px;
+  height: 150px;
+  border-radius: 999px;
+  filter: blur(34px);
+  opacity: .22;
+  pointer-events: none;
+}
+.roksi-page .roksi-orb-one { top: -80px; right: -45px; background: #f472b6; }
+.roksi-page .roksi-orb-two { bottom: -100px; left: -55px; background: #a78bfa; }
+.roksi-page button, .roksi-page input, .roksi-page textarea { transition: border-color .15s ease, background-color .15s ease; }
+.roksi-page button:focus-visible, .roksi-page input:focus-visible, .roksi-page textarea:focus-visible {
+  outline: 2px solid #f9a8d4;
+  outline-offset: 2px;
+}
+.roksi-page button:active { transform: scale(.99); }
+.roksi-page textarea { box-sizing: border-box; min-height: 130px; }
+@media (prefers-reduced-motion: reduce) {
+  .roksi-page button, .roksi-page input, .roksi-page textarea { transition: none !important; }
+}
