@@ -196,6 +196,8 @@ export default function App() {
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
   const [settings, setSettings] = useState(false)
+  const [navMenuOpen, setNavMenuOpen] = useState(false)
+  const [navGroupOpen, setNavGroupOpen] = useState<string | null>(null)
   useEffect(() => initLocalization(language), [language])
   useEffect(() => { localStorage.setItem('hema_battery_saver', JSON.stringify(batterySaver)); document.body.classList.toggle('hema-battery-saver', batterySaver) }, [batterySaver])
   const [plSheet, setPlSheet] = useState<Track | null>(null)
@@ -1323,7 +1325,12 @@ export default function App() {
         <span className="min-w-0 flex-1"><span className="block truncate font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-55">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'ملف موسيقى'}</span></span>
         {k === i && playing && <Icon n="eq" s={19} />}
       </button>
-      <div className="media-track-actions">
+      <details className="media-track-actions">
+        <summary className="media-actions-trigger">
+          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
+          <span className="media-actions-caret"><Icon n="down" s={18} /></span>
+        </summary>
+        <div className="media-track-action-grid">
         {tab !== 'queue'
           ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={18} /><span>الطابور</span></button>
           : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
@@ -1331,7 +1338,8 @@ export default function App() {
         <button aria-label="قائمة" title="إضافة إلى قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={18} /><span>قائمة</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
-      </div>
+        </div>
+      </details>
     </li>
   )
   const VRow = ({ x, k }: { x: Track; k: number }) => (
@@ -1344,7 +1352,12 @@ export default function App() {
         </div>
         <p className="px-1 pt-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'فيديو'}</p>
       </button>
-      <div className="media-track-actions">
+      <details className="media-track-actions">
+        <summary className="media-actions-trigger">
+          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
+          <span className="media-actions-caret"><Icon n="down" s={18} /></span>
+        </summary>
+        <div className="media-track-action-grid">
         {tab !== 'queue'
           ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={17} /><span>الطابور</span></button>
           : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
@@ -1353,10 +1366,58 @@ export default function App() {
         <button aria-label="تحويل الفيديو إلى موسيقى" title={x.uri ? 'حفظ مسار الصوت كملف M4A' : 'متاح لفيديوهات مكتبة الهاتف'} onClick={() => void convertVideoToMusic(x)} disabled={convertingId !== null} className="media-action-button" style={{ color: convertingId === x.id ? A : undefined }}><Icon n="music" s={17} /><span>{convertingId === x.id ? 'جارٍ…' : 'استخراج'}</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
-      </div>
+        </div>
+      </details>
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
+  const navGroups = [
+    {
+      id: 'library',
+      title: language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library',
+      description: language === 'ar' ? 'ملفاتك ومفضلاتك' : language === 'pl' ? 'Twoje pliki i ulubione' : 'Your media and favorites',
+      icon: 'folder',
+      items: [
+        { key: 'video' as Tab, label: language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos', icon: 'video' },
+        { key: 'music' as Tab, label: language === 'ar' ? 'الأغاني' : language === 'pl' ? 'Muzyka' : 'Music', icon: 'music' },
+        { key: 'folders' as Tab, label: language === 'ar' ? 'المجلدات' : language === 'pl' ? 'Foldery' : 'Folders', icon: 'folder' },
+        { key: 'fav' as Tab, label: language === 'ar' ? 'المفضلة' : language === 'pl' ? 'Ulubione' : 'Favorites', icon: 'heart' },
+        { key: 'recent' as Tab, label: language === 'ar' ? 'الأخيرة' : language === 'pl' ? 'Ostatnie' : 'Recent', icon: 'timer' },
+      ],
+    },
+    {
+      id: 'manage',
+      title: language === 'ar' ? 'التنظيم والتشغيل' : language === 'pl' ? 'Organizacja i odtwarzanie' : 'Organize & play',
+      description: language === 'ar' ? 'الطابور والقوائم والإحصاءات' : language === 'pl' ? 'Kolejka, playlisty i statystyki' : 'Queue, playlists and stats',
+      icon: 'list',
+      items: [
+        { key: 'queue' as Tab, label: language === 'ar' ? `الطابور · ${queueIds.length}` : language === 'pl' ? `Kolejka · ${queueIds.length}` : `Queue · ${queueIds.length}`, icon: 'list' },
+        { key: 'lists' as Tab, label: language === 'ar' ? 'القوائم الذكية' : language === 'pl' ? 'Inteligentne playlisty' : 'Smart playlists', icon: 'list' },
+        { key: 'top' as Tab, label: language === 'ar' ? 'الأكثر تشغيلًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played', icon: 'spark' },
+      ],
+    },
+    {
+      id: 'discover',
+      title: language === 'ar' ? 'اكتشاف وذكاء' : language === 'pl' ? 'Odkrywanie i AI' : 'Discover & AI',
+      description: language === 'ar' ? 'تصفح مكتبتك بطرق جديدة' : language === 'pl' ? 'Odkrywaj bibliotekę na nowe sposoby' : 'Explore your library in new ways',
+      icon: 'spark',
+      items: [
+        { key: 'explore' as Tab, label: language === 'ar' ? 'استكشاف' : language === 'pl' ? 'Odkrywaj' : 'Explore', icon: 'search' },
+        { key: 'ai' as Tab, label: language === 'ar' ? 'مساعد الموسيقى الذكي' : language === 'pl' ? 'AI DJ' : 'AI DJ', icon: 'spark' },
+      ],
+    },
+    {
+      id: 'connect',
+      title: language === 'ar' ? 'الاتصال والمنصات' : language === 'pl' ? 'Połączenia i platformy' : 'Connect & services',
+      description: language === 'ar' ? 'YouTube Music والبث للتلفاز' : language === 'pl' ? 'YouTube Music i przesyłanie na TV' : 'YouTube Music and TV casting',
+      icon: 'video',
+      items: [
+        { key: 'online' as Tab, label: language === 'ar' ? 'YouTube Music والفيديو' : language === 'pl' ? 'YouTube Music i wideo' : 'YouTube Music & video', icon: 'video' },
+        { key: 'cast' as Tab, label: language === 'ar' ? 'التلفاز والبث' : language === 'pl' ? 'Telewizor i przesyłanie' : 'TV & casting', icon: 'video' },
+      ],
+    },
+  ] as const
+  const activeNavItem = navGroups.flatMap((group) => group.items).find((item) => item.key === tab)
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
@@ -1377,17 +1438,57 @@ export default function App() {
         </label>
       </header>
 
-      <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['explore', 'استكشاف'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم الذكية'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'YouTube Music / فيديو'], ['cast', 'التلفاز']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null); if (k === 'explore') setExploreValue(null) }}>{l}</Opt>)}
+      <div className="hema-page-switcher" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="hema-current-page">
+          <span className="hema-current-eyebrow">{language === 'ar' ? 'أنت الآن في' : language === 'pl' ? 'Bieżąca sekcja' : 'CURRENT SECTION'}</span>
+          <strong>{activeNavItem?.label ?? (language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library')}</strong>
+        </div>
+        <button type="button" className="hema-menu-toggle" aria-expanded={navMenuOpen} onClick={() => setNavMenuOpen((value) => !value)}>
+          <Icon n={navMenuOpen ? 'close' : 'list'} s={19} />
+          <span>{language === 'ar' ? (navMenuOpen ? 'إغلاق القوائم' : 'قوائم الأقسام') : language === 'pl' ? (navMenuOpen ? 'Zamknij menu' : 'Menu sekcji') : (navMenuOpen ? 'Close menu' : 'Browse sections')}</span>
+          <Icon n="down" s={17} />
+        </button>
       </div>
+      {navMenuOpen && (
+        <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          {navGroups.map((group) => {
+            const groupActive = group.items.some((item) => item.key === tab)
+            const groupExpanded = navGroupOpen === group.id
+            const currentItem = group.items.find((item) => item.key === tab)
+            return (
+              <section key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''} ${groupExpanded ? 'is-expanded' : ''}`}>
+                <button type="button" className="hema-nav-group-trigger" aria-expanded={groupExpanded} onClick={() => setNavGroupOpen(groupExpanded ? null : group.id)}>
+                  <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
+                  <span className="hema-nav-group-copy">
+                    <strong>{group.title}</strong>
+                    <small>{currentItem ? currentItem.label : group.description}</small>
+                  </span>
+                  <span className="hema-nav-chevron"><Icon n="down" s={19} /></span>
+                </button>
+                {groupExpanded && (
+                  <div className="hema-nav-options">
+                    {group.items.map((item) => (
+                      <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={() => {
+                        setTab(item.key); setOpenFolder(null); setOpenList(null); if (item.key === 'explore') setExploreValue(null); setNavMenuOpen(false); setNavGroupOpen(null)
+                      }}>
+                        <Icon n={item.icon} s={18} /><span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </nav>
+      )}
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && (
-        <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
+        <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
         </div>
       )}
 
-      <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+      <main className="hema-content min-h-0 flex-1 overflow-y-auto px-3 pb-4">
         {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع · اسحب لإعادة الترتيب</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
         {tab === 'online' && (
