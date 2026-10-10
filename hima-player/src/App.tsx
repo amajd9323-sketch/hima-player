@@ -6,7 +6,7 @@ import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
 import { all, put, del } from './db'
 import Icon from './Icon'
-import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio, getVideoThumbnail, getGenres, discoverCastDevices, castMedia, stopCast, setHeadphonePause as setNativeHeadphonePause, addAudioNoisyListener } from './scan'
+import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia, extractAudio, getVideoThumbnail, getGenres, discoverCastDevices, castMedia, stopCast, shareNativeMedia, setHeadphonePause as setNativeHeadphonePause, addAudioNoisyListener } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
@@ -789,7 +789,12 @@ export default function App() {
   }
 
   const shareTrack = async (track: Track) => {
-    if (!track.blob) { notify('HEMA Drop يشارك الملفات التي استوردتها داخل HEMA فقط؛ ملفات مكتبة Android تحتاج صلاحية مشاركة أصلية.'); return }
+    if (!track.blob && track.uri && canScan()) {
+      try { await shareNativeMedia(track.uri, track.title, track.video); notify('تم فتح قائمة مشاركة Android للملف. اختر Quick Share أو التطبيق المناسب.') }
+      catch { notify('تعذرت مشاركة ملف مكتبة الهاتف. تأكد من صلاحية الوصول للملف والجهاز المستقبِل.') }
+      return
+    }
+    if (!track.blob) { notify('لم يتوفر ملف قابل للمشاركة لهذا العنصر.'); return }
     const fallbackType = track.video ? 'video/mp4' : 'audio/mpeg'
     const mime = track.blob.type || fallbackType
     const extByMime: Record<string, string> = { 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/webm': 'webm', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' }
@@ -1466,7 +1471,7 @@ export default function App() {
         <button aria-label="مفضلة" title="المفضلة" onClick={() => fav(x)} className="media-action-button" style={{ color: x.fav ? A : undefined }}><Icon n="heart" s={18} /><span>مفضلة</span></button>
         <button aria-label="قائمة" title="إضافة إلى قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={18} /><span>قائمة</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
-        {x.blob && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
+        {(x.blob || x.uri) && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
         </div>
       </details>
@@ -1495,7 +1500,7 @@ export default function App() {
         <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={17} /><span>قائمة</span></button>
         <button aria-label="تحويل الفيديو إلى موسيقى" title={x.uri ? 'حفظ مسار الصوت كملف M4A' : 'متاح لفيديوهات مكتبة الهاتف'} onClick={() => void convertVideoToMusic(x)} disabled={convertingId !== null} className="media-action-button" style={{ color: convertingId === x.id ? A : undefined }}><Icon n="music" s={17} /><span>{convertingId === x.id ? 'جارٍ…' : 'استخراج'}</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
-        {x.blob && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
+        {(x.blob || x.uri) && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
         </div>
       </details>
