@@ -527,3 +527,73 @@ main .rounded-2xl.border { box-shadow: none !important; }
   .video-bottom-navigation > button { width: 34px; min-width: 34px; height: 32px; min-height: 32px; }
   .video-audio-track-menu { top: 76px !important; max-height: calc(100% - 100px); }
 }
+
+/* Final pass: consistent premium surfaces with less work during scrolling. */
+:root {
+  --hema-card: rgba(19, 25, 38, .88);
+  --hema-border: rgba(225, 232, 255, .105);
+  --hema-shadow: 0 8px 26px rgba(0, 0, 0, .16);
+}
+#root > div > header + div > button {
+  border: 1px solid var(--hema-border);
+  border-radius: 14px;
+  letter-spacing: 0;
+}
+#root > div > main {
+  padding-top: 10px;
+  scroll-padding-block: 12px;
+}
+main ul:not(.grid) > li,
+main ul.grid > li {
+  border-color: var(--hema-border);
+  box-shadow: var(--hema-shadow);
+  transition: background-color .14s ease, border-color .14s ease;
+}
+main ul:not(.grid) > li:active,
+main ul.grid > li:active {
+  border-color: color-mix(in srgb, var(--hema-purple) 38%, var(--hema-border));
+}
+main ul:not(.grid) > li > button:first-child {
+  overflow: hidden;
+}
+main section {
+  min-width: 0;
+}
+main input:not([type="range"]):focus,
+main select:focus,
+main textarea:focus,
+#root input:not([type="range"]):focus,
+#root select:focus,
+#root textarea:focus {
+  border-color: color-mix(in srgb, var(--hema-teal) 58%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hema-teal) 10%, transparent);
+}
+#root [role="status"] {
+  border-color: var(--hema-border);
+  line-height: 1.55;
+}
+.media-track-actions .media-action-button {
+  transition: background-color .12s ease, color .12s ease;
+}
+.media-track-actions .media-action-button:active:not(:disabled) {
+  transform: none;
+  background: rgba(255,255,255,.095);
+}
+.video-toolbar .video-tool,
+.video-bottom-navigation > button {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+#root > div > main > ul > li {
+  animation: none !important;
+}
+@media (max-width: 380px) {
+  #root > div > header { padding-inline: 11px; }
+  #root > div > header + div { padding-inline: 11px; gap: 6px; }
+  #root > div > main { padding-inline: 10px; }
+  main ul.grid { gap: 10px; }
+}
+@media (prefers-reduced-motion: reduce), (max-width: 420px) {
+  main ul > li { animation: none !important; }
+  button { transition-duration: .08s; }
+}
