@@ -6,6 +6,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.content.Intent;
+import android.app.PictureInPictureParams;
+import android.util.Rational;
 import android.view.WindowManager;
 import java.io.File;
 import android.provider.MediaStore;
@@ -97,6 +99,25 @@ public class MediaScanPlugin extends Plugin {
             else getContext().stopService(i);
         } catch (Exception ignored) { }
         call.resolve();
+    }
+
+    @PluginMethod
+    public void requestPip(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            call.reject("PIP_UNSUPPORTED");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            try {
+                PictureInPictureParams params = new PictureInPictureParams.Builder()
+                    .setAspectRatio(new Rational(16, 9))
+                    .build();
+                boolean entered = getActivity().enterPictureInPictureMode(params);
+                if (entered) call.resolve(); else call.reject("PIP_NOT_ENTERED");
+            } catch (Exception e) {
+                call.reject("PIP_FAILED", e);
+            }
+        });
     }
 
     @PluginMethod
