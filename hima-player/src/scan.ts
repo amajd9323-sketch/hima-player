@@ -1,9 +1,9 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 export type Item = { id: string; title: string; uri: string; video: boolean; duration: number; size: number; height: number; artist?: string; folder?: string }
-const P = registerPlugin<{ scan(): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }>; downloadMedia(o: { url: string; title?: string }): Promise<{ downloadId: number; fileName: string }> }>('MediaScan')
+const P = registerPlugin<{ scan(o: { offset: number; limit: number }): Promise<{ items: Item[] }>; keepAlive(o: { on: boolean; title?: string }): Promise<void>; brightness(o: { value: number }): Promise<void>; requestPip(): Promise<void>; updateWidget(o: { title: string; artist: string; playing: boolean }): Promise<void>; consumeWidgetCommand(): Promise<{ command?: string }>; consumeSharedUrl(): Promise<{ url?: string }>; resolveTikTokUrl(o: { url: string }): Promise<{ url?: string }>; downloadMedia(o: { url: string; title?: string }): Promise<{ downloadId: number; fileName: string }> }>('MediaScan')
 export const canScan = () => Capacitor.isNativePlatform()
-export async function scan() {
-  const r = await P.scan()
+export async function scan(offset = 0, limit = 80) {
+  const r = await P.scan({ offset, limit })
   return r.items.map((x) => ({ ...x, url: Capacitor.convertFileSrc(x.uri) }))
 }
 export const keepAlive = async (on: boolean, title?: string) => { if (canScan()) try { await P.keepAlive({ on, title }) } catch { /* ignore */ } }

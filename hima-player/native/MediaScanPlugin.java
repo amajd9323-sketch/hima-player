@@ -159,7 +159,9 @@ public class MediaScanPlugin extends Plugin {
     public void scan(PluginCall call) {
         boolean ok = true;
         for (String a : aliases()) if (getPermissionState(a) != PermissionState.GRANTED) ok = false;
-        if (ok) doScan(call); else requestPermissionForAliases(aliases(), call, "permCb");
+        int offset = Math.max(0, call.getInt("offset", 0));
+    int limit = Math.max(1, Math.min(100, call.getInt("limit", 80)));
+    if (ok) doScan(call, offset, limit); else requestPermissionForAliases(aliases(), call, "permCb");
     }
 
     @PermissionCallback
@@ -167,26 +169,44 @@ public class MediaScanPlugin extends Plugin {
         for (String a : aliases()) {
             if (getPermissionState(a) != PermissionState.GRANTED) { call.reject("PERMISSION_DENIED"); return; }
         }
-        doScan(call);
+        int offset = Math.max(0, call.getInt("offset", 0));
+        int limit = Math.max(1, Math.min(100, call.getInt("limit", 80)));
+        doScan(call, offset, limit);
     }
 
-    private void doScan(PluginCall call) {
+    private void doScan(PluginCall call, int offset, int limit) {
         JSArray out = new JSArray();
-        query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, false, out);
-        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, out);
+        query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, false, out, offset, limit);
+        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true, out, offset, limit);
         JSObject r = new JSObject();
         r.put("items", out);
         call.resolve(r);
     }
 
-    private void query(Uri base, boolean video, JSArray out) {
+    private void query(Uri base, boolean video, JSArray out, int offset, int limit) {
         String[] proj = video
             ? new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Video.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Video.Media.HEIGHT, MediaStore.Video.Media.WIDTH, MediaStore.MediaColumns.DATA }
             : new String[] { MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.Audio.Media.DURATION, MediaStore.MediaColumns.SIZE, MediaStore.Audio.Media.ARTIST, MediaStore.MediaColumns.DATA };
         String sel = video ? null : MediaStore.Audio.Media.IS_MUSIC + " != 0";
-        try (Cursor c = getContext().getContentResolver().query(base, proj, sel, null, MediaStore.MediaColumns.DATE_ADDED + " DESC")) {
+        Cursor result;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Ask MediaStore for one bounded page instead of transferring the whole phone library to WebView.
+            android.os.Bundle args = new android.os.Bundle();
+            args.putString(android.content.ContentResolver.QUERY_ARG_SQL_SORT_ORDER, MediaStore.MediaColumns.DATE_ADDED + " DESC");
+            args.putInt(android.content.ContentResolver.QUERY_ARG_LIMIT, limit);
+            args.putInt(android.content.ContentResolver.QUERY_ARG_OFFSET, offset);
+            if (sel != null) args.putString(android.content.ContentResolver.QUERY_ARG_SQL_SELECTION, sel);
+            result = getContext().getContentResolver().query(base, proj, args, null);
+        } else {
+            result = getContext().getContentResolver().query(base, proj, sel, null, MediaStore.MediaColumns.DATE_ADDED + " DESC");
+        }
+        try (Cursor c = result) {
             if (c == null) return;
+            int skipped = 0;
+            int added = 0;
             while (c.moveToNext()) {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O && skipped++ < offset) continue;
+                if (added >= limit) break;
                 long id = c.getLong(0);
                 String name = c.getString(1);
                 if (name == null) name = "";
@@ -209,6 +229,7 @@ public class MediaScanPlugin extends Plugin {
                 String data = c.getString(video ? 6 : 5);
                 if (data != null) { File par = new File(data).getParentFile(); if (par != null) o.put("folder", par.getName()); }
                 out.put(o);
+                added++;
             }
         } catch (Exception ignored) { }
     }

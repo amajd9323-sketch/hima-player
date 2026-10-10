@@ -361,7 +361,10 @@ const strings: Record<string, Pair> = {
   "حجم الملف": ["File size", "Rozmiar pliku"],
   "مسح التكرار": ["Clear duplicates", "Wyczyść duplikaty"],
   "عرض المزيد من الموسيقى": ["Load more music", "Załaduj więcej muzyki"],
-  "عرض المزيد من الفيديوهات": ["Load more videos", "Załaduj więcej filmów"]
+  "عرض المزيد من الفيديوهات": ["Load more videos", "Załaduj więcej filmów"],
+  "تحميل المزيد من ملفات الهاتف": ["Load more files from phone", "Załaduj więcej plików z telefonu"],
+  "جارٍ تحميل المزيد…": ["Loading more…", "Ładowanie kolejnych…"],
+  "تعذر تحميل المزيد من ملفات الهاتف. اضغط تحديث للمحاولة.": ["Could not load more files. Tap Refresh to retry.", "Nie można wczytać kolejnych plików. Dotknij Odśwież, aby spróbować ponownie."]
 }
 
 const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length)

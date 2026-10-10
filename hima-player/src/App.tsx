@@ -22,7 +22,13 @@ const BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { n: 'باس', g: [8, 7, 6, 4, 2, 0, 0, 0, 0, 0] }, { n: 'صوت', g: [-3, -2, 0, 3, 5, 5, 4, 2, 0, -1] }, { n: 'روك', g: [5, 4, 2, -1, -1, 1, 3, 5, 6, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, 2, 0, -1, -2, -3, -4] }, { n: 'مخصص', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }]
 const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B', '#FF6B6B', '#FFB84D', '#F472B6']
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
+const MEDIA_PAGE_SIZE = 80
 let A = ACCENTS[0]
+
+/** Stable identity prevents every option button from remounting on player ticks. */
+const Opt = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
+  <button onClick={onClick} className="rounded-full px-4 py-2 text-sm" style={{ background: on ? A : '#ffffff1a' }}>{children}</button>
+)
 const ls = <T,>(k: string, d: T): T => { try { return JSON.parse(localStorage.getItem(k) ?? '') as T } catch { return d } }
 const lrcParse = (x: string) => x.split('\n').flatMap((l) => { const m = l.match(/^\[(\d+):(\d+(?:\.\d+)?)\](.*)/); return m ? [{ t: +m[1] * 60 + +m[2], x: m[3].trim() }] : [] })
 const clean = (x: string) => x.replace(/[[(].*?[\])]/g, ' ').replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -30,14 +36,10 @@ const srt2vtt = (x: string) => 'WEBVTT\n\n' + x.replace(/\r/g, '').replace(/(\d+
 const hue = (s: string) => [...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 360, 7)
 const art = (s: string) => ({ background: `linear-gradient(135deg,hsl(${hue(s)} 75% 58%),hsl(${hue(s) + 50} 70% 38%))` })
 
-function VThumb({ src, dur: known, lite = false }: { src: string; dur?: number; lite?: boolean }) {
-  const [vis, setVis] = useState(false)
-  const box = useRef<HTMLSpanElement>(null)
-  // Keep library scrolling lightweight: do not create a video decoder per thumbnail.
-  useEffect(() => { setVis(false) }, [])
+function VThumb({ src }: { src: string; dur?: number; lite?: boolean }) {
+  // Lightweight artwork only. Video decoders are reserved for actual playback.
   return (
-    <span ref={box} className="relative block aspect-video w-full overflow-hidden rounded-xl bg-white/10">
-      {false && vis && !lite && <video src={src + '#t=1'} preload="none" muted playsInline className="size-full object-cover" />}
+    <span className="relative block aspect-video w-full overflow-hidden rounded-xl" style={art(src)}>
       <span className="absolute inset-0 grid place-items-center text-white/80"><Icon n="play" s={28} /></span>
     </span>
   )
@@ -48,7 +50,10 @@ export default function App() {
   const qRef = useRef<Track[]>([]); qRef.current = q
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
-  const [renderLimit, setRenderLimit] = useState(60)
+  const [renderLimit, setRenderLimit] = useState(30)
+  const [nativeMore, setNativeMore] = useState({ audio: false, video: false })
+  const [nativeLoading, setNativeLoading] = useState(false)
+  const nativeOffset = useRef(MEDIA_PAGE_SIZE)
   const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
   const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
   const [batterySaver, setBatterySaver] = useState<boolean>(() => ls('hema_battery_saver', false))
@@ -100,7 +105,17 @@ export default function App() {
   const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
   const [queueIds, setQueueIds] = useState<string[]>(() => ls('hema_queue', []))
-  const [crossfade, setCrossfade] = useState<number>(() => ls('hema_crossfade', 3))
+  const [crossfade, setCrossfade] = useState<number>(() => {
+    // Older builds enabled 3-second crossfade by default, forcing every song through Web Audio.
+    // Migrate that legacy default to off once; crossfade remains available in Settings.
+    const saved = ls<number>('hema_crossfade', 0)
+    const migrated = ls<boolean>('hema_perf_crossfade_migrated_v1', false)
+    if (!migrated) {
+      localStorage.setItem('hema_perf_crossfade_migrated_v1', 'true')
+      if (saved === 3) { localStorage.setItem('hema_crossfade', '0'); return 0 }
+    }
+    return saved
+  })
   const [autoVolume, setAutoVolume] = useState<boolean>(() => ls('hema_auto_volume', false))
   const [editingMeta, setEditingMeta] = useState<Track | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -150,6 +165,9 @@ export default function App() {
   const [car, setCar] = useState(false)
   const partyCanvas = useRef<HTMLCanvasElement>(null)
   const nextMedia = useRef<HTMLAudioElement>(null)
+  const sourceMainN = useRef<MediaElementAudioSourceNode>()
+  const sourceNextN = useRef<MediaElementAudioSourceNode>()
+  const audioGraphActive = useRef(false)
   const fadeMain = useRef<GainNode>()
   const fadeNext = useRef<GainNode>()
   const crossfadeTimer = useRef<number | undefined>(undefined)
@@ -189,6 +207,10 @@ export default function App() {
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
+  const needsAudioGraph = eq !== 0 || boost !== 100 || autoVolume || bassBoost || spatial || crossfade > 0
+  const barRangeRef = useRef<HTMLInputElement>(null)
+  const barTimeRef = useRef<HTMLSpanElement>(null)
+  const miniProgressRef = useRef<HTMLDivElement>(null)
   const li = lyr.reduce((a, l, k) => (l.t <= t + 0.3 + lyrOffset ? k : a), -1)
   const topIds = useMemo(() => new Set(Object.entries(ls<{ p: Record<string, { n: number; t: string }> }>('hema_stats', { p: {} }).p ?? {}).sort((a, b) => b[1].n - a[1].n).slice(0, 50).map(([id]) => id)), [q, tab])
   const recentIdSet = useMemo(() => new Set(recent), [recent])
@@ -201,7 +223,7 @@ export default function App() {
   const videos = useMemo(() => q.map((x, k) => ({ x, k })).filter((o) => o.x.video && match(o.x)).sort(srt), [q, match, srt])
   const visibleMusics = useMemo(() => musics.slice(0, renderLimit), [musics, renderLimit])
   const visibleVideos = useMemo(() => videos.slice(0, renderLimit), [videos, renderLimit])
-  useEffect(() => { setRenderLimit(60) }, [tab, find, sort, openFolder, openList])
+  useEffect(() => { setRenderLimit(30) }, [tab, find, sort, openFolder, openList])
   const open = (tab === 'folders' && openFolder !== null) || (tab === 'lists' && openList !== null)
   const showM = tab === 'music' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
   const showV = tab === 'video' || tab === 'fav' || tab === 'recent' || tab === 'queue' || tab === 'top' || open
@@ -215,9 +237,13 @@ export default function App() {
     if (canScan()) {
       try {
         const fv = favSet()
-        lib = (await scan()).map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
+        const firstPage = await scan(0, MEDIA_PAGE_SIZE)
+        nativeOffset.current = MEDIA_PAGE_SIZE
+        setNativeMore({ audio: firstPage.filter((x) => !x.video).length >= MEDIA_PAGE_SIZE, video: firstPage.filter((x) => x.video).length >= MEDIA_PAGE_SIZE })
+        lib = firstPage.map((x) => { const id = 'n' + x.id + (x.video ? 'v' : 'a'); return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: fv.has(id) } })
       } catch { setScanMsg('اسمح بالوصول للملفات من إعدادات التطبيق، ثم اضغط تحديث') }
     }
+    if (!canScan()) setNativeMore({ audio: false, video: false })
     let imp: Track[] = []
     try { imp = (await all()).sort((a, b) => a.at - b.at).map((x) => ({ ...x, url: URL.createObjectURL(x.blob) })) } catch { /* ignore */ }
     const rawList = [...lib, ...imp].map((x) => ({ ...x, sourceTitle: x.sourceTitle ?? x.title, sourceArtist: x.sourceArtist ?? x.artist }))
@@ -228,6 +254,31 @@ export default function App() {
     } catch { /* metadata database is optional; media library must still load */ }
     setQ(list); setQueueIds((p) => p.filter((id) => list.some((x) => x.id === id)))
     setI(keep ? list.findIndex((x) => x.id === keep) : -1)
+  }
+  const loadMoreNativeMedia = async () => {
+    if (nativeLoading || !canScan() || (!nativeMore.audio && !nativeMore.video)) return
+    setNativeLoading(true)
+    try {
+      const page = await scan(nativeOffset.current, MEDIA_PAGE_SIZE)
+      const favorites = favSet()
+      let rows: Track[] = page.map((x) => {
+        const id = 'n' + x.id + (x.video ? 'v' : 'a')
+        return { id, title: x.title, url: x.url, video: x.video, at: 0, dur: x.duration / 1000, size: x.size, h: x.height, artist: x.artist, folder: x.folder, fav: favorites.has(id), sourceTitle: x.title, sourceArtist: x.artist }
+      })
+      try {
+        const overrides = await allTrackMeta()
+        const byId = new Map(overrides.map((x) => [x.id, x]))
+        rows = rows.map((x) => { const v = byId.get(x.id); return v ? { ...x, title: v.title?.trim() || x.title, artist: v.artist !== undefined ? v.artist : x.artist, cover: v.cover ? URL.createObjectURL(v.cover) : undefined } : x })
+      } catch { /* optional display metadata */ }
+      setQ((previous) => {
+        const seen = new Set(previous.map((x) => x.id))
+        return [...previous, ...rows.filter((x) => !seen.has(x.id))]
+      })
+      setNativeMore({ audio: page.filter((x) => !x.video).length >= MEDIA_PAGE_SIZE, video: page.filter((x) => x.video).length >= MEDIA_PAGE_SIZE })
+      nativeOffset.current += MEDIA_PAGE_SIZE
+    } catch {
+      setScanMsg('تعذر تحميل المزيد من ملفات الهاتف. اضغط تحديث للمحاولة.')
+    } finally { setNativeLoading(false) }
   }
   useEffect(() => { void load() }, [])
 
@@ -478,14 +529,18 @@ export default function App() {
     setI(pool[(p + dir + pool.length) % pool.length].k)
   }
   const toggle = () => { const e = m.current; if (e) { if (e.paused) void e.play(); else e.pause() } }
-  const updateUiTime = (value: number) => {
-    // Avoid repainting the entire screen for every tiny media timeupdate event.
-    if (value < lastUiTick.current || Math.abs(value - lastUiTick.current) >= 0.4 || (d > 0 && value >= d)) {
+  const updateUiTime = (value: number, force = false) => {
+    if (!Number.isFinite(value)) return
+    // Keep tiny progress elements fluid without repainting the entire screen on every media tick.
+    if (barRangeRef.current && document.activeElement !== barRangeRef.current) barRangeRef.current.value = String(value)
+    if (barTimeRef.current) barTimeRef.current.textContent = fmt(value)
+    if (miniProgressRef.current && d > 0) miniProgressRef.current.style.width = `${Math.max(0, Math.min(100, value / d * 100))}%`
+    if (force || value < lastUiTick.current || Math.abs(value - lastUiTick.current) >= 2 || (d > 0 && value >= d)) {
       lastUiTick.current = value
       setT(value)
     }
   }
-  const seek = (v: number) => { if (m.current) { m.current.currentTime = Math.max(0, Math.min(d, v)); updateUiTime(m.current.currentTime) } }
+  const seek = (v: number) => { if (m.current) { m.current.currentTime = Math.max(0, Math.min(d, v)); updateUiTime(m.current.currentTime, true) } }
   const lock = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } try { if (on) await ScreenOrientation.lock({ orientation: 'landscape' }); else await ScreenOrientation.unlock() } catch { /* web */ } }
   const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
   const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
@@ -546,10 +601,34 @@ export default function App() {
   const applyEq = (k: number) => { setEq(k); bands.current.forEach((b, j) => (b.gain.value = (k === EQS.length - 1 ? customEq : EQS[k].g)[j] + (bassBoost && j < 3 ? 5 : 0))) }
   const changeEqBand = (j: number, value: number) => { const next = [...customEq]; next[j] = value; setCustomEq(next); setEq(EQS.length - 1); if (bands.current[j]) bands.current[j].gain.value = value }
   const initAudio = () => {
-    if (ac.current) { void ac.current.resume(); return }
     if (!m.current || !nextMedia.current) return
+    if (ac.current) {
+      if (!needsAudioGraph && audioGraphActive.current) {
+        // Bypass filters/analyzers when all optional effects are disabled.
+        try {
+          cancelCrossfade()
+          sourceMainN.current?.disconnect(); sourceMainN.current?.connect(ac.current.destination)
+          sourceNextN.current?.disconnect(); sourceNextN.current?.connect(ac.current.destination)
+          audioGraphActive.current = false
+        } catch { /* browser-specific AudioNode routing */ }
+        return
+      }
+      if (needsAudioGraph && !audioGraphActive.current) {
+        try {
+          sourceMainN.current?.disconnect(); sourceNextN.current?.disconnect()
+          if (fadeMain.current) sourceMainN.current?.connect(fadeMain.current)
+          if (fadeNext.current) sourceNextN.current?.connect(fadeNext.current)
+          audioGraphActive.current = true
+        } catch { /* leave current routing unchanged */ }
+      }
+      void ac.current.resume()
+      return
+    }
+    // Default playback stays on the native media pipeline; build Web Audio only for requested effects/crossfade.
+    if (!needsAudioGraph) return
     try {
       const c = new AudioContext(); const src = c.createMediaElementSource(m.current); const nextSrc = c.createMediaElementSource(nextMedia.current)
+      sourceMainN.current = src; sourceNextN.current = nextSrc
       const mainFade = c.createGain(); mainFade.gain.value = 1
       const nextFade = c.createGain(); nextFade.gain.value = 0
       fadeMain.current = mainFade; fadeNext.current = nextFade
@@ -572,8 +651,10 @@ export default function App() {
       bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(meter); meter.connect(normalizer); normalizer.connect(lim)
       lim.connect(an); an.connect(c.destination); if (convolver) { lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination) }
       ac.current = c
+      audioGraphActive.current = true
     } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
   }
+  useEffect(() => { if (playing) initAudio() }, [playing, needsAudioGraph])
   const maybeCrossfade = async (ct: number) => {
     if (crossfade <= 0 || !cur || cur.video || !d || d < crossfade + 2 || !m.current || !nextMedia.current || !fadeMain.current || !fadeNext.current || nextStartedFor.current === cur.id || ct < d - crossfade) return
     const next = nextItem()
@@ -655,7 +736,7 @@ export default function App() {
         else if (command === 'prev') { if (cur) stepRef.current(-1); else { const last = ls<string>('hema_last_track', ''); const target = qRef.current.findIndex((x) => x.id === last); if (target >= 0) setI(target) } }
       }
       finally { polling = false }
-    }, 750)
+    }, 2500)
     return () => window.clearInterval(timer)
   }, [cur?.id, cur?.artist, cur?.video, playing, q.length])
   const tick = (ct: number) => {
@@ -728,7 +809,8 @@ export default function App() {
     return () => cancelAnimationFrame(frame)
   }, [party, playing])
   useEffect(() => {
-    if (!sheet || !playing) return
+    // Avoid a 60-fps canvas loop when optional audio analysis is disabled.
+    if (!sheet || !playing || !anN.current) return
     let raf = 0; const buf = new Uint8Array(32)
     const draw = () => { const c = cv.current, a = anN.current; if (c && a) { a.getByteFrequencyData(buf); const x = c.getContext('2d')!; x.clearRect(0, 0, c.width, c.height); x.fillStyle = A; buf.forEach((v, k) => { const h = Math.max(2, (v / 255) * c.height); x.fillRect(k * 9 + 2, c.height - h, 6, h) }) } raf = requestAnimationFrame(draw) }
     draw()
@@ -838,7 +920,7 @@ export default function App() {
   const pip = async () => { await requestPip() }
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
   const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran || bookMode) && sp < e.duration - 5) e.currentTime = sp }
-  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
+  const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 15) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
   const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
@@ -952,8 +1034,8 @@ export default function App() {
 
   const Bar = ({ big }: { big?: boolean }) => (
     <div dir="ltr">
-      <input type="range" min={0} max={d || 0} step={0.1} value={t} aria-label="التقدم" onChange={(e) => seek(+e.target.value)} style={{ accentColor: A, width: '100%' }} />
-      <div className={`flex justify-between opacity-70 ${big ? 'text-sm' : 'text-xs'}`}><span>{fmt(t)}</span><span>{fmt(d)}</span></div>
+      <input ref={barRangeRef} type="range" min={0} max={d || 0} step={0.1} value={t} aria-label="التقدم" onChange={(e) => seek(+e.target.value)} style={{ accentColor: A, width: '100%' }} />
+      <div className={`flex justify-between opacity-70 ${big ? 'text-sm' : 'text-xs'}`}><span ref={barTimeRef}>{fmt(t)}</span><span>{fmt(d)}</span></div>
     </div>
   )
   const Ctl = () => (
@@ -992,10 +1074,6 @@ export default function App() {
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
-  const Opt = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button onClick={onClick} className="rounded-full px-4 py-2 text-sm" style={{ background: on ? A : '#ffffff1a' }}>{children}</button>
-  )
-
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
@@ -1156,9 +1234,10 @@ export default function App() {
         {showM && visibleMusics.length > 0 && <ul>{visibleMusics.map(({ x, k }) => Row({ x, k }))}</ul>}
         {showV && visibleVideos.length > 0 && <ul className="grid grid-cols-2 gap-3 pb-3">{visibleVideos.map(({ x, k }) => VRow({ x, k }))}</ul>}
         {(showM && musics.length > visibleMusics.length || showV && videos.length > visibleVideos.length) && <div className="flex flex-col gap-2 py-3">
-          {showM && musics.length > visibleMusics.length && <button onClick={() => setRenderLimit((n) => n + 60)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الموسيقى ({visibleMusics.length}/{musics.length})</button>}
-          {showV && videos.length > visibleVideos.length && <button onClick={() => setRenderLimit((n) => n + 60)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الفيديوهات ({visibleVideos.length}/{videos.length})</button>}
+          {showM && musics.length > visibleMusics.length && <button onClick={() => setRenderLimit((n) => n + 30)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الموسيقى ({visibleMusics.length}/{musics.length})</button>}
+          {showV && videos.length > visibleVideos.length && <button onClick={() => setRenderLimit((n) => n + 30)} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm">عرض المزيد من الفيديوهات ({visibleVideos.length}/{videos.length})</button>}
         </div>}
+        {canScan() && (nativeMore.audio || nativeMore.video) && <button onClick={() => void loadMoreNativeMedia()} disabled={nativeLoading} className="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-50">{nativeLoading ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد من ملفات الهاتف'}</button>}
         {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
           <div className="space-y-3 p-1">
@@ -1172,7 +1251,7 @@ export default function App() {
 
       {cur && !sheet && !fs && (
         <div className="relative mx-2 mb-2 overflow-hidden rounded-2xl bg-white/10">
-          <div className="absolute inset-x-0 top-0 h-0.5 bg-white/10"><div className="h-full" style={{ width: `${d ? (t / d) * 100 : 0}%`, background: A }} /></div>
+          <div className="absolute inset-x-0 top-0 h-0.5 bg-white/10"><div ref={miniProgressRef} className="h-full" style={{ width: `${d ? (t / d) * 100 : 0}%`, background: A }} /></div>
           <div className="flex items-center gap-3 p-2">
             <button onClick={() => (cur.video ? openVideo(i) : setSheet(true))} className="flex min-w-0 flex-1 items-center gap-3 text-start">
               <span className="grid size-10 shrink-0 place-items-center rounded-lg font-semibold text-white" style={art(cur.title)}>{[...cur.title][0]}</span>
