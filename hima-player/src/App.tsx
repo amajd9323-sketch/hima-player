@@ -8,6 +8,7 @@ import Icon from './Icon'
 import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consumeWidgetCommand, consumeSharedUrl, resolveTikTokUrl, downloadMedia } from './scan'
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
+import { initLocalization, type Language } from './i18n'
 
 type Track = { id: string; title: string; url: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
 type Tab = 'video' | 'music' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online'
@@ -50,6 +51,8 @@ export default function App() {
   const qRef = useRef<Track[]>([]); qRef.current = q
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
+  const [language, setLanguage] = useState<Language>(() => { const v = ls<Language>('hema_language', 'ar'); return v === 'en' || v === 'pl' ? v : 'ar' })
+  const changeLanguage = (value: Language) => { setLanguage(value); localStorage.setItem('hema_language', JSON.stringify(value)) }
   const [onlineUrl, setOnlineUrl] = useState('')
   const [downloadUrl, setDownloadUrl] = useState('')
   const [downloadBusy, setDownloadBusy] = useState(false)
@@ -124,6 +127,7 @@ export default function App() {
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
   const [settings, setSettings] = useState(false)
+  useEffect(() => initLocalization(language), [language])
   const [plSheet, setPlSheet] = useState<Track | null>(null)
   const [sub, setSub] = useState<string | null>(null)
   const subUrl = useRef<string | null>(null)
@@ -982,7 +986,7 @@ export default function App() {
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; setT(loopA); return } setT(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
-        {find === null ? <div className="min-w-0 flex-1"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div>
+        {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA ROKSI PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div></div>
           : <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="بحث" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 outline-none" />}
         <button aria-label="إعدادات" onClick={() => setSettings(true)} className="p-2"><Icon n="gear" /></button>
         <button aria-label="بحث" onClick={() => setFind(find === null ? '' : null)} className="p-2"><Icon n={find === null ? 'search' : 'close'} /></button>
@@ -1244,6 +1248,14 @@ export default function App() {
         <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setSettings(false)}>
           <div className="max-h-[85%] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">الإعدادات</h2>
+            <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+              <span className="text-sm font-medium">لغة التطبيق</span>
+              <select aria-label="لغة التطبيق" value={language} onChange={(e) => changeLanguage(e.target.value as Language)} className="max-w-[58%] rounded-xl border border-white/10 bg-[#111722] px-3 py-2 text-sm outline-none">
+                <option value="ar">العربية</option>
+                <option value="en">English</option>
+                <option value="pl">Polski</option>
+              </select>
+            </label>
             <p className="text-sm opacity-60">اللون</p>
             <div className="flex gap-3">{ACCENTS.map((c, k) => <button key={c} aria-label={c} onClick={() => setAcc(k)} className="size-9 rounded-full" style={{ background: c, outline: acc === k ? '3px solid #fff' : 'none' }} />)}</div>
             <p className="text-sm opacity-60">الترتيب</p>
