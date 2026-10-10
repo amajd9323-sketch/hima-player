@@ -13,7 +13,7 @@ import { initLocalization, type Language } from './i18n'
 type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; album?: string; albumId?: string; genre?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
 type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast'
 type Repeat = 'off' | 'all' | 'one'
-type OnlinePlatform = 'youtube' | 'tiktok'
+type OnlinePlatform = 'youtube' | 'ytmusic' | 'tiktok'
 type OnlineLink = { key: string; platform: OnlinePlatform; videoId: string; url: string; title: string }
 type OnlineView = 'saved' | 'favorites' | 'history' | 'queue'
 const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00')
@@ -113,6 +113,7 @@ export default function App() {
   const [downloadUrl, setDownloadUrl] = useState('')
   const [downloadBusy, setDownloadBusy] = useState(false)
   const [onlineTitleInput, setOnlineTitleInput] = useState('')
+  const [ytMusicQuery, setYtMusicQuery] = useState(() => ls('hema_ytm_query', ''))
   const [onlineMedia, setOnlineMedia] = useState<OnlineLink | null>(null)
   const [onlineMsg, setOnlineMsg] = useState('')
   const [onlineSaved, setOnlineSaved] = useState<OnlineLink[]>(() => ls<OnlineLink[]>('hema_online_saved', []))
@@ -378,9 +379,14 @@ export default function App() {
       let videoId = ''
       let targetUrl = parsed.href
       const host = parsed.hostname.toLowerCase().replace(/^www\./, '').replace(/^m\./, '')
-      const isYouTube = host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com')
+      const isYTMusic = host === 'music.youtube.com'
+      const isYouTube = !isYTMusic && (host === 'youtu.be' || host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com' || host.endsWith('.youtube-nocookie.com'))
       const isTikTok = host === 'tiktok.com' || host.endsWith('.tiktok.com')
-      if (isYouTube) {
+      if (isYTMusic) {
+        platform = 'ytmusic'
+        videoId = parsed.searchParams.get('v') || ''
+        targetUrl = `https://music.youtube.com${parsed.pathname}${parsed.search}${parsed.hash}`
+      } else if (isYouTube) {
         platform = 'youtube'
         videoId = host === 'youtu.be'
           ? parsed.pathname.split('/').filter(Boolean)[0] ?? ''
@@ -403,12 +409,13 @@ export default function App() {
           } catch { /* Keep original short link so user can still open or save it. */ }
         }
       } else {
-        setOnlineMsg('الرابط غير مدعوم. استخدم رابط YouTube أو TikTok.')
+        setOnlineMsg('الرابط غير مدعوم. استخدم رابط YouTube أو YouTube Music أو TikTok.')
         return
       }
-      const key = `${platform}:${videoId || targetUrl}`
+      const key = `${platform}:${platform === 'ytmusic' ? targetUrl : videoId || targetUrl}`
       const previous = [...onlineSaved, ...onlineHistory, ...onlineQueue, ...(onlineMedia ? [onlineMedia] : [])].find((item) => item.key === key)
-      const title = requestedTitle.trim() || previous?.title || `${platform === 'youtube' ? 'YouTube' : 'TikTok'} · ${videoId || 'رابط فيديو'}`
+      const platformTitle = platform === 'ytmusic' ? 'YouTube Music' : platform === 'youtube' ? 'YouTube' : 'TikTok'
+      const title = requestedTitle.trim() || previous?.title || `${platformTitle} · ${videoId || (platform === 'ytmusic' ? 'رابط موسيقى' : 'رابط فيديو')}`
       const item: OnlineLink = { key, platform, videoId, url: targetUrl, title }
       setOnlineMedia(item)
       setOnlineUrl(targetUrl)
@@ -418,7 +425,7 @@ export default function App() {
       setOnlineDuration(0)
       setOnlinePlaying(false)
       setOnlineMuted(false)
-      setOnlineMsg(videoId ? '' : 'وصلنا للرابط، لكن المنصة لم تعطنا معرّف تضمين. احفظه أو افتحه على TikTok مباشرة.')
+      setOnlineMsg(platform === 'ytmusic' ? 'تم التعرف على رابط YouTube Music. افتحه من البطاقة للانتقال إلى المنصة الرسمية.' : videoId ? '' : 'وصلنا للرابط، لكن المنصة لم تعطنا معرّف تضمين. احفظه أو افتحه على TikTok مباشرة.')
       setOnlineHistory((items) => [item, ...items.filter((x) => x.key !== item.key)].slice(0, 100))
       setTab('online')
     } catch {
@@ -1092,7 +1099,7 @@ export default function App() {
           if (!raw || typeof raw !== 'object') return false
           const item = raw as Partial<OnlineLink>
           return typeof item.key === 'string' && item.key.length <= 3200 &&
-            (item.platform === 'youtube' || item.platform === 'tiktok') &&
+            (item.platform === 'youtube' || item.platform === 'ytmusic' || item.platform === 'tiktok') &&
             typeof item.videoId === 'string' && item.videoId.length <= 64 &&
             typeof item.url === 'string' && item.url.length <= 3200 &&
             typeof item.title === 'string' && item.title.length <= 120
@@ -1355,7 +1362,7 @@ export default function App() {
       </header>
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['explore', 'استكشاف'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم الذكية'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'يوتيوب / تيك توك'], ['cast', 'التلفاز']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null); if (k === 'explore') setExploreValue(null) }}>{l}</Opt>)}
+        {([['video', 'الفيديوهات'], ['music', 'الأغاني'], ['explore', 'استكشاف'], ['queue', `الطابور · ${queueIds.length}`], ['top', 'الأكثر تشغيلًا'], ['lists', 'القوائم الذكية'], ['folders', 'المجلدات'], ['fav', 'المفضلة'], ['recent', 'الأخيرة'], ['ai', 'ذكاء'], ['online', 'YouTube Music / فيديو'], ['cast', 'التلفاز']] as const).map(([k, l]) => <Opt key={k} on={tab === k} onClick={() => { setTab(k); setOpenFolder(null); setOpenList(null); if (k === 'explore') setExploreValue(null) }}>{l}</Opt>)}
       </div>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && (
         <div className="flex items-center justify-between px-5 pb-2 text-sm opacity-60">
@@ -1371,8 +1378,17 @@ export default function App() {
           <section className="space-y-4 py-2">
             {(!onlineAudioFocus || !onlineMedia) && <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <p className="text-xs font-semibold tracking-[0.2em]" style={{ color: A }}>HEMA ONLINE</p>
-              <h2 className="mt-1 text-lg font-bold">YouTube و TikTok</h2>
-              <p className="mt-2 text-sm leading-6 opacity-70">الصق رابطًا أو شاركه من YouTube / TikTok → اختر HEMA. الروابط والسجل والمفضلة تُحفظ محليًا على الجهاز.</p>
+              <h2 className="mt-1 text-lg font-bold">YouTube Music + YouTube + TikTok</h2>
+              <p className="mt-2 text-sm leading-6 opacity-70">ابحث عن الأغاني والألبومات والقوائم في YouTube Music الرسمي، أو الصق رابطًا وشاركه مع HEMA. تُحفظ الروابط والسجل والمفضلة محليًا.</p>
+              <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="mb-2 flex items-center gap-2"><span className="grid size-9 place-items-center rounded-xl bg-red-500/15 text-xs font-bold text-red-300">YTM</span><div className="min-w-0"><h3 className="text-sm font-semibold">بحث سريع في YouTube Music</h3><p className="text-xs opacity-55">استخدم حسابك وميزات المنصة الرسمية</p></div></div>
+                <input value={ytMusicQuery} onChange={(e) => { setYtMusicQuery(e.target.value); localStorage.setItem('hema_ytm_query', JSON.stringify(e.target.value)) }} onKeyDown={(e) => { if (e.key === 'Enter') window.open(ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/', '_blank', 'noopener,noreferrer') }} placeholder="اسم أغنية، فنان، ألبوم أو Playlist" className="w-full rounded-xl bg-white/5 px-3 py-3 text-sm outline-none" />
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <a href={ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/'} target="_blank" rel="noopener noreferrer" className="rounded-xl px-3 py-3 text-center text-xs font-semibold text-white" style={{ background: A }}>{ytMusicQuery.trim() ? 'بحث في YouTube Music' : 'فتح YouTube Music'}</a>
+                  <a href="https://music.youtube.com/" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/10 px-3 py-3 text-center text-xs">الرئيسية</a>
+                </div>
+                <p className="mt-2 text-xs leading-5 opacity-55">هذا ربط بالمنصة الرسمية عبر الرابط، وليس مزامنة حساب أو استخراج صوت. فتح التطبيق يعتمد على إعدادات Android وتثبيت YouTube Music.</p>
+              </div>
               <div className="mt-4 space-y-2">
                 <input value={onlineUrl} onChange={(e) => setOnlineUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void openOnline() }} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://youtu.be/... أو TikTok URL" className="w-full rounded-xl bg-black/30 px-3 py-3 text-sm outline-none" />
                 <input value={onlineTitleInput} onChange={(e) => setOnlineTitleInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void openOnline() }} maxLength={120} placeholder="اسم اختياري للحفظ" className="w-full rounded-xl bg-black/20 px-3 py-2 text-sm outline-none" />
@@ -1398,13 +1414,20 @@ export default function App() {
             {onlineMedia && (
               <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="grid size-12 shrink-0 place-items-center rounded-xl text-lg font-bold" style={art(onlineMedia.title)}>{onlineMedia.platform === 'youtube' ? 'YT' : 'TT'}</div>
-                  <div className="min-w-0 flex-1"><p className="truncate font-semibold">{onlineMedia.title}</p><p className="text-xs opacity-55">{onlineMedia.platform === 'youtube' ? 'YouTube' : 'TikTok'} · تشغيل رسمي مضمّن</p></div>
+                  <div className="grid size-12 shrink-0 place-items-center rounded-xl text-xs font-bold" style={art(onlineMedia.title)}>{onlineMedia.platform === 'ytmusic' ? 'YTM' : onlineMedia.platform === 'youtube' ? 'YT' : 'TT'}</div>
+                  <div className="min-w-0 flex-1"><p className="truncate font-semibold">{onlineMedia.title}</p><p className="text-xs opacity-55">{onlineMedia.platform === 'ytmusic' ? 'YouTube Music · رابط رسمي' : onlineMedia.platform === 'youtube' ? 'YouTube · تشغيل رسمي مضمّن' : 'TikTok · تشغيل رسمي مضمّن'}</p></div>
                   <button onClick={() => saveOnlineLink(onlineMedia)} className="rounded-full bg-white/10 px-3 py-2 text-xs">حفظ</button>
                   <button onClick={() => setOnlineAudioFocus((v) => !v)} className="rounded-full px-3 py-2 text-xs" style={{ background: onlineAudioFocus ? A : "#ffffff1a" }}>{onlineAudioFocus ? 'إنهاء التركيز' : 'تركيز الموسيقى'}</button>
                   <button aria-label="إغلاق اللاعب" onClick={() => { setOnlineMedia(null); setOnlinePlaying(false); setOnlineMsg('') }} className="rounded-full bg-white/10 px-3 py-2 text-xs">×</button>
                 </div>
-                {onlineMedia.videoId ? (
+                {onlineMedia.platform === 'ytmusic' ? (
+                  <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-sm leading-6 opacity-75">هذا رابط موسيقى/ألبوم/قائمة من YouTube Music. افتحه على المنصة الرسمية للحفاظ على تسجيل الدخول، والتحكم في التشغيل، وميزات الاشتراك إن كانت متاحة لحسابك.</p>
+                    <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl px-4 py-3 text-center text-sm font-semibold text-white" style={{ background: A }}>فتح الرابط في YouTube Music</a>
+                    <a href={`https://music.youtube.com/search?q=${encodeURIComponent(onlineMedia.title)}`} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-white/10 px-4 py-3 text-center text-sm">البحث عن الاسم في YouTube Music</a>
+                    <p className="text-xs leading-5 opacity-50">HEMA لا يشغّل موسيقى YouTube في الخلفية ولا يفصل الصوت عن الفيديو. استخدام الرابط يبقى داخل تجربة YouTube الرسمية.</p>
+                  </div>
+                ) : onlineMedia.videoId ? (
                   <div className={onlineMedia.platform === 'youtube' ? 'overflow-hidden rounded-xl border border-white/10 bg-black' : 'mx-auto h-[min(62vh,600px)] min-h-[380px] max-w-[390px] overflow-hidden rounded-xl border border-white/10 bg-black'}>
                     <iframe
                       ref={onlineFrame}
@@ -1426,7 +1449,7 @@ export default function App() {
                     <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" className="inline-block rounded-full px-4 py-2 text-white" style={{ background: A }}>فتح على TikTok</a>
                   </div>
                 )}
-                {onlineMedia.videoId && <>
+                {onlineMedia.platform !== 'ytmusic' && onlineMedia.videoId && <>
                   <div className="grid grid-cols-5 gap-2">
                     <button onClick={playOnlinePrevious} className="rounded-xl bg-white/10 py-2 text-xs">السابق</button>
                     <button onClick={toggleOnlinePlayback} className="rounded-xl py-2 text-xs font-semibold text-white" style={{ background: A }}>{onlinePlaying ? 'إيقاف' : 'تشغيل'}</button>
@@ -1473,7 +1496,7 @@ export default function App() {
                   {items.map((item, index) => <li key={item.key} className="flex items-center gap-2 rounded-xl bg-white/5 p-2">
                     <button onClick={() => { if (onlineView === 'queue') setOnlineQueue((itemsNow) => itemsNow.filter((x) => x.key !== item.key)); void openOnline(item.url, item.title) }} className="min-w-0 flex-1 text-start">
                       <span className="block truncate text-sm font-medium">{item.title}</span>
-                      <span className="block truncate text-xs opacity-45">{item.platform === 'youtube' ? 'YouTube' : 'TikTok'} · {item.videoId ? item.videoId : 'رابط مختصر'}</span>
+                      <span className="block truncate text-xs opacity-45">{item.platform === 'ytmusic' ? 'YouTube Music' : item.platform === 'youtube' ? 'YouTube' : 'TikTok'} · {item.videoId ? item.videoId : 'رابط بدون معرّف'}</span>
                     </button>
                     <button aria-label={onlineFavorites.includes(item.key) ? 'إزالة من المفضلة' : 'إضافة للمفضلة'} onClick={() => toggleOnlineFavorite(item)} className="rounded-lg bg-white/5 px-2 py-2" style={{ color: onlineFavorites.includes(item.key) ? A : undefined }}>{onlineFavorites.includes(item.key) ? '★' : '☆'}</button>
                     {onlineView !== 'queue' && <button aria-label="إضافة للطابور" onClick={() => enqueueOnline(item)} className="rounded-lg bg-white/5 px-2 py-2 text-xs">Q+</button>}
