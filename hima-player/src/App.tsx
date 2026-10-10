@@ -22,6 +22,18 @@ const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
 const BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { n: 'باس', g: [8, 7, 6, 4, 2, 0, 0, 0, 0, 0] }, { n: 'صوت', g: [-3, -2, 0, 3, 5, 5, 4, 2, 0, -1] }, { n: 'روك', g: [5, 4, 2, -1, -1, 1, 3, 5, 6, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, 2, 0, -1, -2, -3, -4] }, { n: 'مخصص', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }]
 const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B', '#FF6B6B', '#FFB84D', '#F472B6']
+const ACCENT_NAMES = ['بنفسجي', 'تركواز', 'أزرق', 'ليلكي', 'ثلجي', 'رمادي', 'مرجاني', 'ذهبي', 'وردي']
+type Mood = 'focus' | 'energy' | 'romance' | 'night' | 'arabic' | 'nostalgia' | 'chill' | 'random'
+const MOOD_PRESETS: { id: Mood; title: string; subtitle: string; icon: string }[] = [
+  { id: 'focus', title: 'تركيز ودراسة', subtitle: 'هادئ وأقل تشتيتًا', icon: '◌' },
+  { id: 'energy', title: 'طاقة ورياضة', subtitle: 'إيقاع سريع وحماسي', icon: '⚡' },
+  { id: 'romance', title: 'رومانسي', subtitle: 'حب ومشاعر', icon: '♡' },
+  { id: 'night', title: 'ليل وهدوء', subtitle: 'جلسة آخر الليل', icon: '☾' },
+  { id: 'arabic', title: 'طرب عربي', subtitle: 'أغاني وفنانون عرب', icon: '♫' },
+  { id: 'nostalgia', title: 'ذكريات', subtitle: 'قديم وكلاسيكي', icon: '✦' },
+  { id: 'chill', title: 'استرخاء', subtitle: 'روقان وأجواء ناعمة', icon: '〰' },
+  { id: 'random', title: 'خلط جديد', subtitle: 'ترتيب مختلف كل مرة', icon: '⤨' },
+]
 const SORTS = [['new', 'الأحدث'], ['name', 'الاسم'], ['dur', 'المدة'], ['size', 'الحجم']] as const
 const MEDIA_PAGE_SIZE = 80
 let A = ACCENTS[0]
@@ -160,6 +172,8 @@ export default function App() {
   const [sort, setSort] = useState<string>(() => ls('hema_sort', 'new'))
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
   const [queueIds, setQueueIds] = useState<string[]>(() => ls('hema_queue', []))
+  const queueHistory = useRef<string[]>(queueIds)
+  const [queueUndo, setQueueUndo] = useState<string[] | null>(null)
   const [crossfade, setCrossfade] = useState<number>(() => {
     // Older builds enabled 3-second crossfade by default, forcing every song through Web Audio.
     // Migrate that legacy default to off once; crossfade remains available in Settings.
@@ -179,6 +193,7 @@ export default function App() {
   const [editCoverUrl, setEditCoverUrl] = useState<string | null>(null)
   const [metaMsg, setMetaMsg] = useState('')
   const [party, setParty] = useState(false)
+  const [visualMode, setVisualMode] = useState<'bars' | 'mirror' | 'wave'>(() => ls('hema_visual_mode', 'bars'))
   const [cueSize, setCueSize] = useState<number>(() => ls('hema_cue_size', 120))
   const [cueColor, setCueColor] = useState<string>(() => ls('hema_cue_color', '#ffffff'))
   const [vaultOpen, setVaultOpen] = useState(false)
@@ -246,6 +261,14 @@ export default function App() {
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
   useEffect(() => { localStorage.setItem('hema_queue', JSON.stringify(queueIds)) }, [queueIds])
+  useEffect(() => {
+    const previous = queueHistory.current
+    if (previous.length !== queueIds.length || previous.some((id, index) => id !== queueIds[index])) {
+      setQueueUndo([...previous])
+      queueHistory.current = [...queueIds]
+    }
+  }, [queueIds])
+  useEffect(() => { localStorage.setItem('hema_visual_mode', JSON.stringify(visualMode)) }, [visualMode])
   useEffect(() => { localStorage.setItem('hema_crossfade', JSON.stringify(crossfade)) }, [crossfade])
   useEffect(() => { localStorage.setItem('hema_auto_volume', JSON.stringify(autoVolume)); if (normN.current && ac.current && !autoVolume) normN.current.gain.setTargetAtTime(1, ac.current.currentTime, 0.4) }, [autoVolume])
   useEffect(() => { localStorage.setItem('hema_cue_size', JSON.stringify(cueSize)); document.documentElement.style.setProperty('--hema-cue-size', cueSize + '%'); localStorage.setItem('hema_cue_color', cueColor); document.documentElement.style.setProperty('--hema-cue-color', cueColor) }, [cueSize, cueColor])
@@ -712,6 +735,65 @@ export default function App() {
     setSheet(false)
     notify('تم تجهيز قائمة ذكية من ' + ids.length + ' أغنية.')
   }
+  const playMood = (kind: Mood) => {
+    const profiles: Record<Mood, { label: string; words: string[] }> = {
+      focus: { label: 'تركيز ودراسة', words: ['ambient', 'lofi', 'lo-fi', 'instrumental', 'piano', 'classical', 'study', 'focus', 'هادئ', 'هدوء', 'بيانو', 'دراسة', 'موسيقى', 'ناعم'] },
+      energy: { label: 'طاقة ورياضة', words: ['rock', 'metal', 'dance', 'edm', 'techno', 'workout', 'power', 'fast', 'gym', 'حماس', 'رياضة', 'طاقة', 'سريع', 'راب', 'مهرجان'] },
+      romance: { label: 'رومانسي', words: ['love', 'romantic', 'heart', 'حب', 'حبيبي', 'حبيبتي', 'عشق', 'غرام', 'رومانسي', 'اشتياق', 'وائل كفوري', 'إليسا', 'شيرين'] },
+      night: { label: 'ليل وهدوء', words: ['night', 'moon', 'dream', 'sleep', 'rain', 'midnight', 'ليل', 'ليلية', 'نوم', 'قمر', 'مطر', 'سهر', 'هدوء'] },
+      arabic: { label: 'طرب عربي', words: ['arabic', 'عربي', 'طرب', 'شرقي', 'أم كلثوم', 'فيروز', 'عبد الحليم', 'محمد عبده', 'عمرو دياب', 'وردة', 'كاظم', 'أصالة', 'ماجدة'] },
+      nostalgia: { label: 'ذكريات', words: ['classic', 'oldies', 'retro', 'nostalgia', '2000', '90s', '80s', 'قديم', 'زمان', 'ذكريات', 'قديمه', 'كلاسيك', 'طفولة'] },
+      chill: { label: 'استرخاء', words: ['calm', 'chill', 'ambient', 'acoustic', 'jazz', 'soft', 'relax', 'lofi', 'هادئ', 'روقان', 'ناعم', 'استرخاء', 'راحة'] },
+      random: { label: 'خلط جديد', words: [] },
+    }
+    const profile = profiles[kind]
+    const audio = q.filter((track) => !track.video)
+    if (!audio.length) { notify('أضف ملفات موسيقى إلى مكتبتك أولًا.'); return }
+    const ranked = audio.map((track, index) => {
+      const metadata = `${track.title} ${track.artist ?? ''} ${track.album ?? ''} ${track.genre ?? ''}`.toLocaleLowerCase()
+      const hits = profile.words.reduce((total, word) => total + (metadata.includes(word.toLocaleLowerCase()) ? 1 : 0), 0)
+      const historyRank = recent.indexOf(track.id)
+      const score = hits * 6 + (track.fav ? 2.5 : 0) + (topIds.has(track.id) ? 1.5 : 0) + (historyRank >= 0 ? Math.max(0, 1.2 - historyRank * 0.03) : 0) + (kind === 'focus' && (track.dur ?? 0) > 150 ? 0.6 : 0)
+      return { track, index, score, random: Math.random() }
+    }).sort((a, b) => kind === 'random' ? a.random - b.random : b.score - a.score || a.index - b.index)
+    const picked = ranked.slice(0, 80).map((item) => item.track)
+    const ids = picked.map((track) => track.id)
+    const listName = `HEMA DJ · ${profile.label}`
+    setLists((previous) => ({ ...previous, [listName]: ids }))
+    setQueueIds(ids)
+    const firstIndex = q.findIndex((track) => track.id === ids[0])
+    if (firstIndex >= 0) setI(firstIndex)
+    setTab('queue'); setOpenList(null); setSheet(false); setMsg('')
+    notify(`جهزت «${profile.label}» من ${ids.length} أغنية اعتمادًا على بيانات مكتبتك. الترتيب محلي ولا يحتاج حسابًا أو إنترنت.`)
+  }
+
+  const shareTrack = async (track: Track) => {
+    if (!track.blob) { notify('HEMA Drop يشارك الملفات التي استوردتها داخل HEMA فقط؛ ملفات مكتبة Android تحتاج صلاحية مشاركة أصلية.'); return }
+    const fallbackType = track.video ? 'video/mp4' : 'audio/mpeg'
+    const mime = track.blob.type || fallbackType
+    const extByMime: Record<string, string> = { 'audio/mpeg': 'mp3', 'audio/mp4': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/wav': 'wav', 'audio/webm': 'webm', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' }
+    const extension = extByMime[mime] ?? mime.split('/')[1]?.replace(/[^a-z0-9]/gi, '') ?? (track.video ? 'mp4' : 'audio')
+    const file = new File([track.blob], `${track.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'HEMA-media'}.${extension}`, { type: mime })
+    try {
+      if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+        await navigator.share({ files: [file], title: track.title, text: 'Shared with HEMA ROKSI PLAYER · HEMA Drop' })
+        notify('تم فتح قائمة المشاركة. اختر Quick Share أو جهازًا قريبًا؛ التوفر يعتمد على Android والجهاز الآخر.')
+      } else {
+        const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = file.name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 2000)
+        notify('المشاركة المباشرة غير مدعومة هنا؛ تم تجهيز الملف للتنزيل بدلًا منها.')
+      }
+    } catch (error) { if (!(error instanceof DOMException && error.name === 'AbortError')) notify('تعذرت مشاركة الملف. جرّب مشاركة ملف أصغر أو تحقق من دعم الجهاز.') }
+  }
+
+  const saveQueueAsPlaylist = () => {
+    const ids = queueIds.filter((id) => q.some((track) => track.id === id))
+    if (!ids.length) { notify('الطابور فارغ؛ أضف مقاطع قبل الحفظ.'); return }
+    const name = window.prompt('اسم القائمة المحفوظة', `طابوري ${new Date().toLocaleDateString()}`)?.trim()
+    if (!name) return
+    setLists((previous) => ({ ...previous, [name.slice(0, 80)]: ids }))
+    notify(`حُفظ ${ids.length} مقطعًا في قائمة «${name.slice(0, 80)}».`)
+  }
+
   const refreshCastDevices = async () => {
     setCastLoading(true)
     setCastMsg('جارٍ البحث عن أجهزة DLNA على شبكة Wi-Fi نفسها…')
@@ -975,8 +1057,12 @@ export default function App() {
     x.fillStyle = '#fff'; x.textAlign = 'center'
     x.font = '700 72px Readex Pro, sans-serif'; x.fillText('Hema Wrapped', 360, 170)
     x.font = '400 42px Readex Pro, sans-serif'; x.fillText(`${Math.round((st.s / 3600) * 10) / 10} ساعة استماع`, 360, 270)
-    top.forEach((o, k) => { x.font = '600 38px Readex Pro, sans-serif'; x.fillText(`${k + 1}. ${o.t.slice(0, 24)} · ${o.n}`, 360, 440 + k * 120) })
+    top.forEach((o, k) => { x.font = '600 38px Readex Pro, sans-serif'; x.fillText(`${k + 1}. ${o.t.slice(0, 24)} · ${o.n}`, 360, 420 + k * 105) })
     if (!top.length) { x.font = '400 40px Readex Pro, sans-serif'; x.fillText('اسمع شوي وارجع', 360, 500) }
+    x.font = '600 30px Readex Pro, sans-serif'; x.fillText(`مقاطع استمعت إليها: ${Object.keys(st.p).length}`, 360, 1020)
+    x.font = '400 28px Readex Pro, sans-serif'; x.fillText(`مكتبتك: ${q.filter((track) => !track.video).length} أغنية · المفضلة: ${q.filter((track) => !track.video && track.fav).length}`, 360, 1080)
+    x.fillText(`أكثر مقطع استماعًا: ${top[0]?.n ?? 0} مرة`, 360, 1135)
+    x.font = '400 22px Readex Pro, sans-serif'; x.fillText('إحصاءات محفوظة على هذا الجهاز فقط', 360, 1210)
     setWrap(c.toDataURL('image/png'))
   }
   useEffect(() => {
@@ -1016,13 +1102,35 @@ export default function App() {
     return () => cancelAnimationFrame(frame)
   }, [party, playing])
   useEffect(() => {
-    // Avoid a 60-fps canvas loop when optional audio analysis is disabled.
+    // Keep visual analysis dormant when player is closed or paused to reduce CPU use.
     if (!sheet || !playing || !anN.current) return
     let raf = 0; const buf = new Uint8Array(32)
-    const draw = () => { const c = cv.current, a = anN.current; if (c && a) { a.getByteFrequencyData(buf); const x = c.getContext('2d')!; x.clearRect(0, 0, c.width, c.height); x.fillStyle = A; buf.forEach((v, k) => { const h = Math.max(2, (v / 255) * c.height); x.fillRect(k * 9 + 2, c.height - h, 6, h) }) } raf = requestAnimationFrame(draw) }
+    const draw = () => {
+      const c = cv.current, analyser = anN.current
+      if (c && analyser) {
+        analyser.getByteFrequencyData(buf)
+        const ctx = c.getContext('2d')!; const w = c.width; const h = c.height
+        ctx.clearRect(0, 0, w, h); ctx.fillStyle = A; ctx.strokeStyle = A; ctx.lineWidth = 2
+        if (visualMode === 'wave') {
+          ctx.beginPath()
+          buf.forEach((value, index) => { const px = index * (w / (buf.length - 1)); const py = h / 2 - (value / 255) * h * 0.44; if (index === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py) })
+          ctx.stroke()
+          ctx.globalAlpha = 0.32; ctx.beginPath()
+          buf.forEach((value, index) => { const px = index * (w / (buf.length - 1)); const py = h / 2 + (value / 255) * h * 0.44; if (index === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py) })
+          ctx.stroke(); ctx.globalAlpha = 1
+        } else if (visualMode === 'mirror') {
+          const cell = w / buf.length
+          buf.forEach((value, index) => { const bar = Math.max(2, value / 255 * (h / 2 - 2)); ctx.fillRect(index * cell + 1, h / 2 - bar, Math.max(1, cell - 2), bar); ctx.fillRect(index * cell + 1, h / 2, Math.max(1, cell - 2), bar) })
+        } else {
+          const cell = w / buf.length
+          buf.forEach((value, index) => { const bar = Math.max(2, value / 255 * h); ctx.fillRect(index * cell + 1, h - bar, Math.max(1, cell - 2), bar) })
+        }
+      }
+      raf = requestAnimationFrame(draw)
+    }
     draw()
     return () => cancelAnimationFrame(raf)
-  }, [sheet, playing])
+  }, [sheet, playing, visualMode])
   useEffect(() => {
     setLyr([])
     setPlainLyrics('')
@@ -1337,6 +1445,7 @@ export default function App() {
         <button aria-label="مفضلة" title="المفضلة" onClick={() => fav(x)} className="media-action-button" style={{ color: x.fav ? A : undefined }}><Icon n="heart" s={18} /><span>مفضلة</span></button>
         <button aria-label="قائمة" title="إضافة إلى قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={18} /><span>قائمة</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
+        {x.blob && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
         </div>
       </details>
@@ -1365,6 +1474,7 @@ export default function App() {
         <button aria-label="قائمة" onClick={() => setPlSheet(x)} className="media-action-button"><Icon n="list" s={17} /><span>قائمة</span></button>
         <button aria-label="تحويل الفيديو إلى موسيقى" title={x.uri ? 'حفظ مسار الصوت كملف M4A' : 'متاح لفيديوهات مكتبة الهاتف'} onClick={() => void convertVideoToMusic(x)} disabled={convertingId !== null} className="media-action-button" style={{ color: convertingId === x.id ? A : undefined }}><Icon n="music" s={17} /><span>{convertingId === x.id ? 'جارٍ…' : 'استخراج'}</span></button>
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
+        {x.blob && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
         </div>
       </details>
@@ -1489,7 +1599,7 @@ export default function App() {
       )}
 
       <main className="hema-content min-h-0 flex-1 overflow-y-auto px-3 pb-4">
-        {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع · اسحب لإعادة الترتيب</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
+        {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 space-y-2 rounded-2xl border border-white/10 bg-white/[0.04] p-3"><div className="flex items-center justify-between gap-2"><span className="text-xs opacity-65">{queueIds.length} مقطع · اسحب لإعادة الترتيب</span><span className="text-[10px] opacity-45">Queue Pro</span></div><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-xl px-3 py-2.5 text-xs font-semibold text-white" style={{ background: A }}>تشغيل الآن</button><button onClick={saveQueueAsPlaylist} className="rounded-xl bg-white/10 px-3 py-2.5 text-xs">حفظ كقائمة</button>{queueUndo && <button onClick={() => { setQueueIds([...queueUndo]); setQueueUndo(null); notify('تم التراجع عن آخر تغيير في الطابور.') }} className="rounded-xl bg-white/10 px-3 py-2.5 text-xs">تراجع</button>}<button onClick={() => { setQueueUndo([...queueIds]); setQueueIds([]) }} className="rounded-xl bg-white/10 px-3 py-2.5 text-xs">تفريغ الطابور</button></div></div>}
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
         {tab === 'online' && (
           <section className="space-y-4 py-2">
@@ -1692,8 +1802,9 @@ export default function App() {
         {canScan() && (nativeMore.audio || nativeMore.video) && <button onClick={() => void loadMoreNativeMedia()} disabled={nativeLoading} className="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-50">{nativeLoading ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد من ملفات الهاتف'}</button>}
         {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : tab === 'explore' ? exploreValue !== null && !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
         {tab === 'ai' && (
-          <div className="space-y-3 p-1">
-            <p className="opacity-70">صف المزاج، يرتب موسيقاك.</p>
+          <div className="space-y-4 p-1">
+            <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3"><div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>HEMA MOOD DJ</p><h2 className="mt-1 text-lg font-bold">اختَر مزاجك</h2><p className="mt-1 text-xs leading-5 opacity-60">إنشاء قائمة محلية من مكتبتك؛ يعتمد الترتيب على الاسم والفنان والنوع والمفضلة وسجل الاستماع.</p></div><div className="grid grid-cols-2 gap-2">{MOOD_PRESETS.map((preset) => <button key={preset.id} onClick={() => playMood(preset.id)} className="flex min-h-[76px] min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3 text-start transition active:scale-[.98]" style={{ borderColor: 'rgba(255,255,255,.09)' }}><span className="grid size-10 shrink-0 place-items-center rounded-xl text-xl" style={{ background: A + '26', color: A }}>{preset.icon}</span><span className="min-w-0"><span className="block text-sm font-semibold">{preset.title}</span><span className="mt-1 block text-[10px] leading-4 opacity-55">{preset.subtitle}</span></span></button>)}</div></section>
+            <p className="opacity-70">أو اكتب وصفًا حرًا، وسيحاول HEMA ترتيب موسيقاك وفقه.</p>
             <input value={ask} onChange={(e) => setAsk(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && smart()} placeholder="هادي للدراسة، حماسي للرياضة…" className="w-full rounded-xl bg-white/10 px-4 py-3 outline-none" />
             <button onClick={smart} disabled={busy} className="w-full rounded-xl py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{busy ? '…' : 'رتّب بالذكاء'}</button>
             {msg && <p role="status" className="text-sm opacity-80">{msg}</p>}
@@ -1725,7 +1836,7 @@ export default function App() {
               <div className="z-10 grid size-1/4 place-items-center rounded-full bg-[#0d0f14] text-2xl font-bold">{[...cur.title][0]}</div>
             </div>
           </div>
-          <canvas ref={cv} width={288} height={48} className="mx-auto" />
+          <div className="hema-visualizer-wrap"><canvas ref={cv} width={288} height={48} className="mx-auto w-full max-w-sm" /><div className="hema-visualizer-controls" role="group" aria-label="نمط التأثير البصري">{([{ id: 'bars', label: 'أعمدة' }, { id: 'mirror', label: 'مرآة' }, { id: 'wave', label: 'موجة' }] as const).map((mode) => <button key={mode.id} type="button" aria-pressed={visualMode === mode.id} onClick={() => setVisualMode(mode.id)} style={visualMode === mode.id ? { background: A, color: '#fff', borderColor: A } : undefined}>{mode.label}</button>)}</div></div>
           <p className="truncate text-center text-xl font-semibold">{cur.title}</p>
           {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}{!lyr.length && plainLyrics && <div className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-xl bg-black/20 p-3 text-center text-sm leading-7 opacity-85">{plainLyrics}</div>}{!lyr.length && !plainLyrics && lyricsLoading && <p className="text-center text-xs opacity-50">جارٍ البحث عن كلمات الأغنية…</p>}
           <div className="flex flex-wrap items-center justify-center gap-2"><label className="cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed); setMsg('تم حفظ الكلمات محليًا') } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label><button aria-label="تأخير الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.max(-10, Math.round((v - 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">−0.5s</button><span className="text-xs opacity-60" dir="ltr">{lyrOffset > 0 ? '+' : ''}{lyrOffset.toFixed(1)}s</span><button aria-label="تقديم الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.min(10, Math.round((v + 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">+0.5s</button></div>
@@ -1848,8 +1959,8 @@ export default function App() {
                 <div className="rounded-xl bg-white/5 p-3"><p className="text-lg font-bold" style={{ color: A }}>{(q.reduce((sum, x) => sum + (x.size ?? x.blob?.size ?? 0), 0) / 1048576).toFixed(1)} MB</p><p className="mt-1 text-xs opacity-60">الحجم التقريبي</p></div>
               </div>
             </section>
-            <p className="text-sm opacity-60">اللون</p>
-            <div className="flex gap-3">{ACCENTS.map((c, k) => <button key={c} aria-label={c} onClick={() => setAcc(k)} className="size-9 rounded-full" style={{ background: c, outline: acc === k ? '3px solid #fff' : 'none' }} />)}</div>
+            <p className="text-sm opacity-60">ألوان الواجهة</p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">{ACCENTS.map((c, k) => <button key={c} aria-label={ACCENT_NAMES[k]} title={ACCENT_NAMES[k]} onClick={() => setAcc(k)} className={`flex min-w-0 items-center gap-2 rounded-xl border p-2 text-start ${acc === k ? 'border-white/50 bg-white/10' : 'border-white/10 bg-white/[0.025]'}`}><span className="size-7 shrink-0 rounded-full" style={{ background: c, boxShadow: acc === k ? `0 0 0 2px ${c}55` : 'none' }} /><span className="min-w-0 truncate text-[11px]">{ACCENT_NAMES[k]}</span>{acc === k && <span className="ms-auto text-xs">✓</span>}</button>)}</div>
             <p className="text-sm opacity-60">الترتيب</p>
             <div className="flex flex-wrap gap-2">{SORTS.map(([k, l]) => <Opt key={k} on={sort === k} onClick={() => setSort(k)}>{l}</Opt>)}</div>
             <Opt on={false} onClick={() => { setSettings(false); void load() }}>إعادة مسح الملفات</Opt>
