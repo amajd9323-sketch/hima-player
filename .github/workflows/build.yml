@@ -12,18 +12,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 20, cache: npm, cache-dependency-path: hima-player/package-lock.json }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
-      - run: npm install
+      - run: npm ci
       - run: npm run build
         env: { VITE_AI_URL: '${{ vars.VITE_AI_URL }}' }
       - run: test -d android || npx cap add android
       - run: npx cap sync android
       - run: cd android && chmod +x gradlew && ./gradlew assembleDebug
-      - run: mv android/app/build/outputs/apk/debug/app-debug.apk Hima-Player.apk
+      - name: Prepare APK and report size
+        run: |
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk Hema-ROKSI-Player.apk
+          sha256sum Hema-ROKSI-Player.apk | tee Hema-ROKSI-Player.sha256
+          du -h Hema-ROKSI-Player.apk
       - uses: actions/upload-artifact@v4
-        with: { name: Hima-Player, path: hima-player/Hima-Player.apk }
+        with:
+          name: Hema-ROKSI-Player-APK
+          path: |
+            hima-player/Hema-ROKSI-Player.apk
+            hima-player/Hema-ROKSI-Player.sha256
+          if-no-files-found: error
+          retention-days: 30
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
-        with: { files: hima-player/Hima-Player.apk }
+        with:
+          files: |
+            hima-player/Hema-ROKSI-Player.apk
+            hima-player/Hema-ROKSI-Player.sha256
