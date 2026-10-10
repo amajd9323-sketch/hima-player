@@ -68,6 +68,7 @@ export default function App() {
   const [lists, setLists] = useState<Record<string, string[]>>(() => ls('hema_lists', {}))
   const [recent, setRecent] = useState<string[]>(() => ls('hema_recent', []))
   const [backupMsg, setBackupMsg] = useState('')
+  const [duplicates, setDuplicates] = useState<Track[][] | null>(null)
   const [openFolder, setOpenFolder] = useState<string | null>(null)
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
@@ -314,6 +315,17 @@ export default function App() {
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
   const ended = () => { if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
 
+  const findDuplicates = () => {
+    const groups = new Map<string, Track[]>()
+    for (const x of q) {
+      const key = [x.video ? 'video' : 'audio', clean(x.title).toLocaleLowerCase(), (x.artist ?? '').toLocaleLowerCase().trim()].join('|')
+      if (!key.split('|')[1]) continue
+      const group = groups.get(key) ?? []
+      group.push(x); groups.set(key, group)
+    }
+    setDuplicates([...groups.values()].filter((g) => g.length > 1))
+  }
+
   const smart = async () => {
     const list = q.filter((x) => !x.video)
     if (!ask.trim() || !list.length) return
@@ -505,6 +517,17 @@ export default function App() {
             </div>
             {adhan && <div className="flex gap-2"><input value={city.c} onChange={(e) => setCity({ ...city, c: e.target.value })} placeholder="City (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><input value={city.k} onChange={(e) => setCity({ ...city, k: e.target.value })} placeholder="Country (English)" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /></div>}
             <Opt on={false} onClick={() => { setSettings(false); makeWrapped() }}>ملخصي Hema Wrapped</Opt>
+            <p className="text-sm opacity-60">إدارة المكتبة</p>
+            <Opt on={false} onClick={findDuplicates}>فحص الملفات المكررة</Opt>
+            {duplicates && <div className="space-y-2 rounded-xl bg-black/20 p-3">
+              <div className="flex items-center justify-between gap-2"><span className="text-sm">مجموعات مكررة: {duplicates.length}</span><button onClick={() => setDuplicates(null)} className="text-sm opacity-60">إغلاق</button></div>
+              {duplicates.length === 0 ? <p className="text-sm opacity-60">لم نعثر على تكرار حسب الاسم والفنان.</p> : duplicates.map((group) => <div key={group[0].id} className="rounded-lg bg-white/5 p-2">
+                <p className="truncate text-sm font-semibold">{group[0].title}</p>
+                <p className="text-xs opacity-60">{group.length} ملفات · {group[0].video ? "فيديو" : "صوت"}</p>
+                {group.map((x) => <p key={x.id} className="truncate text-xs opacity-50">{x.folder || "ملف مستورد"}{x.size ? " · " + (x.size / 1048576).toFixed(1) + " MB" : ""}</p>)}
+              </div>)}
+              <p className="text-xs opacity-50">الفحص حسب الاسم والفنان فقط؛ لا يحذف أي ملف تلقائيا.</p>
+            </div>}
             <p className="text-sm opacity-60">النسخ الاحتياطي</p>
             <div className="flex flex-wrap gap-2">
               <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
