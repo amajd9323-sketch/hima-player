@@ -950,3 +950,323 @@ main ul.grid > li > button:first-child { min-height: 0; }
 @media (prefers-reduced-motion: reduce) {
   .hema-nav-group-trigger, .hema-menu-toggle, .media-actions-trigger { transition: none !important; }
 }
+
+
+/* HEMA Player Controls v5 — keep essential actions visible and group secondary tools. */
+.music-player-screen.fixed.inset-0.z-30 {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  min-height: 0;
+  gap: 11px !important;
+  padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)) !important;
+  background: linear-gradient(180deg, rgba(21,27,43,.99), #0b0f18 72%) !important;
+}
+.music-player-screen.fixed.inset-0.z-30 > button:first-child {
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px;
+  background: rgba(255,255,255,.065);
+}
+.music-player-screen > .grid.flex-1.place-items-center {
+  flex: 0 0 auto;
+  width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+}
+.music-player-screen > .grid.flex-1.place-items-center > .w-4\/5 {
+  width: min(54vw, 27vh, 240px);
+  min-width: 142px;
+  max-width: 240px;
+}
+.music-player-screen > canvas {
+  display: block;
+  width: min(100%, 320px);
+  height: 38px;
+  min-height: 30px;
+  object-fit: contain;
+}
+.music-player-screen > p.text-xl { margin: 0; line-height: 1.35; }
+.music-player-screen > div[dir="ltr"] input[type="range"] { min-height: 36px; margin: 0; }
+.music-player-screen > div[dir="ltr"] + .flex.items-center.justify-center.gap-2.text-xs {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.music-player-screen > div[dir="ltr"] + .flex.items-center.justify-center.gap-2.text-xs button {
+  min-width: 64px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--hema-outline);
+  border-radius: 12px;
+  background: rgba(255,255,255,.055);
+  color: var(--hema-text);
+  font-size: 12px;
+}
+
+/* Music options are a proper dropdown, not tiny unlabeled icons along bottom edge. */
+.music-tools-dropdown {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(220,230,255,.16);
+  border-radius: 16px;
+  background: rgba(20,27,42,.98);
+  box-shadow: 0 5px 18px rgba(0,0,0,.18);
+}
+.music-tools-dropdown > summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 48px;
+  padding: 9px 12px;
+  border-radius: 15px;
+  list-style: none;
+  cursor: pointer;
+  color: var(--hema-text);
+}
+.music-tools-dropdown > summary::-webkit-details-marker { display: none; }
+.music-tools-dropdown > summary::marker { content: ""; }
+.music-tools-summary-main { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; font-size: 13px; font-weight: 700; }
+.music-tools-summary-status { min-width: 0; color: #c6b9ff; font-size: 10px; white-space: nowrap; }
+.music-tools-dropdown[open] > summary { border-bottom: 1px solid rgba(255,255,255,.075); border-radius: 15px 15px 0 0; }
+.music-tools-dropdown[open] > summary > svg:last-child { transform: rotate(180deg); color: var(--hema-teal); }
+.music-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 8px;
+  padding: 9px;
+}
+.music-tools-grid > button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 62px !important;
+  height: auto;
+  padding: 9px 6px;
+  border: 1px solid rgba(225,232,255,.105);
+  border-radius: 13px;
+  background: rgba(255,255,255,.045);
+  color: var(--hema-muted-strong);
+  text-align: center;
+  white-space: normal;
+  line-height: 1.25;
+  font-size: 11px;
+}
+.music-tools-grid > button span { overflow-wrap: anywhere; }
+.music-tools-grid > button small { color: var(--hema-teal); font-size: 10px; }
+.music-tools-grid > button:active { background: rgba(255,255,255,.1); }
+.music-tool-panel {
+  max-height: min(72dvh, 580px);
+  background: rgba(15,20,31,.99);
+  border-color: rgba(225,232,255,.17);
+  box-shadow: 0 -12px 44px rgba(0,0,0,.48);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.music-tool-panel h2 { position: sticky; top: -1rem; z-index: 2; padding: 7px 0 11px; background: #0f141f; }
+.music-tool-panel .flex.flex-wrap.gap-2 > button {
+  min-width: 68px;
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid rgba(225,232,255,.12);
+  border-radius: 13px;
+  background: rgba(255,255,255,.075);
+  color: var(--hema-text);
+}
+.music-tool-panel > button:last-child {
+  position: sticky;
+  bottom: 0;
+  min-height: 46px;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 13px;
+  background: #242d3d;
+  color: #fff;
+}
+
+/* Video screen: compact always-visible playback controls + expandable tools drawer. */
+.video-overlay-top {
+  max-height: 56dvh;
+  overflow: visible;
+  gap: 8px;
+  padding-bottom: 10px;
+}
+.video-title-row {
+  gap: 8px;
+  min-height: 42px;
+}
+.video-title-row > span { font-size: 13px; line-height: 1.35; }
+.video-icon-button {
+  flex: 0 0 42px;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  border-radius: 13px;
+  background: rgba(10,14,22,.9);
+}
+.video-tools-dropdown {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid rgba(255,255,255,.19);
+  border-radius: 15px;
+  background: rgba(9,13,21,.94);
+  color: #fff;
+  box-shadow: 0 5px 16px rgba(0,0,0,.16);
+}
+.video-tools-dropdown > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  width: 100%;
+  padding: 8px 11px;
+  border-radius: 14px;
+  list-style: none;
+  cursor: pointer;
+  background: rgba(255,255,255,.055);
+}
+.video-tools-dropdown > summary::-webkit-details-marker { display: none; }
+.video-tools-dropdown > summary::marker { content: ""; }
+.video-tools-summary-main { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 12px; }
+.video-tools-summary-note { color: rgba(235,240,255,.62); font-size: 10px; white-space: nowrap; }
+.video-tools-dropdown[open] { background: rgba(8,12,20,.98); }
+.video-tools-dropdown[open] > summary { border-bottom: 1px solid rgba(255,255,255,.10); border-radius: 14px 14px 0 0; }
+.video-tools-dropdown[open] > summary > svg:last-child { color: var(--hema-teal); transform: rotate(180deg); }
+.video-tools-dropdown .video-toolbar {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  align-items: stretch;
+  gap: 7px;
+  row-gap: 7px;
+  width: 100%;
+  max-height: min(34dvh, 285px);
+  padding: 9px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.video-tools-dropdown .video-tool {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: auto;
+  padding: 7px 5px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 12px;
+  background: rgba(255,255,255,.07);
+  color: #f6f7fb;
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.video-tools-dropdown .video-tool > span { min-width: 0; overflow-wrap: anywhere; }
+.video-tools-dropdown .video-tool svg { flex: 0 0 auto; }
+.video-tools-dropdown .video-tool.video-subtitle-offset {
+  grid-column: 1 / -1;
+  justify-content: space-between;
+  min-height: 42px;
+  padding: 5px 14px;
+}
+.video-tools-dropdown .video-subtitle-offset button { flex: 0 0 38px; width: 38px; height: 34px; }
+.video-tools-dropdown .video-audio-track-menu {
+  position: static !important;
+  inset: auto !important;
+  grid-column: 1 / -1;
+  width: 100% !important;
+  max-width: none !important;
+  max-height: 150px !important;
+  margin: 0;
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 12px;
+  background: rgba(255,255,255,.055);
+  box-shadow: none;
+}
+.video-tools-dropdown .video-audio-track-menu > button { min-height: 42px; white-space: normal; }
+.video-center-controls { z-index: 57; }
+.video-center-controls > button { flex-shrink: 0; }
+.video-bottom-controls {
+  z-index: 62;
+  padding-left: max(14px, env(safe-area-inset-left));
+  padding-right: max(14px, env(safe-area-inset-right));
+  padding-top: 34px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(0deg,rgba(0,0,0,.96),rgba(0,0,0,.70) 70%,transparent) !important;
+}
+.video-bottom-controls input[type="range"] { min-height: 36px; margin: 0; }
+.video-bottom-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding-top: 9px;
+}
+.video-bottom-navigation > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: auto;
+  min-width: 96px;
+  min-height: 44px;
+  height: auto;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 13px;
+  background: rgba(255,255,255,.10);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.video-bottom-track-state {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: rgba(255,255,255,.7);
+  text-align: center;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 380px) {
+  .music-player-screen.fixed.inset-0.z-30 { padding-inline: 11px !important; gap: 9px !important; }
+  .music-player-screen > .grid.flex-1.place-items-center > .w-4\/5 { width: min(50vw, 23vh, 200px); min-width: 130px; }
+  .music-tools-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+  .music-tools-grid > button { flex-direction: row; justify-content: flex-start; text-align: start; min-height: 48px !important; padding: 8px 9px; }
+  .music-tools-grid > button span { font-size: 11px; }
+  .video-tools-summary-note { font-size: 9px; }
+  .video-tools-dropdown .video-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 32dvh; gap: 6px; }
+  .video-tools-dropdown .video-tool { min-height: 42px; font-size: 10px; }
+  .video-bottom-controls { padding-top: 28px; }
+  .video-bottom-navigation > button { min-width: 86px; padding-inline: 8px; }
+  .video-bottom-track-state { font-size: 9px; }
+}
+@media (orientation: landscape) and (max-height: 460px) {
+  .video-overlay-top { max-height: 58dvh; gap: 4px; }
+  .video-title-row { min-height: 34px; }
+  .video-icon-button { width: 34px; min-width: 34px; height: 34px; min-height: 34px; flex-basis: 34px; }
+  .video-tools-dropdown > summary { min-height: 34px; }
+  .video-tools-dropdown .video-toolbar { grid-template-columns: repeat(4,minmax(0,1fr)); max-height: 26dvh; padding: 5px; gap: 5px; }
+  .video-tools-dropdown .video-tool { min-height: 32px; padding: 4px; font-size: 10px; }
+  .video-center-controls { z-index: 57; }
+  .video-bottom-controls { padding-top: 20px; padding-bottom: max(6px, env(safe-area-inset-bottom)); }
+  .video-bottom-navigation { padding-top: 5px; }
+  .video-bottom-navigation > button { min-height: 34px; }
+}
