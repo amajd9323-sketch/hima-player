@@ -1035,7 +1035,7 @@ export default function App() {
                 <p className="text-xs leading-5 opacity-55">التحكم الخارجي يعتمد على دعم مشغّل المنصة. YouTube يبقى ظاهرًا؛ لا استخراج صوت أو تشغيل مخفي بالخلفية. بعض الفيديوهات قد تمنع التضمين.</p>
               </div>
             )}
-            {!onlineAudioFocus && <div className="space-y-3">
+            {(!onlineAudioFocus || !onlineMedia) && <div className="space-y-3">
               <div className="flex gap-2 overflow-x-auto">
                 {([['saved', 'المكتبة', onlineSaved.length], ['favorites', 'المفضلة', onlineFavorites.length], ['history', 'السجل', onlineHistory.length], ['queue', 'الطابور', onlineQueue.length]] as const).map(([view, label, count]) => (
                   <button key={view} onClick={() => setOnlineView(view)} className="shrink-0 rounded-full px-3 py-2 text-xs" style={{ background: onlineView === view ? A : '#ffffff1a', color: onlineView === view ? '#fff' : undefined }}>{label} · {count}</button>
