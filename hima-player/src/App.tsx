@@ -459,11 +459,12 @@ export default function App() {
     return () => hs.forEach((h) => window.clearTimeout(h))
   }, [adhan, city.c, city.k, new Date().toDateString()])
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
-  const exportBackup = () => {
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume }
+  const exportBackup = async () => {
+    const overrides = await allTrackMeta().catch(() => [])
+    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 2, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })) }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
-    setBackupMsg('تم تصدير النسخة الاحتياطية')
+    setBackupMsg('تم تصدير النسخة الاحتياطية والإعدادات وبيانات العرض. ملفات الغلاف نفسها تُحفظ محليًا ولا تدخل الملف.')
   }
   const importBackup = async (file?: File) => {
     if (!file) return
@@ -472,6 +473,17 @@ export default function App() {
       if (data.app !== 'HEMA ROKSI PLAYER' || (data.schemaVersion !== 1 && data.schemaVersion !== 2)) throw new Error('BACKUP_VERSION')
       if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) { const safeLists = Object.entries(data.lists as Record<string, unknown>).filter(([name, value]) => !!name.trim() && Array.isArray(value)).map(([name, value]) => [name.trim(), [...new Set((value as unknown[]).filter((id): id is string => typeof id === 'string'))]]); setLists(Object.fromEntries(safeLists) as Record<string, string[]>) }
       if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
+      if (Array.isArray(data.trackMeta)) {
+        const existingMeta = await allTrackMeta().catch(() => [])
+        const existingById = new Map(existingMeta.map((x) => [x.id, x]))
+        for (const raw of data.trackMeta.slice(0, 2000)) {
+          if (!raw || typeof raw !== 'object') continue
+          const item = raw as { id?: unknown; title?: unknown; artist?: unknown }
+          if (typeof item.id !== 'string' || (item.title !== undefined && typeof item.title !== 'string') || (item.artist !== undefined && typeof item.artist !== 'string')) continue
+          const previous = existingById.get(item.id)
+          await saveTrackMeta({ id: item.id, title: item.title as string | undefined, artist: item.artist as string | undefined, cover: previous?.cover, updatedAt: Date.now() })
+        }
+      }
       if (Array.isArray(data.queueIds)) setQueueIds([...new Set(data.queueIds.filter((x): x is string => typeof x === 'string'))].slice(0, 500))
       if (Array.isArray(data.favorites)) localStorage.setItem('hema_favs', JSON.stringify(data.favorites.filter((x): x is string => typeof x === 'string')))
       if (data.positions && typeof data.positions === 'object') localStorage.setItem('hema_pos', JSON.stringify(data.positions))
@@ -502,7 +514,7 @@ export default function App() {
   const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 5) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
   useEffect(() => { const tr = m.current?.textTracks[0]; if (tr) tr.mode = 'showing' }, [sub])
-  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') void m.current?.play(); else if (repeat === 'off' && !shuffle && cur && !queueIds.some((id) => { const x = q.find((y) => y.id === id); return x?.video === cur.video }) && q.filter((x) => x.video === cur.video).pop() === cur) setPlaying(false); else step(1) }
+  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
 
   const findDuplicates = async () => {
     setBackupMsg('جارٍ فحص التكرار بالبصمة الرقمية...')
@@ -684,6 +696,7 @@ export default function App() {
       )}
 
       <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+        {tab === 'queue' && queueIds.length > 0 && <div className="mb-3 flex items-center justify-between rounded-xl bg-white/5 px-3 py-2"><span className="text-xs opacity-65">{queueIds.length} مقطع في الطابور</span><div className="flex gap-2"><button onClick={() => { const first = q.findIndex((x) => x.id === queueIds[0]); if (first >= 0) setI(first) }} className="rounded-full px-3 py-1 text-xs" style={{ background: A }}>تشغيل الآن</button><button onClick={() => setQueueIds([])} className="rounded-full bg-white/10 px-3 py-1 text-xs">تفريغ الطابور</button></div></div>}
         {open && <button onClick={() => { setOpenFolder(null); setOpenList(null) }} className="mb-2 flex items-center gap-2 px-2 py-1 text-sm opacity-70"><Icon n="back" s={18} />{tab === 'folders' ? openFolder : openList}</button>}
         {tab === 'folders' && openFolder === null && <ul>{[...folderMap].map(([n, c]) => <li key={n}><button onClick={() => setOpenFolder(n)} className="flex w-full items-center gap-3 rounded-xl p-3 text-start active:bg-white/5"><span className="grid size-12 place-items-center rounded-lg bg-white/10" style={{ color: A }}><Icon n="folder" /></span><span className="min-w-0 flex-1 truncate">{n}</span><span className="text-sm opacity-50">{c}</span></button></li>)}</ul>}
         {tab === 'lists' && openList === null && (
@@ -724,8 +737,9 @@ export default function App() {
         <div className="fixed inset-0 z-30 flex flex-col gap-5 p-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)', background: `linear-gradient(180deg,hsl(${hue(cur.title)} 45% 22%),#0d0f14 70%)` }}>
           <button onClick={() => { setSheet(false); setPanel(null) }} aria-label="إغلاق" className="self-start"><Icon n="down" s={32} /></button>
           <div className="grid flex-1 place-items-center">
-            <div className="grid aspect-square w-4/5 place-items-center rounded-full shadow-2xl" style={{ ...art(cur.title), animation: 'spin 14s linear infinite', animationPlayState: playing ? 'running' : 'paused' }}>
-              <div className="grid size-1/4 place-items-center rounded-full bg-[#0d0f14] text-2xl font-bold">{[...cur.title][0]}</div>
+            <div className="relative grid aspect-square w-4/5 place-items-center overflow-hidden rounded-full shadow-2xl" style={{ ...art(cur.title), animation: 'spin 14s linear infinite', animationPlayState: playing ? 'running' : 'paused' }}>
+              {cur.cover && <img src={cur.cover} alt="" className="absolute inset-0 size-full rounded-full object-cover" />}
+              <div className="z-10 grid size-1/4 place-items-center rounded-full bg-[#0d0f14] text-2xl font-bold">{[...cur.title][0]}</div>
             </div>
           </div>
           <canvas ref={cv} width={288} height={48} className="mx-auto" />
