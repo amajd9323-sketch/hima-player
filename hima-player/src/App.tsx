@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
+import { AppLauncher } from '@capacitor/app-launcher'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import { StatusBar } from '@capacitor/status-bar'
 import { aiOrder } from './ai'
@@ -368,6 +369,20 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [cur?.id, t, i, shuffle, repeat, q, lockedScreen])
+
+  const launchYouTubeMusic = async (url = 'https://music.youtube.com/') => {
+    let target = 'https://music.youtube.com/'
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'https:' && parsed.hostname === 'music.youtube.com') target = parsed.href
+    } catch { /* Use the safe YouTube Music home page as fallback. */ }
+    try {
+      const result = await AppLauncher.openUrl({ url: target })
+      if (result.completed) return
+    } catch { /* Web fallback below when native app launcher is unavailable. */ }
+    const popup = window.open(target, '_blank', 'noopener,noreferrer')
+    if (!popup) window.location.assign(target)
+  }
 
   const openOnline = async (input = onlineUrl, requestedTitle = onlineTitleInput) => {
     const raw = input.trim()
@@ -1382,10 +1397,10 @@ export default function App() {
               <p className="mt-2 text-sm leading-6 opacity-70">ابحث عن الأغاني والألبومات والقوائم في YouTube Music الرسمي، أو الصق رابطًا وشاركه مع HEMA. تُحفظ الروابط والسجل والمفضلة محليًا.</p>
               <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
                 <div className="mb-2 flex items-center gap-2"><span className="grid size-9 place-items-center rounded-xl bg-red-500/15 text-xs font-bold text-red-300">YTM</span><div className="min-w-0"><h3 className="text-sm font-semibold">بحث سريع في YouTube Music</h3><p className="text-xs opacity-55">استخدم حسابك وميزات المنصة الرسمية</p></div></div>
-                <input value={ytMusicQuery} onChange={(e) => { setYtMusicQuery(e.target.value); localStorage.setItem('hema_ytm_query', JSON.stringify(e.target.value)) }} onKeyDown={(e) => { if (e.key === 'Enter') window.open(ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/', '_blank', 'noopener,noreferrer') }} placeholder="اسم أغنية، فنان، ألبوم أو Playlist" className="w-full rounded-xl bg-white/5 px-3 py-3 text-sm outline-none" />
+                <input value={ytMusicQuery} onChange={(e) => { setYtMusicQuery(e.target.value); localStorage.setItem('hema_ytm_query', JSON.stringify(e.target.value)) }} onKeyDown={(e) => { if (e.key === 'Enter') void launchYouTubeMusic(ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/') }} placeholder="اسم أغنية، فنان، ألبوم أو Playlist" className="w-full rounded-xl bg-white/5 px-3 py-3 text-sm outline-none" />
                 <div className="mt-2 grid grid-cols-2 gap-2">
-                  <a href={ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/'} target="_blank" rel="noopener noreferrer" className="rounded-xl px-3 py-3 text-center text-xs font-semibold text-white" style={{ background: A }}>{ytMusicQuery.trim() ? 'بحث في YouTube Music' : 'فتح YouTube Music'}</a>
-                  <a href="https://music.youtube.com/" target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white/10 px-3 py-3 text-center text-xs">الرئيسية</a>
+                  <a href={ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/'} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic(ytMusicQuery.trim() ? `https://music.youtube.com/search?q=${encodeURIComponent(ytMusicQuery.trim())}` : 'https://music.youtube.com/') }} className="rounded-xl px-3 py-3 text-center text-xs font-semibold text-white" style={{ background: A }}>{ytMusicQuery.trim() ? 'بحث في YouTube Music' : 'فتح YouTube Music'}</a>
+                  <a href="https://music.youtube.com/" target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic('https://music.youtube.com/') }} className="rounded-xl bg-white/10 px-3 py-3 text-center text-xs">الرئيسية</a>
                 </div>
                 <p className="mt-2 text-xs leading-5 opacity-55">هذا ربط بالمنصة الرسمية عبر الرابط، وليس مزامنة حساب أو استخراج صوت. فتح التطبيق يعتمد على إعدادات Android وتثبيت YouTube Music.</p>
               </div>
@@ -1423,8 +1438,8 @@ export default function App() {
                 {onlineMedia.platform === 'ytmusic' ? (
                   <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
                     <p className="text-sm leading-6 opacity-75">هذا رابط موسيقى/ألبوم/قائمة من YouTube Music. افتحه على المنصة الرسمية للحفاظ على تسجيل الدخول، والتحكم في التشغيل، وميزات الاشتراك إن كانت متاحة لحسابك.</p>
-                    <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl px-4 py-3 text-center text-sm font-semibold text-white" style={{ background: A }}>فتح الرابط في YouTube Music</a>
-                    <a href={`https://music.youtube.com/search?q=${encodeURIComponent(onlineMedia.title)}`} target="_blank" rel="noopener noreferrer" className="block rounded-xl bg-white/10 px-4 py-3 text-center text-sm">البحث عن الاسم في YouTube Music</a>
+                    <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic(onlineMedia.url) }} className="block rounded-xl px-4 py-3 text-center text-sm font-semibold text-white" style={{ background: A }}>فتح الرابط في YouTube Music</a>
+                    <a href={`https://music.youtube.com/search?q=${encodeURIComponent(onlineMedia.title)}`} target="_blank" rel="noopener noreferrer" onClick={(e) => { e.preventDefault(); void launchYouTubeMusic(`https://music.youtube.com/search?q=${encodeURIComponent(onlineMedia.title)}`) }} className="block rounded-xl bg-white/10 px-4 py-3 text-center text-sm">البحث عن الاسم في YouTube Music</a>
                     <p className="text-xs leading-5 opacity-50">HEMA لا يشغّل موسيقى YouTube في الخلفية ولا يفصل الصوت عن الفيديو. استخدام الرابط يبقى داخل تجربة YouTube الرسمية.</p>
                   </div>
                 ) : onlineMedia.videoId ? (
@@ -1474,7 +1489,7 @@ export default function App() {
                   <button onClick={() => enqueueOnline(onlineMedia)} className="rounded-full bg-white/10 px-3 py-2 text-xs">أضف للطابور</button>
                   <button onClick={() => void shareOnlineLink(onlineMedia)} className="rounded-full bg-white/10 px-3 py-2 text-xs">مشاركة الرابط</button>
                   <button onClick={() => renameOnline(onlineMedia)} className="rounded-full bg-white/10 px-3 py-2 text-xs">تغيير الاسم</button>
-                  <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" className="rounded-full bg-white/10 px-3 py-2 text-xs">فتح بالمنصة</a>
+                  <a href={onlineMedia.url} target="_blank" rel="noopener noreferrer" onClick={(e) => { if (onlineMedia.platform === 'ytmusic') { e.preventDefault(); void launchYouTubeMusic(onlineMedia.url) } }} className="rounded-full bg-white/10 px-3 py-2 text-xs">فتح بالمنصة</a>
                 </div>
                 <p className="text-xs leading-5 opacity-55">التحكم الخارجي يعتمد على دعم مشغّل المنصة. YouTube يبقى ظاهرًا؛ لا استخراج صوت أو تشغيل مخفي بالخلفية. بعض الفيديوهات قد تمنع التضمين.</p>
               </div>
