@@ -96,7 +96,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
   useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
-  useEffect(() => { if (!cur?.id) return; setRecent((p) => [cur.id, ...p.filter((id) => id !== cur.id)].slice(0, 100)) }, [cur?.id])
+  useEffect(() => { const id = q[i]?.id; if (!id) return; setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
   const m = useRef<HTMLVideoElement>(null)
   const hide = useRef<number>()
   const ac = useRef<AudioContext>()
