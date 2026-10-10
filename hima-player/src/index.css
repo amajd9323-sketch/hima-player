@@ -46,6 +46,17 @@ video{max-width:100%}
 @media(min-width:640px){body{background-attachment:fixed}}
 @media(prefers-reduced-motion:reduce){button,main>ul>li{transition:none!important;animation:none!important}}
 
+/* Optional battery saver: reduce decorative motion without pausing media. */
+body.hema-battery-saver *,
+body.hema-battery-saver *::before,
+body.hema-battery-saver *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
+}
+
+
 /* Queue / Vault / Party polish */
 :root{--hema-cue-size:120%;--hema-cue-color:#fff}
 input[type=password]{letter-spacing:.12em}
