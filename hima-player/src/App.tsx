@@ -1764,7 +1764,7 @@ export default function App() {
                       setOpenFolder(null)
                       setOpenList(null)
                       if (item.key === 'explore') setExploreValue(null)
-                      const menu = e.currentTarget.closest('details.hema-section-dropdown')
+                      const menu = e.currentTarget.closest('details.hema-section-dropdown') as HTMLDetailsElement | null
                       if (menu) {
                         menu.open = false
                         menu.querySelectorAll('details.hema-nav-group').forEach((node) => { (node as HTMLDetailsElement).open = false })
