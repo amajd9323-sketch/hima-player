@@ -10,11 +10,12 @@
     "capacitor:sync:after": "node scripts/patch-android.cjs"
   },
   "dependencies": {
-    "@capacitor/app": "^6.0.0",
     "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.0",
+    "@capacitor/app-launcher": "^6.0.2",
     "@capacitor/core": "^6.1.2",
-    "@capacitor/status-bar": "^6.0.0",
     "@capacitor/screen-orientation": "^6.0.0",
+    "@capacitor/status-bar": "^6.0.0",
     "@fontsource/readex-pro": "^5.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
