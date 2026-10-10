@@ -166,6 +166,7 @@ export default function App() {
   const anN = useRef<AnalyserNode>()
   const cv = useRef<HTMLCanvasElement>(null)
   const lastCt = useRef(0)
+  const lastUiTick = useRef(0)
   const accT = useRef(0)
   const counted = useRef('')
   useEffect(() => { for (const [k, v] of Object.entries({ boost, shake, adhan, quran, city })) localStorage.setItem('hema_' + k, JSON.stringify(v)); if (gainN.current) gainN.current.gain.value = boost / 100 }, [boost, shake, adhan, quran, city])
@@ -480,7 +481,14 @@ export default function App() {
     setI(pool[(p + dir + pool.length) % pool.length].k)
   }
   const toggle = () => { const e = m.current; if (e) { if (e.paused) void e.play(); else e.pause() } }
-  const seek = (v: number) => { if (m.current) m.current.currentTime = Math.max(0, Math.min(d, v)) }
+  const updateUiTime = (value: number) => {
+    // Avoid repainting the entire screen for every tiny media timeupdate event.
+    if (value < lastUiTick.current || Math.abs(value - lastUiTick.current) >= 0.4 || (d > 0 && value >= d)) {
+      lastUiTick.current = value
+      setT(value)
+    }
+  }
+  const seek = (v: number) => { if (m.current) { m.current.currentTime = Math.max(0, Math.min(d, v)); updateUiTime(m.current.currentTime) } }
   const lock = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } try { if (on) await ScreenOrientation.lock({ orientation: 'landscape' }); else await ScreenOrientation.unlock() } catch { /* web */ } }
   const bars = async (on: boolean) => { try { if (on) await StatusBar.hide(); else await StatusBar.show() } catch { /* web */ } }
   const openVideo = (k: number) => { setI(k); setFs(true); setUi(true); void bars(true) }
@@ -993,7 +1001,7 @@ export default function App() {
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
         onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
-        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; setT(loopA); return } setT(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
+        onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA ROKSI PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div></div>
