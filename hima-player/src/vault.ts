@@ -75,6 +75,8 @@ const verifier = async (pin: string) => {
   return { key, salt }
 }
 
+export async function vaultExists(): Promise<boolean> { return !!(await get('__verifier__')) }
+
 export async function unlockVault(pin: string): Promise<boolean> {
   if (pin.length < 6) throw new Error('VAULT_PIN_TOO_SHORT')
   await verifier(pin)
