@@ -54,20 +54,20 @@ if (!m.includes('HEMA_SHARE_WEB_INTENTS')) {
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="${scheme}" android:host="${host}" />
         </intent-filter>`
-  )).join('\\n        ')
-  const shareBlock = `<!-- HEMA_SHARE_WEB_INTENTS -->\\n        ${shareIntent}\\n        ${viewIntents}`
-  const activities = [...m.matchAll(/<activity\\b[^>]*>[\\s\\S]*?<\\/activity>/g)]
+  )).join('\n        ')
+  const shareBlock = `<!-- HEMA_SHARE_WEB_INTENTS -->\n        ${shareIntent}\n        ${viewIntents}`
+  const activities = [...m.matchAll(/<activity\b[^>]*>[\s\S]*?<\/activity>/g)]
   const mainActivity = activities.find(x => x[0].includes('android.intent.action.MAIN'))
   if (mainActivity) {
-    let activityXml = mainActivity[0].replace(/<activity\\b([^>]*)>/, (_, attrs) =>
+    let activityXml = mainActivity[0].replace(/<activity\b([^>]*)>/, (_, attrs) =>
       `<activity${/android:launchMode=/.test(attrs) ? attrs : attrs + ' android:launchMode="singleTask"'}>`
     )
-    activityXml = activityXml.replace('</activity>', `        ${shareBlock}\\n    </activity>`)
+    activityXml = activityXml.replace('</activity>', `        ${shareBlock}\n    </activity>`)
     m = m.replace(mainActivity[0], activityXml)
   }
 }
 if (!m.includes('android.permission.INTERNET'))
-  m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\\n    <application')
+  m = m.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\n    <application')
 if (!m.includes('supportsPictureInPicture')) m = m.replace('<activity', '<activity android:supportsPictureInPicture="true"')
 for (const p of ['READ_MEDIA_AUDIO', 'READ_MEDIA_VIDEO'])
   if (!m.includes(p)) m = m.replace('<application', `<uses-permission android:name="android.permission.${p}" />\n    <application`)
