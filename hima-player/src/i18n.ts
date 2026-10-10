@@ -541,12 +541,13 @@ export function initLocalization(language: Language): () => void {
       let records = attrRecords.get(el)
       if (!records) { records = new Map(); attrRecords.set(el, records) }
       const record = records.get(attr)
+      if (fromObserver && record && current === record.translated) continue
       const original = record && current === record.translated ? record.original : current
       const translated = translateText(original, language)
       records.set(attr, { original, translated })
       if (current !== translated) el.setAttribute(attr, translated)
     }
-    for (const child of Array.from(el.childNodes)) translateNode(child)
+    for (const child of Array.from(el.childNodes)) translateNode(child, fromObserver)
   }
 
   translateNode(document.body)
