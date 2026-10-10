@@ -1,9 +1,19 @@
 @import "tailwindcss";
-html,body,#root{height:100%}
-body{margin:0;background:linear-gradient(180deg,#221227 0,#0d0f14 260px) #0d0f14;color:#f1f3f9;font-family:'Readex Pro',system-ui,sans-serif;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
-input[type=range]{accent-color:#ff4d6d;width:100%}
-button:focus-visible,input:focus-visible{outline:2px solid #ff5a6e;outline-offset:2px}
+@import "@fontsource/readex-pro/400.css";
+@import "@fontsource/readex-pro/500.css";
+@import "@fontsource/readex-pro/600.css";
+@import "@fontsource/readex-pro/700.css";
+
+:root{color-scheme:dark;--hema-bg:#080b12;--hema-panel:#111722;--hema-panel-2:#171e2c;--hema-purple:#8957ff;--hema-teal:#24d9c2;--hema-text:#f4f6fc;--hema-muted:#9ca7ba}
+html,body,#root{height:100%;min-height:100%}
+html{background:var(--hema-bg)}
+body{margin:0;background:radial-gradient(ellipse at 50% -15%,#21183b 0,transparent 48%),var(--hema-bg);color:var(--hema-text);font-family:'Readex Pro',system-ui,sans-serif;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit}
+button{touch-action:manipulation}
+input[type=range]{accent-color:var(--hema-purple);width:100%}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--hema-teal);outline-offset:2px}
 ::-webkit-scrollbar{display:none}
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 @keyframes spin{to{transform:rotate(360deg)}}
-video::cue{font-size:1.2rem;background:rgba(0,0,0,.6)}
+video{background:#03050a}
+video::cue{font-size:1.2rem;background:rgba(0,0,0,.72)}
