@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0b1931"/><stop offset="1" stop-color="#080711"/></linearGradient>
+ <linearGradient id="neon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2be7ff"/><stop offset=".48" stop-color="#7c4dff"/><stop offset="1" stop-color="#ff42cc"/></linearGradient>
+ <linearGradient id="play" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a6f8ff"/><stop offset="1" stop-color="#7a5cff"/></linearGradient>
+ <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+</defs>
+<rect x="18" y="18" width="476" height="476" rx="112" fill="url(#bg)" stroke="url(#neon)" stroke-width="10"/>
+<path d="M147 148v216 M365 148v216 M147 256h218" fill="none" stroke="url(#neon)" stroke-width="48" stroke-linecap="round" opacity=".95"/>
+<path d="M226 178 348 256 226 334Z" fill="url(#play)" stroke="#e9fcff" stroke-width="7" stroke-linejoin="round"/>
+<path d="M210 118 228 80 256 105 285 70 301 118 282 110 256 132 232 112Z" fill="#ffc967" stroke="#ffe8a3" stroke-width="5" stroke-linejoin="round"/>
+<circle cx="228" cy="80" r="7" fill="#fff0b0"/><circle cx="285" cy="70" r="7" fill="#fff0b0"/>
+</svg>
