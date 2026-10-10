@@ -481,6 +481,21 @@ const strings: Record<string, Pair> = {
   "البداية (ثانية)": ["Start (seconds)","Początek (sekundy)"],
   "النهاية (ثانية، 0 = الكل)": ["End (seconds, 0 = all)","Koniec (sekundy, 0 = całość)"],
   "التلفاز المتصل": ["Connected TV","Podłączony telewizor"],
+  "لغة الهاتف (تلقائي)": ["Phone language (automatic)", "Język telefonu (automatycznie)"],
+  "ألوان الواجهة": ["Accent colors", "Kolory akcentu"],
+  "أنت الآن في": ["You are in", "Bieżąca sekcja"],
+  "قوائم الأقسام": ["Browse sections", "Menu sekcji"],
+  "إغلاق القوائم": ["Close section menu", "Zamknij menu sekcji"],
+  "إجراءات المقطع": ["Track actions", "Opcje utworu"],
+  "عنوان قصتنا (قابل للتعديل)": ["Our story title (editable)", "Tytuł naszej historii (do zmiany)"],
+  "أضف ملفات موسيقى من زر + في الأعلى، ثم ارجع إلى هنا لاختيار أغانيكم.": ["Add music with the + button above, then return to choose your songs.", "Dodaj muzykę przyciskiem + u góry, a potem wróć, aby wybrać wasze utwory."],
+  "تُعرض أول 100 أغنية لتبقى الصفحة خفيفة.": ["The first 100 songs are shown to keep the page responsive.", "Aby zachować płynność, wyświetlono pierwsze 100 utworów."],
+  "اكتب كلماتك الخاصة هنا…": ["Write your own words here…", "Wpisz tutaj swoje słowa…"],
+  "تم نسخ الرسالة.": ["Message copied.", "Wiadomość skopiowana."],
+  "تعذر النسخ على هذا الجهاز.": ["Could not copy on this device.", "Nie można skopiować na tym urządzeniu."],
+  "أُضيفت الأغاني المفضلة إلى قائمتنا.": ["Favorite songs were added to Our Songs.", "Ulubione utwory dodano do naszej listy."],
+  "أضيفي بعض الأغاني إلى قائمتنا أولًا.": ["Add some songs to Our Songs first.", "Najpierw dodaj utwory do naszej listy."],
+  "رسالة من هيما": ["A letter from Hema", "List od Hemy"],
 }
 
 const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length)
