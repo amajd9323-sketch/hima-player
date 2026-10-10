@@ -365,6 +365,98 @@ const strings: Record<string, Pair> = {
   "تحميل المزيد من ملفات الهاتف": ["Load more files from phone", "Załaduj więcej plików z telefonu"],
   "جارٍ تحميل المزيد…": ["Loading more…", "Ładowanie kolejnych…"],
   "تعذر تحميل المزيد من ملفات الهاتف. اضغط تحديث للمحاولة.": ["Could not load more files. Tap Refresh to retry.", "Nie można wczytać kolejnych plików. Dotknij Odśwież, aby spróbować ponownie."]
+  "ألبوم غير معروف": ["Unknown album","Nieznany album"],
+  "فنان غير معروف": ["Unknown artist","Nieznany wykonawca"],
+  "غير مصنّف": ["Uncategorized","Bez kategorii"],
+  "الرابط غير مدعوم. استخدم رابط YouTube أو YouTube Music أو TikTok.": ["Unsupported link. Use a YouTube, YouTube Music, or TikTok link.","Nieobsługiwany link. Użyj linku YouTube, YouTube Music lub TikTok."],
+  "تم التعرف على رابط YouTube Music. افتحه من البطاقة للانتقال إلى المنصة الرسمية.": ["YouTube Music link detected. Open its card to launch the official app or site.","Wykryto link YouTube Music. Otwórz kartę, aby przejść do oficjalnej aplikacji lub strony."],
+  "تحويل الفيديو متاح لفيديوهات مكتبة الهاتف.": ["Video conversion is available for videos in your phone library.","Konwersja wideo jest dostępna dla filmów z biblioteki telefonu."],
+  "اختر فيديو من مكتبة الهاتف؛ الملفات المستوردة داخل التطبيق غير مدعومة للتحويل بعد.": ["Choose a video from your phone library; imported files are not supported for conversion yet.","Wybierz film z biblioteki telefonu; konwersja plików zaimportowanych do aplikacji nie jest jeszcze obsługiwana."],
+  "وقت النهاية يجب أن يكون أكبر من وقت البداية.": ["End time must be later than start time.","Czas końcowy musi być późniejszy niż początkowy."],
+  "تم حفظ الصوت بصيغة M4A: ": ["Audio saved as M4A: ","Dźwięk zapisano jako M4A: "],
+  "هذا الفيديو لا يحتوي على مسار صوتي.": ["This video has no audio track.","Ten film nie zawiera ścieżki dźwiękowej."],
+  "تعذر استخراج الصوت. جرّب فيديو MP4 بصوت AAC.": ["Could not extract audio. Try an MP4 video with AAC audio.","Nie udało się wyodrębnić dźwięku. Spróbuj filmu MP4 z dźwiękiem AAC."],
+  "تعذّر تحميل الأنواع من مكتبة الهاتف.": ["Could not load genres from the phone library.","Nie udało się wczytać gatunków z biblioteki telefonu."],
+  "لا توجد أغنيات مناسبة لهذه القائمة حتى الآن.": ["No matching songs for this playlist yet.","Brak pasujących utworów na tej playliście."],
+  "تم تجهيز قائمة ذكية من ": ["Created a smart playlist with ","Utworzono inteligentną playlistę z "],
+  " أغنية.": [" songs."," utworami."],
+  "جارٍ البحث عن أجهزة DLNA على شبكة Wi-Fi نفسها…": ["Searching for DLNA devices on the same Wi-Fi network…","Wyszukiwanie urządzeń DLNA w tej samej sieci Wi-Fi…"],
+  "اختر التلفاز ثم اضغط إرسال الملف الحالي.": ["Select a TV, then tap Send current file.","Wybierz telewizor, a następnie dotknij Wyślij bieżący plik."],
+  "لم نعثر على تلفاز متوافق. تأكد أن الهاتف والتلفاز على شبكة Wi-Fi نفسها وأن DLNA/UPnP مفعّل.": ["No compatible TV found. Ensure your phone and TV use the same Wi-Fi and DLNA/UPnP is enabled.","Nie znaleziono zgodnego telewizora. Upewnij się, że telefon i telewizor są w tej samej sieci Wi-Fi oraz że DLNA/UPnP jest włączone."],
+  "تعذّر البحث. تأكد من اتصال Wi-Fi وأن التلفاز يدعم DLNA/UPnP.": ["Search failed. Check Wi-Fi and confirm that your TV supports DLNA/UPnP.","Wyszukiwanie nie powiodło się. Sprawdź Wi-Fi i obsługę DLNA/UPnP przez telewizor."],
+  "ابحث عن التلفاز واختره أولًا.": ["Search for and select a TV first.","Najpierw wyszukaj i wybierz telewizor."],
+  "اختر أغنية أو فيديو من مكتبة الهاتف أولًا؛ الملفات المستوردة لا يمكن بثها مباشرة حاليًا.": ["Choose a song or video from your phone library first; imported files cannot be cast directly yet.","Najpierw wybierz utwór lub film z biblioteki telefonu; plików zaimportowanych nie można jeszcze przesyłać bezpośrednio."],
+  "جارٍ إرسال الملف إلى التلفاز…": ["Sending file to TV…","Wysyłanie pliku do telewizora…"],
+  "تم إرسال الطلب إلى التلفاز. تحكّم بالتشغيل من التلفاز أو من زر الإيقاف هنا.": ["Request sent to the TV. Control playback on the TV or stop it here.","Wysłano żądanie do telewizora. Steruj odtwarzaniem na telewizorze lub zatrzymaj je tutaj."],
+  "لم يبدأ البث. قد لا يدعم التلفاز DLNA أو صيغة الملف الحالي.": ["Casting did not start. The TV may not support DLNA or this file format.","Przesyłanie nie rozpoczęło się. Telewizor może nie obsługiwać DLNA lub tego formatu pliku."],
+  "تم إرسال أمر إيقاف البث.": ["Sent the stop-casting command.","Wysłano polecenie zatrzymania przesyłania."],
+  "تعذّر إيقاف البث من الهاتف.": ["Could not stop casting from the phone.","Nie udało się zatrzymać przesyłania z telefonu."],
+  "اختيار مسارات الصوت يعتمد على دعم Android WebView لصيغة الفيديو.": ["Audio-track selection depends on Android WebView support for the video format.","Wybór ścieżki dźwiękowej zależy od obsługi formatu wideo przez Android WebView."],
+  "مسار صوت ": ["Audio track ","Ścieżka audio "],
+  "هذه الصيغة لا تسمح بتغيير مسار الصوت في مشغل الهاتف.": ["This format does not allow changing the audio track in the phone player.","Ten format nie pozwala zmienić ścieżki dźwiękowej w odtwarzaczu telefonu."],
+  "ملف موسيقى": ["Music file","Plik muzyczny"],
+  "إضافة إلى الطابور": ["Add to queue","Dodaj do kolejki"],
+  "تحويل الفيديو إلى موسيقى": ["Convert video to audio","Konwertuj wideo na dźwięk"],
+  "حفظ مسار الصوت كملف M4A": ["Save audio track as an M4A file","Zapisz ścieżkę dźwiękową jako plik M4A"],
+  "متاح لفيديوهات مكتبة الهاتف": ["Available for videos in the phone library","Dostępne dla filmów z biblioteki telefonu"],
+  "جارٍ…": ["Working…","Przetwarzanie…"],
+  "استخراج": ["Extract","Wyodrębnij"],
+  "استكشاف": ["Explore","Odkrywaj"],
+  "القوائم الذكية": ["Smart playlists","Inteligentne playlisty"],
+  "YouTube Music / فيديو": ["YouTube Music / Video","YouTube Music / Wideo"],
+  "التلفاز": ["TV","Telewizor"],
+  "اسم أغنية، فنان، ألبوم أو Playlist": ["Song, artist, album, or playlist name","Nazwa utworu, wykonawcy, albumu lub playlisty"],
+  "بحث في YouTube Music": ["Search YouTube Music","Szukaj w YouTube Music"],
+  "فتح YouTube Music": ["Open YouTube Music","Otwórz YouTube Music"],
+  "اختر أغنية صوتية من مكتبة HEMA أولًا، ثم ابحث عنها هنا.": ["Choose an audio track from your HEMA library first, then search for it here.","Najpierw wybierz utwór audio z biblioteki HEMA, a następnie wyszukaj go tutaj."],
+  "YouTube Music · رابط رسمي": ["YouTube Music · Official link","YouTube Music · Oficjalny link"],
+  "YouTube · تشغيل رسمي مضمّن": ["YouTube · Official embedded player","YouTube · Oficjalny odtwarzacz osadzony"],
+  "TikTok · تشغيل رسمي مضمّن": ["TikTok · Official embedded player","TikTok · Oficjalny odtwarzacz osadzony"],
+  "رابط بدون معرّف": ["Link without ID","Link bez identyfikatora"],
+  "الألبومات": ["Albums","Albumy"],
+  "الفنانين": ["Artists","Wykonawcy"],
+  "الأنواع": ["Genres","Gatunki"],
+  "جارٍ الاتصال…": ["Connecting…","Łączenie…"],
+  "البحث عن أجهزة التلفاز": ["Search for TVs","Wyszukaj telewizory"],
+  "لم تختر ملفًا بعد": ["No file selected yet","Nie wybrano jeszcze pliku"],
+  "من مكتبة الهاتف": ["From phone library","Z biblioteki telefonu"],
+  "ملف مستورد غير قابل للبث المباشر": ["Imported file cannot be streamed directly","Zaimportowanego pliku nie można przesłać bezpośrednio"],
+  "تدوير الشاشة": ["Rotate screen","Obróć ekran"],
+  "تغيير ملاءمة الفيديو": ["Change video fit","Zmień dopasowanie wideo"],
+  "تكبير الترجمة": ["Increase subtitle size","Powiększ napisy"],
+  "تغيير لون الترجمة": ["Change subtitle color","Zmień kolor napisów"],
+  "تصغير الترجمة": ["Decrease subtitle size","Pomniejsz napisy"],
+  "قفل أو فتح اللمس": ["Lock or unlock touch","Zablokuj lub odblokuj dotyk"],
+  "اختيار مسار الصوت": ["Select audio track","Wybierz ścieżkę dźwiękową"],
+  "تأخير الترجمة": ["Delay subtitles","Opóźnij napisy"],
+  "تقديم الترجمة": ["Advance subtitles","Przyspiesz napisy"],
+  "جارٍ استخراج الصوت…": ["Extracting audio…","Wyodrębnianie dźwięku…"],
+  "استخراج وحفظ M4A": ["Extract and save M4A","Wyodrębnij i zapisz M4A"],
+  "مؤقت مخصص بالدقائق": ["Custom timer in minutes","Niestandardowy minutnik (minuty)"],
+  "أدخل من 1 إلى 1440 دقيقة.": ["Enter 1 to 1440 minutes.","Wpisz od 1 do 1440 minut."],
+  "بدء المؤقت المخصص": ["Start custom timer","Uruchom własny minutnik"],
+  "المؤقت الحالي: ": ["Current timer: ","Bieżący minutnik: "],
+  " د": [" min"," min"],
+  "City (English)": ["City","Miasto"],
+  "Country (English)": ["Country","Kraj"],
+  "آخر ما استمعت إليه": ["Recently played","Ostatnio odtwarzane"],
+  "أغانٍ قصيرة": ["Short songs","Krótkie utwory"],
+  "حسب السجل": ["Based on history","Na podstawie historii"],
+  "حسب الإحصاءات": ["Based on statistics","Na podstawie statystyk"],
+  "تشغيل متتابع": ["Continuous playback","Odtwarzanie ciągłe"],
+  "أجواء هادئة": ["Chill mood","Spokojny nastrój"],
+  "خلط ذكي": ["Smart shuffle","Inteligentne losowanie"],
+  "3 دقائق أو أقل": ["3 minutes or less","3 minuty lub mniej"],
+  "بث إلى التلفاز": ["Cast to TV","Przesyłaj na telewizor"],
+  "إرسال الملف الحالي إلى التلفاز": ["Send current file to TV","Wyślij bieżący plik do telewizora"],
+  "إيقاف البث": ["Stop casting","Zatrzymaj przesyłanie"],
+  "تحديد A أولًا، ثم B بعده.": ["Set A first, then B.","Najpierw ustaw A, potem B."],
+  "مؤقت النوم": ["Sleep timer","Wyłącznik czasowy"],
+  "الدقيقة": ["minute","minuta"],
+  "دقيقة": ["minute","minuta"],
+  "دقائق": ["minutes","minuty"],
+  "ساعة استماع": ["hours listened","godz. słuchania"],
+  "مكتبة HEMA": ["HEMA library","biblioteka HEMA"],
 }
 
 const entries = Object.entries(strings).sort((a, b) => b[0].length - a[0].length)
@@ -404,12 +496,13 @@ export function initLocalization(language: Language): () => void {
       ? 'HEMA ROKSI PLAYER — music and video player with advanced audio tools and local library.'
       : 'HEMA ROKSI PLAYER — odtwarzacz muzyki i wideo z zaawansowanym dźwiękiem i lokalną biblioteką.'
 
-  const translateNode = (node: Node) => {
+  const translateNode = (node: Node, fromObserver = false) => {
     if (node.nodeType === Node.TEXT_NODE) {
       const n = node as Text
       if (!n.parentElement || n.parentElement.closest('script,style,textarea')) return
       const current = n.nodeValue ?? ''
       const record = textRecords.get(n)
+      if (fromObserver && record && current === record.translated) return
       const original = record && current === record.translated ? record.original : current
       const translated = translateText(original, language)
       textRecords.set(n, { original, translated })
@@ -435,9 +528,9 @@ export function initLocalization(language: Language): () => void {
   translateNode(document.body)
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.type === 'characterData' && mutation.target.parentElement) translateNode(mutation.target)
-      for (const node of Array.from(mutation.addedNodes)) translateNode(node)
-      if (mutation.type === 'attributes' && mutation.target instanceof Element) translateNode(mutation.target)
+      if (mutation.type === 'characterData' && mutation.target.parentElement) translateNode(mutation.target, true)
+      for (const node of Array.from(mutation.addedNodes)) translateNode(node, true)
+      if (mutation.type === 'attributes' && mutation.target instanceof Element) translateNode(mutation.target, true)
     }
   })
   observer.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: attrs })
