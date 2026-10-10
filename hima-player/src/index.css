@@ -16,7 +16,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 @keyframes spin{to{transform:rotate(360deg)}}
 video{background:#03050a}
-video::cue{font-size:1.2rem;background:rgba(0,0,0,.72)}
+video::cue{font-size:var(--hema-cue-size,120%);color:var(--hema-cue-color,#fff);background:rgba(0,0,0,.78);text-shadow:0 1px 2px #000}
 
 /* HEMA ROKSI accessibility and mobile polish */
 button,label{ -webkit-user-select:none; user-select:none }
@@ -45,3 +45,9 @@ label{touch-action:manipulation}
 video{max-width:100%}
 @media(min-width:640px){body{background-attachment:fixed}}
 @media(prefers-reduced-motion:reduce){button,main>ul>li{transition:none!important;animation:none!important}}
+
+/* Queue / Vault / Party polish */
+:root{--hema-cue-size:120%;--hema-cue-color:#fff}
+input[type=password]{letter-spacing:.12em}
+canvas{max-width:100%}
+@media(max-height:700px){.fixed.inset-0.z-30{gap:10px!important;padding:12px!important}.fixed.inset-0.z-30 .w-4\/5{width:min(54vw,220px)}}
