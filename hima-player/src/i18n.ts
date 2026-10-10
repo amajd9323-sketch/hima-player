@@ -364,7 +364,7 @@ const strings: Record<string, Pair> = {
   "عرض المزيد من الفيديوهات": ["Load more videos", "Załaduj więcej filmów"],
   "تحميل المزيد من ملفات الهاتف": ["Load more files from phone", "Załaduj więcej plików z telefonu"],
   "جارٍ تحميل المزيد…": ["Loading more…", "Ładowanie kolejnych…"],
-  "تعذر تحميل المزيد من ملفات الهاتف. اضغط تحديث للمحاولة.": ["Could not load more files. Tap Refresh to retry.", "Nie można wczytać kolejnych plików. Dotknij Odśwież, aby spróbować ponownie."]
+  "تعذر تحميل المزيد من ملفات الهاتف. اضغط تحديث للمحاولة.": ["Could not load more files. Tap Refresh to retry.", "Nie można wczytać kolejnych plików. Dotknij Odśwież, aby spróbować ponownie."],
   "ألبوم غير معروف": ["Unknown album","Nieznany album"],
   "فنان غير معروف": ["Unknown artist","Nieznany wykonawca"],
   "غير مصنّف": ["Uncategorized","Bez kategorii"],
