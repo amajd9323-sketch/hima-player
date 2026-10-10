@@ -42,6 +42,7 @@ function VThumb({ src, dur: known }: { src: string; dur?: number }) {
 
 export default function App() {
   const [q, setQ] = useState<Track[]>([])
+  const qRef = useRef<Track[]>([]); qRef.current = q
   const [i, setI] = useState(-1)
   const [tab, setTab] = useState<Tab>('video')
   const [scanMsg, setScanMsg] = useState('')
@@ -124,14 +125,14 @@ export default function App() {
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
-  useEffect(() => { localStorage.setItem('hema_queue', JSON.stringify(queueIds.filter((id) => q.some((x) => x.id === id)))) }, [queueIds, q])
+  useEffect(() => { localStorage.setItem('hema_queue', JSON.stringify(queueIds)) }, [queueIds])
   useEffect(() => { localStorage.setItem('hema_crossfade', JSON.stringify(crossfade)) }, [crossfade])
   useEffect(() => { localStorage.setItem('hema_cue_size', JSON.stringify(cueSize)); document.documentElement.style.setProperty('--hema-cue-size', cueSize + '%'); localStorage.setItem('hema_cue_color', cueColor); document.documentElement.style.setProperty('--hema-cue-color', cueColor) }, [cueSize, cueColor])
   useEffect(() => { localStorage.setItem('hema_custom_eq', JSON.stringify(customEq)) }, [customEq])
   useEffect(() => { localStorage.setItem('hema_lyr_offset', JSON.stringify(lyrOffset)); localStorage.setItem('hema_bass_boost', JSON.stringify(bassBoost)); localStorage.setItem('hema_spatial', JSON.stringify(spatial)); localStorage.setItem('hema_book_mode', JSON.stringify(bookMode)); if (wetN.current && ac.current) wetN.current.gain.setTargetAtTime(spatial ? 0.22 : 0, ac.current.currentTime, 0.04) }, [lyrOffset, bassBoost, spatial, bookMode])
   useEffect(() => { bands.current.forEach((b, j) => { b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0) }) }, [eq, customEq, bassBoost])
   useEffect(() => { localStorage.setItem('hema_recent', JSON.stringify(recent.slice(0, 100))) }, [recent])
-  useEffect(() => { const id = q[i]?.id; if (!id) return; setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
+  useEffect(() => { const id = q[i]?.id; if (!id) return; localStorage.setItem('hema_last_track', id); setRecent((p) => [id, ...p.filter((item) => item !== id)].slice(0, 100)) }, [q[i]?.id])
   const m = useRef<HTMLVideoElement>(null)
   const hide = useRef<number>()
   const ac = useRef<AudioContext>()
@@ -162,7 +163,8 @@ export default function App() {
     let imp: Track[] = []
     try { imp = (await all()).sort((a, b) => a.at - b.at).map((x) => ({ ...x, url: URL.createObjectURL(x.blob) })) } catch { /* ignore */ }
     const list = [...lib, ...imp]
-    setQ(list); setI(keep ? list.findIndex((x) => x.id === keep) : -1)
+    setQ(list); setQueueIds((p) => p.filter((id) => list.some((x) => x.id === id)))
+    setI(keep ? list.findIndex((x) => x.id === keep) : -1)
   }
   useEffect(() => { void load() }, [])
 
@@ -324,13 +326,20 @@ export default function App() {
     void updateWidget(cur?.title ?? 'HEMA ROKSI PLAYER', cur?.artist ?? (cur?.video ? 'Video' : 'مكتبة Hema'), playing)
     let polling = false
     const timer = window.setInterval(async () => {
-      if (polling) return
+      if (polling || !qRef.current.length) return
       polling = true
-      try { const command = await consumeWidgetCommand(); if (command === 'toggle') toggleRef.current(); else if (command === 'next') stepRef.current(1); else if (command === 'prev') stepRef.current(-1) }
+      try {
+        const command = await consumeWidgetCommand()
+        if (command === 'toggle') {
+          if (cur) toggleRef.current()
+          else { const last = ls<string>('hema_last_track', ''); const remembered = qRef.current.findIndex((x) => x.id === last); const firstAudio = qRef.current.findIndex((x) => !x.video); const target = remembered >= 0 ? remembered : firstAudio >= 0 ? firstAudio : 0; if (qRef.current[target]) setI(target) }
+        } else if (command === 'next') { if (cur) stepRef.current(1); else { const first = qRef.current.findIndex((x) => !x.video); if (first >= 0) setI(first) } }
+        else if (command === 'prev') { if (cur) stepRef.current(-1); else { const last = ls<string>('hema_last_track', ''); const target = qRef.current.findIndex((x) => x.id === last); if (target >= 0) setI(target) } }
+      }
       finally { polling = false }
     }, 750)
     return () => window.clearInterval(timer)
-  }, [cur?.id, cur?.artist, cur?.video, playing])
+  }, [cur?.id, cur?.artist, cur?.video, playing, q.length])
   const tick = (ct: number) => {
     const dt = ct - lastCt.current; lastCt.current = ct
     if (!cur || dt <= 0 || dt > 1.5) return
@@ -364,6 +373,35 @@ export default function App() {
     window.addEventListener('devicemotion', f)
     return () => window.removeEventListener('devicemotion', f)
   }, [shake])
+  useEffect(() => {
+    if (!party) return
+    let frame = 0
+    const canvas = partyCanvas.current
+    const ctx = canvas?.getContext('2d')
+    const values = new Uint8Array(64)
+    const draw = () => {
+      if (!canvas || !ctx) return
+      const rect = canvas.getBoundingClientRect(); const ratio = Math.max(1, window.devicePixelRatio || 1)
+      const w = Math.max(1, Math.floor(rect.width)); const h = Math.max(1, Math.floor(rect.height))
+      if (canvas.width !== w * ratio || canvas.height !== h * ratio) { canvas.width = w * ratio; canvas.height = h * ratio }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+      ctx.fillStyle = 'rgba(4,6,12,.24)'; ctx.fillRect(0, 0, w, h)
+      const analyser = anN.current; if (analyser) analyser.getByteFrequencyData(values); else values.fill(18)
+      ctx.save(); ctx.translate(w / 2, h / 2)
+      const radius = Math.min(w, h) * 0.16
+      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI * 2); ctx.strokeStyle = A; ctx.globalAlpha = 0.55; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1
+      for (let n = 0; n < values.length; n++) {
+        const angle = n / values.length * Math.PI * 2
+        const level = values[n] / 255 * Math.min(w, h) * 0.3 + 3
+        const x1 = Math.cos(angle) * (radius + 8); const y1 = Math.sin(angle) * (radius + 8)
+        const x2 = Math.cos(angle) * (radius + level + 8); const y2 = Math.sin(angle) * (radius + level + 8)
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = n % 3 === 0 ? A : n % 3 === 1 ? '#24D9C2' : '#C084FC'; ctx.lineWidth = Math.max(1.5, Math.min(5, w / 100)); ctx.lineCap = 'round'; ctx.stroke()
+      }
+      ctx.restore(); frame = requestAnimationFrame(draw)
+    }
+    draw()
+    return () => cancelAnimationFrame(frame)
+  }, [party, playing])
   useEffect(() => {
     if (!sheet || !playing) return
     let raf = 0; const buf = new Uint8Array(32)
@@ -547,7 +585,7 @@ export default function App() {
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
       <video ref={m} playsInline onClick={poke}
         className={fs ? `fixed inset-0 z-40 size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
-        onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { setPlaying(false); void keepAlive(false) }}
+        onPlay={() => { setPlaying(true); initAudio(); poke(); void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
         onTimeUpdate={(e) => { setT(e.currentTarget.currentTime); savePos(e.currentTarget.currentTime); tick(e.currentTarget.currentTime); void maybeCrossfade(e.currentTarget.currentTime) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track default kind="subtitles" src={sub} />}</video>
 
       <header className="flex items-center gap-2 px-4 py-3">
@@ -721,7 +759,7 @@ export default function App() {
                 <p className="text-xs opacity-60">{group.length} ملفات · {group[0].video ? "فيديو" : "صوت"}</p>
                 {group.map((x) => <p key={x.id} className="truncate text-xs opacity-50">{x.folder || "ملف مستورد"}{x.size ? " · " + (x.size / 1048576).toFixed(1) + " MB" : ""}</p>)}
               </div>)}
-              <p className="text-xs opacity-50">الفحص حسب الاسم والفنان فقط؛ لا يحذف أي ملف تلقائيا.</p>
+              <p className="text-xs opacity-50">SHA-256 للملفات المستوردة؛ مقارنة الاسم والفنان والحجم والمدة لملفات الجهاز. لا حذف تلقائي.</p>
             </div>}
             <p className="text-sm opacity-60">النسخ الاحتياطي</p>
             <div className="flex flex-wrap gap-2">
