@@ -148,6 +148,7 @@ export default function App() {
   const [eq, setEq] = useState(0)
   const [customEq, setCustomEq] = useState<number[]>(() => { const v = ls<number[]>('hema_custom_eq', Array(10).fill(0)); if (Array.isArray(v) && v.length === 10) return v.map((n) => Math.max(-12, Math.min(12, Number(n) || 0))); if (Array.isArray(v) && v.length === 5) { const n = Array(10).fill(0) as number[]; [1, 3, 5, 7, 9].forEach((j, k) => { n[j] = Math.max(-12, Math.min(12, Number(v[k]) || 0)) }); return n } return Array(10).fill(0) })
   const [sleep, setSleep] = useState(0)
+  const [sleepCustom, setSleepCustom] = useState('25')
   const [loopA, setLoopA] = useState<number | null>(null)
   const [loopB, setLoopB] = useState<number | null>(null)
   const [vol, setVol] = useState<number | null>(null)
@@ -1643,8 +1644,19 @@ export default function App() {
               {panel === 'eq' && <div className="flex flex-wrap gap-2"><Opt on={bassBoost} onClick={() => setBassBoost(!bassBoost)}>تعزيز الجهير</Opt><Opt on={spatial} onClick={() => setSpatial(!spatial)}>صدى محيطي</Opt></div>}
               <div className="flex flex-wrap gap-2">
                 {panel === 'eq' ? EQS.map((e, k) => <Opt key={e.n} on={eq === k} onClick={() => applyEq(k)}>{e.n}</Opt>)
-                  : [0, 15, 30, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
+                  : [0, 15, 20, 40, 60, -1].map((n) => <Opt key={n} on={sleep === n} onClick={() => { setSleep(n); setPanel(null) }}>{n === -1 ? 'نهاية المقطع' : n ? `${n} د` : 'إيقاف'}</Opt>)}
               </div>
+              {panel === 'sleep' && (
+                <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <label className="block space-y-2 text-sm">
+                    <span className="font-medium">مؤقت مخصص بالدقائق</span>
+                    <input dir="ltr" type="number" inputMode="numeric" min={1} max={1440} step={1} value={sleepCustom} onChange={(e) => setSleepCustom(e.target.value)} placeholder="25" className="w-full rounded-xl bg-white/5 px-3 py-3 outline-none" aria-label="مؤقت مخصص بالدقائق" />
+                    <span className="block text-xs opacity-55">أدخل من 1 إلى 1440 دقيقة.</span>
+                  </label>
+                  <button disabled={!Number.isFinite(Number(sleepCustom)) || Number(sleepCustom) < 1 || Number(sleepCustom) > 1440} onClick={() => { setSleep(Math.max(1, Math.min(1440, Math.floor(Number(sleepCustom)) || 1))); setPanel(null) }} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-40" style={{ background: A }}>بدء المؤقت المخصص</button>
+                  {sleep > 0 && <p className="text-center text-xs opacity-60">المؤقت الحالي: {sleep} دقيقة</p>}
+                </div>
+              )}
               {panel === 'eq' && <>
                 {eq === EQS.length - 1 && <div className="space-y-3 rounded-xl bg-black/20 p-3">{BANDS.map((f, j) => <label key={f} className="grid grid-cols-[54px_1fr_42px] items-center gap-2 text-xs"><span dir="ltr">{f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`}</span><input aria-label={`EQ ${f} Hz`} type="range" min={-12} max={12} step={1} value={customEq[j]} onChange={(e) => changeEqBand(j, +e.target.value)} style={{ accentColor: A }} /><span className="text-end" dir="ltr">{customEq[j] > 0 ? '+' : ''}{customEq[j]} dB</span></label>)}</div>}
                 <div className="grid grid-cols-2 gap-2"><button onClick={saveEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">حفظ بروفايل المقطع</button><button onClick={loadEqProfile} className="rounded-xl bg-white/10 px-3 py-2 text-xs">تطبيق البروفايل</button></div>
