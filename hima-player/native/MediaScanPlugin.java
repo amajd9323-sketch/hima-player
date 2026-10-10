@@ -10,6 +10,11 @@ import android.app.PictureInPictureParams;
 import android.util.Rational;
 import android.view.WindowManager;
 import java.io.File;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import android.provider.MediaStore;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -27,6 +32,74 @@ import com.getcapacitor.annotation.PermissionCallback;
     @Permission(alias = "storage", strings = { Manifest.permission.READ_EXTERNAL_STORAGE })
 })
 public class MediaScanPlugin extends Plugin {
+
+    private static volatile String pendingSharedUrl = "";
+
+    private static boolean isAllowedMediaUrl(String raw) {
+        try {
+            Uri uri = Uri.parse(raw);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null ||
+                !(scheme.equalsIgnoreCase("https") || scheme.equalsIgnoreCase("http"))) return false;
+            host = host.toLowerCase(Locale.US);
+            return host.equals("youtu.be") || host.equals("youtube.com") || host.endsWith(".youtube.com") ||
+                host.equals("youtube-nocookie.com") || host.endsWith(".youtube-nocookie.com") ||
+                host.equals("tiktok.com") || host.endsWith(".tiktok.com");
+        } catch (Exception ignored) { return false; }
+    }
+
+    private static boolean isTikTokHost(String host) {
+        if (host == null) return false;
+        String h = host.toLowerCase(Locale.US);
+        return h.equals("tiktok.com") || h.endsWith(".tiktok.com");
+    }
+
+    public static void captureSharedIntent(Intent intent) {
+        if (intent == null) return;
+        String raw = intent.getDataString();
+        if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            String shared = intent.getStringExtra(Intent.EXTRA_TEXT);
+            if (shared != null && !shared.trim().isEmpty()) raw = shared;
+        }
+        if (raw == null) return;
+        Matcher matcher = Pattern.compile("https?://[^\\s<>\\\"']+", Pattern.CASE_INSENSITIVE).matcher(raw);
+        if (!matcher.find()) return;
+        String candidate = matcher.group().replaceFirst("[)\\]}>.,!?;:]+$", "");
+        if (isAllowedMediaUrl(candidate)) pendingSharedUrl = candidate;
+    }
+
+    private static String followTikTokRedirects(String start) {
+        String current = start;
+        for (int hop = 0; hop < 5; hop++) {
+            HttpURLConnection connection = null;
+            try {
+                URL url = new URL(current);
+                if (!isAllowedMediaUrl(current) || !isTikTokHost(Uri.parse(current).getHost())) return current;
+                connection = (HttpURLConnection) url.openConnection();
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(2500);
+                connection.setReadTimeout(2500);
+                connection.setRequestMethod("GET");
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36");
+                int status = connection.getResponseCode();
+                if (status >= 300 && status < 400) {
+                    String location = connection.getHeaderField("Location");
+                    if (location == null || location.trim().isEmpty()) return current;
+                    String next = new URL(url, location).toString();
+                    if (!isAllowedMediaUrl(next) || !isTikTokHost(Uri.parse(next).getHost())) return current;
+                    current = next;
+                    continue;
+                }
+                return current;
+            } catch (Exception ignored) {
+                return current;
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        }
+        return current;
+    }
     private String[] aliases() {
         return Build.VERSION.SDK_INT >= 33 ? new String[] { "audio", "video" } : new String[] { "storage" };
     }
@@ -146,6 +219,31 @@ public class MediaScanPlugin extends Plugin {
                 call.reject("PIP_FAILED");
             }
         });
+    }
+
+
+    @PluginMethod
+    public void consumeSharedUrl(PluginCall call) {
+        String url = pendingSharedUrl;
+        pendingSharedUrl = "";
+        JSObject out = new JSObject();
+        out.put("url", url);
+        call.resolve(out);
+    }
+
+    @PluginMethod
+    public void resolveTikTokUrl(PluginCall call) {
+        String raw = call.getString("url", "");
+        if (!isAllowedMediaUrl(raw) || !isTikTokHost(Uri.parse(raw).getHost())) {
+            call.reject("TIKTOK_URL_REQUIRED");
+            return;
+        }
+        new Thread(() -> {
+            String resolved = followTikTokRedirects(raw);
+            JSObject out = new JSObject();
+            out.put("url", resolved);
+            call.resolve(out);
+        }, "HemaTikTokUrlResolver").start();
     }
 
     @PluginMethod
