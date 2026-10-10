@@ -149,14 +149,9 @@ button:disabled { opacity: .46; transform: none !important; }
   font-size: 13px;
   font-weight: 600;
 }
-#root > div > header + div > button[style*="background"] {
-  color: #fff;
-  border-color: color-mix(in srgb, var(--hema-purple) 52%, transparent);
-  box-shadow: 0 5px 16px color-mix(in srgb, var(--hema-purple) 13%, transparent);
-}
 
 /* Library count / refresh strip. */
-#root > div > header + div + div {
+#root > div > header + div + div.items-center.justify-between {
   min-height: 36px;
   padding: 2px 18px 7px;
   color: rgba(227,233,248,.62);
