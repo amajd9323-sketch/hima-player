@@ -502,7 +502,7 @@ export default function App() {
               <Opt on={false} onClick={exportBackup}>تصدير نسخة احتياطية</Opt>
               <label className="cursor-pointer rounded-full px-4 py-2 text-sm" style={{ background: '#ffffff1a' }}>استيراد نسخة احتياطية<input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { void importBackup(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
             </div>
-            {backupMsg && <p role="status" className="text-sm opacity-70">{backupMsg}</p>
+            {backupMsg && <p role="status" className="text-sm opacity-70">{backupMsg}</p>}
             <p className="text-xs opacity-50">لا إعلانات. ملفاتك ما تغادر جوالك. الإنترنت فقط للكلمات والذكاء والأذان.</p>
           </div>
         </div>
