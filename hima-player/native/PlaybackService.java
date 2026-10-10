@@ -13,6 +13,15 @@ import android.os.IBinder;
 public class PlaybackService extends Service {
     @Override public IBinder onBind(Intent i) { return null; }
 
+    private PendingIntent commandIntent(String command, int requestCode) {
+        Intent action = new Intent(this, HemaWidgetProvider.class);
+        action.setAction(HemaWidgetProvider.ACTION_COMMAND);
+        action.setPackage(getPackageName());
+        action.putExtra("command", command);
+        return PendingIntent.getBroadcast(this, requestCode, action,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
     @Override
     public int onStartCommand(Intent in, int flags, int id) {
         String title = in != null ? in.getStringExtra("title") : null;
@@ -26,7 +35,10 @@ public class PlaybackService extends Service {
         
         PendingIntent pi = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, "hema") : new Notification.Builder(this);
-        Notification n = b.setContentTitle(title).setContentText("Hema").setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(pi).setOngoing(true).build();
+        b.addAction(android.R.drawable.ic_media_previous, "Previous", commandIntent("prev", 10));
+        b.addAction(android.R.drawable.ic_media_play, "Play / Pause", commandIntent("toggle", 11));
+        b.addAction(android.R.drawable.ic_media_next, "Next", commandIntent("next", 12));
+        Notification n = b.setContentTitle(title).setContentText("HEMA ROKSI PLAYER").setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(pi).setOngoing(true).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK); else startForeground(1, n);
         return START_NOT_STICKY;
     }
