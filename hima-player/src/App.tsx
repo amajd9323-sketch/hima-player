@@ -246,8 +246,6 @@ export default function App() {
   const [openList, setOpenList] = useState<string | null>(null)
   const [newList, setNewList] = useState('')
   const [settings, setSettings] = useState(false)
-  const [navMenuOpen, setNavMenuOpen] = useState(false)
-  const [navGroupOpen, setNavGroupOpen] = useState<string | null>(null)
   const [roksiGlow, setRoksiGlow] = useState<boolean>(() => ls('hema_roksi_mode', true))
   const [roksiSongIds, setRoksiSongIds] = useState<string[]>(() => ls<string[]>('hema_roksi_songs', []))
   const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
@@ -1738,50 +1736,49 @@ export default function App() {
           <span className="hema-current-eyebrow">{language === 'ar' ? 'أنت الآن في' : language === 'pl' ? 'Bieżąca sekcja' : 'CURRENT SECTION'}</span>
           <strong>{activeNavItem?.label ?? (language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library')}</strong>
         </div>
-        <button type="button" className="hema-menu-toggle" aria-expanded={navMenuOpen} onClick={() => {
-          const opening = !navMenuOpen
-          setNavMenuOpen(opening)
-          if (opening && !navGroupOpen) {
-            setNavGroupOpen(navGroups.find((group) => group.items.some((item) => item.key === tab))?.id ?? 'library')
-          }
-        }}>
-          <Icon n={navMenuOpen ? 'close' : 'list'} s={19} />
-          <span>{language === 'ar' ? (navMenuOpen ? 'إغلاق القوائم' : 'قوائم الأقسام') : language === 'pl' ? (navMenuOpen ? 'Zamknij menu' : 'Menu sekcji') : (navMenuOpen ? 'Close menu' : 'Browse sections')}</span>
-          <Icon n="down" s={17} />
-        </button>
       </div>
-      {navMenuOpen && (
-        <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+      <details className="hema-section-dropdown" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <summary className="hema-menu-toggle">
+          <Icon n="list" s={19} />
+          <span>{language === 'ar' ? 'قوائم الأقسام' : language === 'pl' ? 'Menu sekcji' : 'Browse sections'}</span>
+          <Icon n="down" s={17} />
+        </summary>
+        <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
           {navGroups.map((group) => {
             const groupActive = group.items.some((item) => item.key === tab)
-            const groupExpanded = navGroupOpen === group.id
             const currentItem = group.items.find((item) => item.key === tab)
             return (
-              <section key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''} ${groupExpanded ? 'is-expanded' : ''}`}>
-                <button type="button" className="hema-nav-group-trigger" aria-expanded={groupExpanded} onClick={() => setNavGroupOpen(groupExpanded ? null : group.id)}>
+              <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
+                <summary className="hema-nav-group-trigger">
                   <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
                   <span className="hema-nav-group-copy">
                     <strong>{group.title}</strong>
                     <small>{currentItem ? currentItem.label : group.description}</small>
                   </span>
                   <span className="hema-nav-chevron"><Icon n="down" s={19} /></span>
-                </button>
-                {groupExpanded && (
-                  <div className="hema-nav-options">
-                    {group.items.map((item) => (
-                      <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={() => {
-                        setTab(item.key); setOpenFolder(null); setOpenList(null); if (item.key === 'explore') setExploreValue(null); setNavMenuOpen(false); setNavGroupOpen(null)
-                      }}>
-                        <Icon n={item.icon} s={18} /><span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
+                </summary>
+                <div className="hema-nav-options">
+                  {group.items.map((item) => (
+                    <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={(e) => {
+                      setTab(item.key)
+                      setOpenFolder(null)
+                      setOpenList(null)
+                      if (item.key === 'explore') setExploreValue(null)
+                      const menu = e.currentTarget.closest('details.hema-section-dropdown')
+                      if (menu) {
+                        menu.open = false
+                        menu.querySelectorAll('details.hema-nav-group').forEach((node) => { (node as HTMLDetailsElement).open = false })
+                      }
+                    }}>
+                      <Icon n={item.icon} s={18} /><span>{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </details>
             )
           })}
         </nav>
-      )}
+      </details>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'roksi' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
