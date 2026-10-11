@@ -2340,9 +2340,9 @@ export default function App() {
 
       {fs && cur?.video && (
         <div className="fixed inset-0 z-[120] select-none" onClick={toggleVideoUi}
-          onTouchStart={(e) => { if (lockedScreen) return; const p = e.touches[0]; g.current = { x: p.clientX, y: p.clientY, ax: '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
+          onTouchStart={(e) => { if (lockedScreen) return; const p = e.touches[0]; const uiTarget = e.target instanceof Element && Boolean(e.target.closest('.video-overlay-top, .video-bottom-controls, .video-center-controls, button, input, label, select, textarea, details, summary')); g.current = { x: p.clientX, y: p.clientY, ax: uiTarget ? 'ui' : '', v: m.current?.volume ?? 1, b: bright, t, w: window.innerWidth, left: p.clientX < window.innerWidth / 2, nt: -1 } }}
           onTouchMove={(e) => {
-            if (lockedScreen) return; const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
+            if (lockedScreen || g.current.ax === 'ui') return; const p = e.touches[0]; const G = g.current; const dx = p.clientX - G.x; const dy = G.y - p.clientY
             if (!G.ax && (Math.abs(dx) > 14 || Math.abs(dy) > 14)) G.ax = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
             if (G.ax === 'y') {
               if (G.left) { const b = Math.max(0.05, Math.min(1, G.b + dy / 250)); setBright(b); setHud({ k: 'br', v: b }) }
@@ -2352,6 +2352,7 @@ export default function App() {
           onTouchEnd={() => {
             if (lockedScreen) return
             const G = g.current
+            if (G.ax === 'ui') { G.ax = ''; return }
             if (G.ax) {
               suppressVideoTap.current = true
               window.setTimeout(() => { suppressVideoTap.current = false }, 450)
