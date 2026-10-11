@@ -2142,18 +2142,7 @@ button:focus-visible {
 .media-track-actions .media-action-button > span {
   overflow-wrap: anywhere;
 }
-.video-tools-dropdown:not([open]) > .video-toolbar,
-.media-track-actions:not([open]) > .media-track-action-grid,
-.hema-section-dropdown:not([open]) > .hema-nav-menu,
-.hema-nav-group:not([open]) > .hema-nav-options {
-  display: none !important;
-}
-.video-tools-dropdown[open] > .video-toolbar,
-.media-track-actions[open] > .media-track-action-grid,
-.hema-section-dropdown[open] > .hema-nav-menu,
-.hema-nav-group[open] > .hema-nav-options {
-  display: grid;
-}
+/* Obsolete details[open] rules intentionally removed: menus now use React state. */
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="السابق"],
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="إيقاف"],
@@ -2321,4 +2310,74 @@ button:focus-visible {
 }
 @media (prefers-reduced-motion:reduce) {
   .hema-section-sheet-backdrop, .hema-section-sheet, .media-track-action-grid, .music-tools-content, .video-tools-content { animation:none !important; transition:none !important; }
+}
+
+
+/* HEMA interaction hotfix: remove stacking-context blockers and obsolete native-menu selectors. */
+.hema-media-navigation { position:relative; z-index:5 !important; isolation:auto !important; }
+.hema-section-sheet-backdrop {
+  position:fixed !important; inset:0 !important; z-index:2147483000 !important;
+  display:flex !important; align-items:flex-end !important; justify-content:center !important;
+  padding:10px !important; pointer-events:auto !important; touch-action:manipulation;
+}
+.hema-section-sheet {
+  position:relative !important; z-index:1 !important; pointer-events:auto !important;
+  width:min(100%,560px) !important; max-height:min(84dvh,760px) !important;
+  margin:0 auto !important; touch-action:pan-y;
+}
+.hema-section-sheet * { pointer-events:auto; }
+.hema-section-sheet button,
+.hema-menu-toggle,
+.hema-primary-media-tab,
+.media-actions-trigger,
+.music-tools-toggle,
+.video-tools-toggle {
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+.hema-section-sheet .hema-nav-option {
+  position:relative !important; z-index:2 !important; min-height:50px !important;
+  pointer-events:auto !important; cursor:pointer; touch-action:manipulation;
+}
+.hema-section-sheet .hema-nav-menu { position:relative; z-index:1; overflow-y:auto; overscroll-behavior:contain; }
+.media-track-actions:not(.is-open) > .media-track-action-grid { display:none !important; }
+.media-track-actions.is-open > .media-track-action-grid {
+  display:grid !important; visibility:visible !important; opacity:1 !important;
+  position:relative; z-index:2; pointer-events:auto !important; grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.media-track-actions .media-action-button { pointer-events:auto !important; cursor:pointer; touch-action:manipulation; }
+.music-tools-content, .video-tools-content { position:relative; z-index:2; pointer-events:auto; }
+.music-tools-content button, .video-tools-content button, .video-tools-content label,
+.music-tools-grid button, .music-loop-actions button { pointer-events:auto !important; touch-action:manipulation; }
+.hema-primary-media-tabs { gap:10px !important; padding:6px !important; }
+.hema-primary-media-tab {
+  min-height:66px !important; justify-content:flex-start !important;
+  padding:12px 14px !important; border-radius:17px !important;
+}
+.hema-primary-media-tab > svg { flex:0 0 auto; }
+.hema-primary-media-tab > span:nth-child(2) {
+  flex:1; min-width:0; font-size:14px; font-weight:800; text-align:start;
+}
+.hema-primary-media-tab > .hema-media-count { min-width:27px; min-height:27px; }
+.hema-menu-toggle { min-height:54px !important; font-size:13px; font-weight:750; }
+.media-track-row { gap:7px; padding:9px !important; }
+.media-track-main { min-height:68px !important; border-radius:16px !important; }
+.media-actions-trigger { min-height:46px !important; border-radius:13px !important; }
+.music-tools-dropdown.is-open { position:relative; z-index:80; }
+.music-tools-content { max-height:48dvh !important; -webkit-overflow-scrolling:touch; }
+.music-tools-grid > button { min-height:64px !important; padding:10px 7px !important; font-size:11px !important; }
+.video-tools-dropdown.is-open { position:relative; z-index:90 !important; }
+.video-tools-toggle { min-height:52px !important; }
+.video-tools-content { max-height:min(57dvh,460px) !important; -webkit-overflow-scrolling:touch; }
+.video-tools-content .video-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)) !important; gap:9px !important; padding:10px !important; }
+.video-tools-content .video-tool { min-height:52px !important; border-radius:13px !important; padding:10px 8px !important; font-size:12px !important; }
+.video-tools-content .video-volume-boost { grid-column:1/-1; }
+@media (max-width:380px) {
+  .hema-section-sheet-backdrop { padding:7px !important; }
+  .hema-section-sheet { max-height:87dvh !important; }
+  .hema-section-sheet .hema-nav-menu { grid-template-columns:minmax(0,1fr) !important; }
+  .hema-section-sheet .hema-nav-options { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .media-track-actions.is-open > .media-track-action-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .music-tools-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+  .hema-primary-media-tab { min-height:60px !important; padding-inline:9px !important; }
+  .hema-primary-media-tab > span:nth-child(2) { font-size:12px; }
 }

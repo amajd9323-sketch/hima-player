@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { App as CapacitorApp } from '@capacitor/app'
 import { AppLauncher } from '@capacitor/app-launcher'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
@@ -1033,6 +1034,9 @@ export default function App() {
     let toastTimer: number | undefined
     const listener = CapacitorApp.addListener('backButton', () => {
       if (lockedScreen) { setLockedScreen(false); poke(); return }
+      if (sectionsMenuOpen) { setSectionsMenuOpen(false); return }
+      if (videoToolsOpen) { setVideoToolsOpen(false); return }
+      if (musicToolsOpen) { setMusicToolsOpen(false); return }
       if (fs) { closeVideo(); return }
       if (editingMeta) { setEditingMeta(null); setEditCover(null); setEditCoverUrl(null); return }
       if (plSheet) { setPlSheet(null); return }
@@ -1063,7 +1067,7 @@ export default function App() {
       if (toastTimer) window.clearTimeout(toastTimer)
       void listener.then((handle) => handle.remove())
     }
-  }, [lockedScreen, fs, editingMeta, plSheet, sheet, panel, settings, vaultOpen, wrap, party, duplicates, sub, onlineMedia, openFolder, openList, tab])
+  }, [lockedScreen, sectionsMenuOpen, videoToolsOpen, musicToolsOpen, fs, editingMeta, plSheet, sheet, panel, settings, vaultOpen, wrap, party, duplicates, sub, onlineMedia, openFolder, openList, tab])
   const poke = () => {
     setUi(true)
     window.clearTimeout(hide.current)
@@ -1793,6 +1797,41 @@ export default function App() {
     setSectionsMenuOpen(false)
     setTrackActionsOpen(null)
   }
+  const sectionsMenuOverlay = {sectionsMenuOpen && createPortal(<div className="hema-section-sheet-backdrop" role="presentation" onClick={closeSectionsMenu}>
+          <section id="hema-section-sheet" className="hema-section-sheet" role="dialog" aria-modal="true" aria-label={language === 'ar' ? 'أقسام التطبيق' : language === 'pl' ? 'Sekcje aplikacji' : 'App sections'} dir={language === 'ar' ? 'rtl' : 'ltr'} onClick={(e) => e.stopPropagation()}>
+            <div className="hema-section-sheet-heading">
+              <div><p className="hema-sheet-eyebrow">HEMA YARA PLAYER</p><h2>{language === 'ar' ? 'اختر القسم' : language === 'pl' ? 'Wybierz sekcję' : 'Choose a section'}</h2><p>{language === 'ar' ? 'كل الأدوات في مكان واحد، بدون قوائم متداخلة.' : language === 'pl' ? 'Wszystkie narzędzia w jednym miejscu.' : 'Every section in one place. No nested menus.'}</p></div>
+              <button type="button" className="hema-sheet-close" aria-label={language === 'ar' ? 'إغلاق القائمة' : 'Close menu'} onClick={closeSectionsMenu}><Icon n="close" s={21} /></button>
+            </div>
+            <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
+              {navGroups.map((group) => {
+                const groupActive = group.items.some((item) => item.key === tab)
+                const currentItem = group.items.find((item) => item.key === tab)
+                return (
+                  <section key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
+                    <div className="hema-nav-group-trigger">
+                      <span className="hema-nav-group-icon"><Icon n={group.icon} s={19} /></span>
+                      <span className="hema-nav-group-copy"><strong>{group.title}</strong><small>{currentItem ? currentItem.label : group.description}</small></span>
+                    </div>
+                    <div className="hema-nav-options">
+                      {group.items.map((item) => (
+                        <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={() => {
+                          setTab(item.key)
+                          setOpenFolder(null)
+                          setOpenList(null)
+                          if (item.key === 'explore') setExploreValue(null)
+                          closeSectionsMenu()
+                        }}>
+                          <Icon n={item.icon} s={18} /><span>{item.label}</span>{tab === item.key && <span className="hema-nav-selected-mark">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )
+              })}
+            </nav>
+          </section>
+        </div>, document.body)}
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
@@ -1805,6 +1844,7 @@ export default function App() {
 
       <YaraBackground />
       <YaraWelcome language={language} />
+      {sectionsMenuOverlay}
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA YARA PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">YARA PLAYER</p></div></div>
           : <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="بحث" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 outline-none" />}
@@ -1847,41 +1887,7 @@ export default function App() {
           <span>{activeNavItem?.label ?? (language === 'ar' ? 'كل أقسام التطبيق' : language === 'pl' ? 'Wszystkie sekcje' : 'All sections')}</span>
           <Icon n={sectionsMenuOpen ? 'close' : 'down'} s={18} />
         </button>
-        {sectionsMenuOpen && <div className="hema-section-sheet-backdrop" role="presentation" onClick={closeSectionsMenu}>
-          <section id="hema-section-sheet" className="hema-section-sheet" role="dialog" aria-modal="true" aria-label={language === 'ar' ? 'أقسام التطبيق' : language === 'pl' ? 'Sekcje aplikacji' : 'App sections'} dir={language === 'ar' ? 'rtl' : 'ltr'} onClick={(e) => e.stopPropagation()}>
-            <div className="hema-section-sheet-heading">
-              <div><p className="hema-sheet-eyebrow">HEMA YARA PLAYER</p><h2>{language === 'ar' ? 'اختر القسم' : language === 'pl' ? 'Wybierz sekcję' : 'Choose a section'}</h2><p>{language === 'ar' ? 'كل الأدوات في مكان واحد، بدون قوائم متداخلة.' : language === 'pl' ? 'Wszystkie narzędzia w jednym miejscu.' : 'Every section in one place. No nested menus.'}</p></div>
-              <button type="button" className="hema-sheet-close" aria-label={language === 'ar' ? 'إغلاق القائمة' : 'Close menu'} onClick={closeSectionsMenu}><Icon n="close" s={21} /></button>
-            </div>
-            <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
-              {navGroups.map((group) => {
-                const groupActive = group.items.some((item) => item.key === tab)
-                const currentItem = group.items.find((item) => item.key === tab)
-                return (
-                  <section key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
-                    <div className="hema-nav-group-trigger">
-                      <span className="hema-nav-group-icon"><Icon n={group.icon} s={19} /></span>
-                      <span className="hema-nav-group-copy"><strong>{group.title}</strong><small>{currentItem ? currentItem.label : group.description}</small></span>
-                    </div>
-                    <div className="hema-nav-options">
-                      {group.items.map((item) => (
-                        <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={() => {
-                          setTab(item.key)
-                          setOpenFolder(null)
-                          setOpenList(null)
-                          if (item.key === 'explore') setExploreValue(null)
-                          closeSectionsMenu()
-                        }}>
-                          <Icon n={item.icon} s={18} /><span>{item.label}</span>{tab === item.key && <span className="hema-nav-selected-mark">✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )
-              })}
-            </nav>
-          </section>
-        </div>}
+        
       </div>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'yara' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
