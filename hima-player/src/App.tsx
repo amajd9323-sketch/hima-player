@@ -1140,7 +1140,7 @@ export default function App() {
       const gn = c.createGain(); gn.gain.value = activeBoost / 100
       const meter = c.createAnalyser(); meter.fftSize = 256; normMeter.current = meter
       const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
-      const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12
+      const lim = c.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.15
       const an = c.createAnalyser(); an.fftSize = 64
       // Build reverb only when spatial effect is enabled; generating a long impulse on every first play caused startup stutter on low-memory phones.
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
@@ -1152,7 +1152,7 @@ export default function App() {
       }
       gainN.current = gn; anN.current = an; wetN.current = wet
       src.connect(mainFade); nextSrc.connect(nextFade); mainFade.connect(bands.current[0]); nextFade.connect(bands.current[0])
-      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(gn); gn.connect(meter); meter.connect(normalizer); normalizer.connect(lim)
+      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(meter); meter.connect(gn); gn.connect(normalizer); normalizer.connect(lim)
       lim.connect(an); an.connect(c.destination); if (convolver) { lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination) }
       ac.current = c
       audioGraphActive.current = true
@@ -1884,7 +1884,7 @@ export default function App() {
         </div>
         <button type="button" className={`hema-menu-toggle ${sectionsMenuOpen ? 'is-open' : ''}`} aria-expanded={sectionsMenuOpen} aria-controls="hema-section-sheet" onClick={() => setSectionsMenuOpen((open) => !open)}>
           <Icon n="list" s={20} />
-          <span>{activeNavItem?.label ?? (language === 'ar' ? 'كل أقسام التطبيق' : language === 'pl' ? 'Wszystkie sekcje' : 'All sections')}</span>
+          <span>{activeNavItem?.label ?? (language === 'ar' ? 'أقسام أخرى' : language === 'pl' ? 'Więcej sekcji' : 'More sections')}</span>
           <Icon n={sectionsMenuOpen ? 'close' : 'down'} s={18} />
         </button>
         
@@ -2208,6 +2208,14 @@ export default function App() {
               <button type="button" aria-pressed={repeat !== 'off'} onClick={() => setRepeat((value) => value === 'off' ? 'all' : value === 'all' ? 'one' : 'off')} style={{ color: repeat !== 'off' ? A : undefined }}><Icon n="repeat" s={20} /><span>{repeat === 'one' ? 'تكرار المقطع' : repeat === 'all' ? 'تكرار القائمة' : 'التكرار: إيقاف'}</span></button>
               <button type="button" aria-pressed={crossfade > 0} onClick={() => setCrossfade((value) => value > 0 ? 0 : 3)} style={{ color: crossfade > 0 ? A : undefined }}><Icon n="rotate" s={20} /><span>{crossfade > 0 ? `انتقال ناعم · ${crossfade}ث` : 'انتقال ناعم بين الأغاني'}</span></button>
             </div>
+            <div className="music-volume-boost" dir="rtl">
+              <div className="music-volume-boost-head"><span>تضخيم صوت الموسيقى</span><strong dir="ltr">{boost / 100}× <small>{boost}%</small></strong></div>
+              <input aria-label="مستوى تضخيم صوت الموسيقى" type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(Math.max(100, Math.min(300, Number(e.target.value))))} />
+              <div className="music-volume-presets" dir="ltr">
+                {[100, 150, 200, 250, 300].map((level) => <button key={level} type="button" aria-label={`تضخيم الصوت إلى ${level}%`} aria-pressed={boost === level} onClick={() => setBoost(level)} className={boost === level ? 'is-active' : ''}>{level === 100 ? '1×' : `${level / 100}×`}<small>{level}%</small></button>)}
+              </div>
+              <p>رفع رقمي للصوت؛ ابدأ بـ150% وارفع تدريجيًا لتجنب التشويش.</p>
+            </div>
             <div className="music-loop-panel">
               <p className="music-loop-heading">تكرار جزء من المقطع · A–B</p>
               <div className="music-loop-actions" dir="ltr">
@@ -2318,7 +2326,7 @@ export default function App() {
             <p className="text-xs opacity-50">Crossfade متداخل فعليًا للموسيقى؛ الفيديو لا يتأثر.</p>
             <p className="text-sm opacity-60">الترجمة</p><div className="flex flex-wrap items-center gap-2"><button onClick={() => setCueSize((v) => Math.max(80, v - 10))} className="rounded-full bg-white/10 px-3 py-2 text-sm">A−</button><span className="text-sm opacity-70">{cueSize}%</span><button onClick={() => setCueSize((v) => Math.min(200, v + 10))} className="rounded-full bg-white/10 px-3 py-2 text-sm">A+</button><button onClick={() => setCueColor((v) => v === '#ffffff' ? '#ffe082' : v === '#ffe082' ? '#80deea' : v === '#80deea' ? '#f48fb1' : '#ffffff')} className="rounded-full bg-white/10 px-3 py-2 text-sm" style={{ color: cueColor }}>لون الترجمة</button></div>
             <p className="text-sm opacity-60">الصوت والتحكم</p>
-            <div dir="ltr"><input type="range" min={100} max={300} step={10} value={boost} onChange={(e) => setBoost(+e.target.value)} style={{ accentColor: A, width: '100%' }} /><p className="text-center text-sm opacity-60">رفع الصوت {boost}%</p></div>
+            <p className="text-center text-xs opacity-55">تضخيم الصوت: {boost}% · {boost / 100}× — غيّره من أدوات الموسيقى.</p>
             <div className="flex flex-wrap gap-2">
               <Opt on={shake} onClick={() => setShake(!shake)}>هز = التالي</Opt>
               <Opt on={quran} onClick={() => setQuran(!quran)}>وضع القرآن (يكمل كل مقطع)</Opt>
@@ -2436,12 +2444,12 @@ export default function App() {
                   {videoToolsOpen && <div className="video-tools-content">
                   <div className="video-toolbar">
                     <section className="video-volume-boost" dir="rtl" aria-label="رفع صوت الفيديو">
-                      <div className="video-volume-boost-head"><span>رفع صوت الفيديو</span><strong dir="ltr">{videoBoost}%</strong></div>
+                      <div className="video-volume-boost-head"><span>تضخيم صوت الفيديو</span><strong dir="ltr">{videoBoost / 100}× <small>{videoBoost}%</small></strong></div>
                       <input aria-label="مستوى تضخيم صوت الفيديو" type="range" min={100} max={300} step={10} value={videoBoost} onChange={(e) => setVideoBoost(Math.max(100, Math.min(300, Number(e.target.value))))} />
                       <div className="video-volume-presets" dir="ltr">
-                        {[100, 150, 200, 250, 300].map((level) => <button key={level} type="button" className="video-volume-preset" aria-pressed={videoBoost === level} onClick={() => setVideoBoost(level)} style={videoBoost === level ? { background: A, borderColor: A, color: '#fff' } : undefined}>{level}%</button>)}
+                        {[100, 150, 200, 250, 300].map((level) => <button key={level} type="button" className={`video-volume-preset ${videoBoost === level ? 'is-active' : ''}`} aria-label={`تضخيم صوت الفيديو إلى ${level}%`} aria-pressed={videoBoost === level} onClick={() => setVideoBoost(level)} style={videoBoost === level ? { background: A, borderColor: A, color: '#fff' } : undefined}>{level === 100 ? '1×' : `${level / 100}×`}<small>{level}%</small></button>)}
                       </div>
-                      <p className="video-volume-boost-note">التضخيم فوق 100% قد يسبب تشويشًا. ارفع تدريجيًا، وابدأ بـ150%.</p>
+                      <p className="video-volume-boost-note">تضخيم رقمي فعلي عبر معالجة الصوت. ابدأ بـ150% وارفع تدريجيًا لتجنب التشويش.</p>
                     </section>
                     <button aria-label="صورة داخل صورة" onClick={() => void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز'))} className="video-tool"><Icon n="video" s={17} /><span>PiP</span></button>
                     <button aria-label="تغيير ملاءمة الفيديو" onClick={() => setCover(!cover)} className="video-tool"><Icon n="video" s={17} /><span>{cover ? 'ملء الشاشة' : 'احتواء الفيديو'}</span></button>
