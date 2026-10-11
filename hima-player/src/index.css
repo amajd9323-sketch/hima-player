@@ -4,7 +4,7 @@
 @import "@fontsource/readex-pro/600.css";
 @import "@fontsource/readex-pro/700.css";
 
-:root{color-scheme:dark;--hema-bg:#050406;--hema-panel:#111722;--hema-panel-2:#171e2c;--hema-purple:#ff5c8d;--hema-teal:#f2c26b;--hema-text:#f4f6fc;--hema-muted:#9ca7ba}
+:root{color-scheme:dark;--hema-bg:#050406;--hema-panel:#1d1119;--hema-panel-2:#251621;--hema-purple:#ff5c8d;--hema-teal:#f2c26b;--hema-text:#f4f6fc;--hema-muted:#9ca7ba}
 html,body,#root{height:100%;min-height:100%}
 html{background:var(--hema-bg)}
 body{margin:0;background:radial-gradient(ellipse at 50% -15%,#2a1220 0,transparent 48%),var(--hema-bg);color:var(--hema-text);font-family:'Readex Pro',system-ui,sans-serif;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
@@ -15,7 +15,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 ::-webkit-scrollbar{display:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 @keyframes spin{to{transform:rotate(360deg)}}
-video{background:#03050a}
+video{background:#080408}
 video::cue{font-size:var(--hema-cue-size,120%);color:var(--hema-cue-color,#fff);background:rgba(0,0,0,.78);text-shadow:0 1px 2px #000}
 
 /* HEMA YARA accessibility and mobile polish */
@@ -24,7 +24,7 @@ input[type=range]{min-height:24px;cursor:pointer}
 @media (max-width:420px){button{min-height:36px} video::cue{font-size:1rem}}
 
 /* HEMA YARA PLAYER · premium mobile finish */
-:root{--hema-line:rgba(255,255,255,.085);--hema-glass:rgba(20,25,37,.78)}
+:root{--hema-line:rgba(255,255,255,.085);--hema-glass:rgba(31,18,29,.78)}
 body{background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--hema-purple) 14%,transparent),transparent 34%),radial-gradient(ellipse at 0% 90%,color-mix(in srgb,var(--hema-teal) 7%,transparent),transparent 30%),radial-gradient(ellipse at 50% -15%,#2a1220 0,transparent 48%);background-color:var(--hema-bg)}
 header{position:relative;isolation:isolate}
 header:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.025),transparent);pointer-events:none}
@@ -73,7 +73,7 @@ canvas{max-width:100%}
   --hema-radius-md: 18px;
   --hema-radius-lg: 24px;
   --hema-touch: 44px;
-  --hema-surface: rgba(19, 25, 38, .94);
+  --hema-surface: rgba(32,18,28, .94);
   --hema-surface-soft: rgba(255, 255, 255, .045);
   --hema-line: rgba(220, 230, 255, .11);
   --hema-line-strong: rgba(220, 230, 255, .17);
@@ -238,7 +238,7 @@ main input:not([type="range"]), main select, main textarea {
   min-height: 46px;
   border: 1px solid var(--hema-line);
   border-radius: 14px;
-  background-color: rgba(4,7,14,.42);
+  background-color: rgba(12,5,9,.42);
   padding-inline: 14px;
 }
 main input[type="range"] { min-height: 34px; }
@@ -259,7 +259,7 @@ main .rounded-2xl.border {
   margin: 0 12px 10px;
   border: 1px solid rgba(220,230,255,.13);
   border-radius: 20px;
-  background: rgba(20,25,38,.96);
+  background: rgba(32,18,29,.96);
   box-shadow: 0 12px 32px rgba(0,0,0,.27);
   backdrop-filter: blur(18px);
 }
@@ -288,7 +288,7 @@ main .rounded-2xl.border {
   border-radius: 14px;
   background: rgba(255,255,255,.065);
 }
-#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"] { background: color-mix(in srgb, var(--hema-purple) 22%, #171e2c); }
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"] { background: color-mix(in srgb, var(--hema-purple) 22%, #251621); }
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="الطابور"] {
   min-height: 40px;
   padding: 0 11px;
@@ -320,7 +320,7 @@ main .rounded-2xl.border {
   border: 1px solid rgba(220,230,255,.12);
   border-bottom: 0;
   border-radius: 28px 28px 0 0;
-  background: #111722;
+  background: #1d1119;
   box-shadow: 0 -16px 50px rgba(0,0,0,.3);
   padding: 22px 18px max(26px, env(safe-area-inset-bottom));
 }
@@ -471,7 +471,7 @@ main .rounded-2xl.border { box-shadow: none !important; }
   justify-content: center;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 12px;
-  background: rgba(15,19,29,.72);
+  background: rgba(25,14,23,.72);
   color: #fff;
 }
 .video-tool {
@@ -484,7 +484,7 @@ main .rounded-2xl.border { box-shadow: none !important; }
   padding: 0 10px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 11px;
-  background: rgba(20,25,36,.76);
+  background: rgba(31,18,29,.76);
   color: rgba(255,255,255,.94);
   font-size: 12px;
   line-height: 1;
@@ -530,7 +530,7 @@ main .rounded-2xl.border { box-shadow: none !important; }
 
 /* Final pass: consistent premium surfaces with less work during scrolling. */
 :root {
-  --hema-card: rgba(19, 25, 38, .88);
+  --hema-card: rgba(32,18,28, .88);
   --hema-border: rgba(225, 232, 255, .105);
   --hema-shadow: 0 2px 8px rgba(0, 0, 0, .08);
 }
@@ -605,8 +605,8 @@ main ul.grid > li > button[aria-label="تعديل بيانات العرض"] {
 
 /* HEMA YARA 4.0 — clear dropdown navigation and accessible, grouped controls */
 :root {
-  --hema-surface: #111722;
-  --hema-card-strong: #151d2b;
+  --hema-surface: #1d1119;
+  --hema-card-strong: #25151e;
   --hema-muted-strong: #b9c3d6;
   --hema-outline: rgba(210, 224, 255, .15);
   --hema-active-wash: rgba(255, 92, 141, .13);
@@ -618,7 +618,7 @@ body { color: var(--hema-text); }
 #root > div > header {
   padding: max(10px, env(safe-area-inset-top)) 14px 12px;
   min-height: 72px;
-  background: linear-gradient(180deg, rgba(20,27,42,.98), rgba(8,11,18,.96));
+  background: linear-gradient(180deg, rgba(36,19,29,.98), rgba(15,8,14,.96));
   border-bottom: 1px solid rgba(255,255,255,.055);
 }
 #root > div > header h1 { font-size: 26px; letter-spacing: .14em; }
@@ -690,7 +690,7 @@ body { color: var(--hema-text); }
   overscroll-behavior: contain;
   border: 1px solid var(--hema-outline);
   border-radius: 20px;
-  background: rgba(14, 19, 30, .98);
+  background: rgba(26,14,22, .98);
   box-shadow: 0 12px 28px rgba(0,0,0,.22);
 }
 .hema-nav-group {
@@ -903,13 +903,13 @@ main ul.grid > li > button:first-child { min-height: 0; }
 #root > div > .relative.mx-2.mb-2 {
   margin: 0 12px 10px;
   border-color: var(--hema-outline);
-  background: #111927;
+  background: #211219;
 }
 #root > div > .relative.mx-2.mb-2 > div.flex { gap: 7px; }
 #root > div > .relative.mx-2.mb-2 > div.flex > button:first-child { min-width: 0; }
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
 #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="التالي"] { flex-shrink: 0; }
-.fixed.inset-0.z-30 { background-color: #0b0f18; }
+.fixed.inset-0.z-30 { background-color: #140b12; }
 .fixed.inset-0.z-30 > button:first-child { flex-shrink: 0; }
 #root > div > div.fixed.inset-0[class*="z-[60]"] > div {
   max-height: 88dvh;
@@ -961,7 +961,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   min-height: 0;
   gap: 11px !important;
   padding: max(12px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)) !important;
-  background: linear-gradient(180deg, rgba(21,27,43,.99), #0b0f18 72%) !important;
+  background: linear-gradient(180deg, rgba(37,19,30,.99), #140b12 72%) !important;
 }
 .music-player-screen.fixed.inset-0.z-30 > button:first-child {
   flex: 0 0 42px;
@@ -1014,7 +1014,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   min-width: 0;
   border: 1px solid rgba(220,230,255,.16);
   border-radius: 16px;
-  background: rgba(20,27,42,.98);
+  background: rgba(36,19,29,.98);
   box-shadow: 0 5px 18px rgba(0,0,0,.18);
 }
 .music-tools-dropdown > summary {
@@ -1065,13 +1065,13 @@ main ul.grid > li > button:first-child { min-height: 0; }
 .music-tools-grid > button:active { background: rgba(255,255,255,.1); }
 .music-tool-panel {
   max-height: min(72dvh, 580px);
-  background: rgba(15,20,31,.99);
+  background: rgba(26,14,23,.99);
   border-color: rgba(225,232,255,.17);
   box-shadow: 0 -12px 44px rgba(0,0,0,.48);
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-.music-tool-panel h2 { position: sticky; top: -1rem; z-index: 2; padding: 7px 0 11px; background: #0f141f; }
+.music-tool-panel h2 { position: sticky; top: -1rem; z-index: 2; padding: 7px 0 11px; background: #1a0e17; }
 .music-tool-panel .flex.flex-wrap.gap-2 > button {
   min-width: 68px;
   min-height: 44px;
@@ -1087,7 +1087,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   min-height: 46px;
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 13px;
-  background: #242d3d;
+  background: #342031;
   color: #fff;
 }
 
@@ -1110,7 +1110,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   height: 42px;
   min-height: 42px;
   border-radius: 13px;
-  background: rgba(10,14,22,.9);
+  background: rgba(19,10,16,.9);
 }
 .video-tools-dropdown {
   width: 100%;
@@ -1118,7 +1118,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   max-width: 100%;
   border: 1px solid rgba(255,255,255,.19);
   border-radius: 15px;
-  background: rgba(9,13,21,.94);
+  background: rgba(18,9,15,.94);
   color: #fff;
   box-shadow: 0 5px 16px rgba(0,0,0,.16);
 }
@@ -1138,7 +1138,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
 .video-tools-dropdown > summary::marker { content: ""; }
 .video-tools-summary-main { display: inline-flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 12px; }
 .video-tools-summary-note { color: rgba(235,240,255,.62); font-size: 10px; white-space: nowrap; }
-.video-tools-dropdown[open] { background: rgba(8,12,20,.98); }
+.video-tools-dropdown[open] { background: rgba(17,9,14,.98); }
 .video-tools-dropdown[open] > summary { border-bottom: 1px solid rgba(255,255,255,.10); border-radius: 14px 14px 0 0; }
 .video-tools-dropdown[open] > summary > svg:last-child { color: var(--hema-teal); transform: rotate(180deg); }
 .video-tools-dropdown .video-toolbar {
@@ -1432,7 +1432,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
 .yara-page .yara-hero {
   isolation: isolate;
   border-color: rgba(244,114,182,.24);
-  background: linear-gradient(135deg, #28152a 0%, #21172e 48%, #111722 100%);
+  background: linear-gradient(135deg, #28152a 0%, #27112d 48%, #1d1119 100%);
   box-shadow: 0 12px 36px rgba(0,0,0,.16);
 }
 .yara-page.yara-glow-on .yara-hero {
@@ -1450,7 +1450,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
   pointer-events: none;
 }
 .yara-page .yara-orb-one { top: -80px; right: -45px; background: #f472b6; }
-.yara-page .yara-orb-two { bottom: -100px; left: -55px; background: #a78bfa; }
+.yara-page .yara-orb-two { bottom: -100px; left: -55px; background: #f2c26b; }
 .yara-page button, .yara-page input, .yara-page textarea { transition: border-color .15s ease, background-color .15s ease; }
 .yara-page button:focus-visible, .yara-page input:focus-visible, .yara-page textarea:focus-visible {
   outline: 2px solid #f9a8d4;

@@ -1257,7 +1257,7 @@ export default function App() {
     const top = Object.values(st.p).sort((a, b) => b.n - a.n).slice(0, 5)
     const c = document.createElement('canvas'); c.width = 720; c.height = 1280
     const x = c.getContext('2d')!
-    const gr = x.createLinearGradient(0, 0, 720, 1280); gr.addColorStop(0, A); gr.addColorStop(1, '#1a1030')
+    const gr = x.createLinearGradient(0, 0, 720, 1280); gr.addColorStop(0, A); gr.addColorStop(1, '#290c24')
     x.fillStyle = gr; x.fillRect(0, 0, 720, 1280)
     x.fillStyle = '#fff'; x.textAlign = 'center'
     x.font = '700 72px Readex Pro, sans-serif'; x.fillText('Hema Wrapped', 360, 170)
@@ -1289,7 +1289,7 @@ export default function App() {
       const w = Math.max(1, Math.floor(rect.width)); const h = Math.max(1, Math.floor(rect.height))
       if (canvas.width !== w * ratio || canvas.height !== h * ratio) { canvas.width = w * ratio; canvas.height = h * ratio }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      ctx.fillStyle = 'rgba(4,6,12,.24)'; ctx.fillRect(0, 0, w, h)
+      ctx.fillStyle = 'rgba(10,4,9,.24)'; ctx.fillRect(0, 0, w, h)
       const analyser = anN.current; if (analyser) analyser.getByteFrequencyData(values); else values.fill(18)
       ctx.save(); ctx.translate(w / 2, h / 2)
       const radius = Math.min(w, h) * 0.16
@@ -1750,7 +1750,7 @@ export default function App() {
         onPlay={() => { setPlaying(true); initAudio(); if (cur?.video) poke(); else { setFs(false); setUi(false); void bars(false) } void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const availableTracks = (el as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } }).audioTracks; setAudioTracks(availableTracks?.length ? Array.from({ length: availableTracks.length }, (_, id) => ({ id, label: availableTracks[id].label || 'مسار صوت ' + (id + 1), language: availableTracks[id].language || '', enabled: availableTracks[id].enabled })) : []); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
-      {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121824] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
+      {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#1f111a] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
 
       <YaraBackground />
       <YaraWelcome language={language} />
@@ -2090,12 +2090,12 @@ export default function App() {
       )}
 
       {sheet && cur && !cur.video && (
-        <div className="music-player-screen fixed inset-0 z-[100] flex flex-col gap-5 p-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)', background: `linear-gradient(180deg,hsl(${hue(cur.title)} 45% 22%),#0d0f14 70%)` }}>
+        <div className="music-player-screen fixed inset-0 z-[100] flex flex-col gap-5 p-5" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.25rem)', background: `linear-gradient(180deg,hsl(${hue(cur.title)} 45% 22%),#110b14 70%)` }}>
           <button onClick={() => { setSheet(false); setPanel(null) }} aria-label="إغلاق" className="self-start"><Icon n="down" s={32} /></button>
           <div className="grid flex-1 place-items-center">
             <div className="relative grid aspect-square w-4/5 place-items-center overflow-hidden rounded-full shadow-2xl" style={{ ...art(cur.title), animation: 'spin 14s linear infinite', animationPlayState: playing ? 'running' : 'paused' }}>
               {cur.cover && <img src={cur.cover} alt="" className="absolute inset-0 size-full rounded-full object-cover" />}
-              <div className="z-10 grid size-1/4 place-items-center rounded-full bg-[#0d0f14] text-2xl font-bold">{[...cur.title][0]}</div>
+              <div className="z-10 grid size-1/4 place-items-center rounded-full bg-[#110b14] text-2xl font-bold">{[...cur.title][0]}</div>
             </div>
           </div>
           <div className="hema-visualizer-wrap"><canvas ref={cv} width={288} height={48} className="mx-auto w-full max-w-sm" /><div className="hema-visualizer-controls" role="group" aria-label="نمط التأثير البصري">{([{ id: 'bars', label: 'أعمدة' }, { id: 'mirror', label: 'مرآة' }, { id: 'wave', label: 'موجة' }] as const).map((mode) => <button key={mode.id} type="button" aria-pressed={visualMode === mode.id} onClick={() => setVisualMode(mode.id)} style={visualMode === mode.id ? { background: A, color: '#fff', borderColor: A } : undefined}>{mode.label}</button>)}</div></div>
@@ -2163,7 +2163,7 @@ export default function App() {
       )}
 
       {party && (
-        <div className="fixed inset-0 z-[75] flex flex-col gap-4 bg-[#05070d] p-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
+        <div className="fixed inset-0 z-[75] flex flex-col gap-4 bg-[#0b050a] p-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}>
           <div className="flex items-center justify-between"><div><p className="text-xs font-semibold tracking-[0.24em]" style={{ color: A }}>HEMA STUDIO</p><h2 className="text-xl font-bold">Party Visualizer</h2></div><button onClick={() => setParty(false)} className="rounded-full bg-white/10 px-4 py-2">خروج</button></div>
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-3xl border border-white/10 bg-black/30"><canvas ref={partyCanvas} className="size-full" /><div className="pointer-events-none absolute inset-x-0 bottom-4 text-center"><p className="truncate px-5 text-lg font-semibold">{cur?.title ?? 'اختر أغنية'}</p><p className="text-xs opacity-55">تأثير بصري يتفاعل مع الصوت</p></div></div>
           <div dir="ltr" className="flex items-center justify-center gap-10"><button aria-label="السابق" onClick={() => step(-1)}><Icon n="prev" s={36} /></button><button aria-label={playing ? 'إيقاف' : 'تشغيل'} onClick={toggle} className="grid size-16 place-items-center rounded-full text-white" style={{ background: A }}><Icon n={playing ? 'pause' : 'play'} s={34} /></button><button aria-label="التالي" onClick={() => step(1)}><Icon n="next" s={36} /></button></div>
@@ -2172,7 +2172,7 @@ export default function App() {
 
       {vaultOpen && (
         <div className="fixed inset-0 z-[90] flex items-end bg-black/75" onClick={() => { setVaultOpen(false); setVaultUnlocked(false); setVaultPin(''); setVaultItems([]) }}>
-          <div className="max-h-[92%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[92%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#1d1119] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold tracking-[0.22em]" style={{ color: A }}>HEMA SECURITY</p><h2 className="text-xl font-bold">الخزنة الخاصة المشفّرة</h2><p className="mt-1 text-xs opacity-55">AES-GCM 256-bit · PBKDF2-SHA-256 · PIN لا يُحفظ</p></div><button onClick={() => { setVaultOpen(false); setVaultUnlocked(false); setVaultPin(''); setVaultItems([]) }} className="rounded-full bg-white/10 px-3 py-2">إغلاق</button></div>
             {!vaultUnlocked ? <div className="space-y-3"><p className="text-sm opacity-70">{vaultKnown ? 'أدخل رمز الخزنة لفتح الملفات.' : 'أنشئ رمزًا لا يقل عن 6 أحرف/أرقام. نسيان الرمز يعني فقدان إمكانية فك الملفات.'}</p><input type="password" autoComplete="new-password" value={vaultPinInput} onChange={(e) => setVaultPinInput(e.target.value)} placeholder="PIN أو عبارة سرية (6+)" className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 outline-none" /><button disabled={vaultBusy} onClick={() => void unlockVaultUi()} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{vaultBusy ? '…' : vaultKnown ? 'فتح الخزنة' : 'إنشاء خزنة مشفّرة'}</button></div> : <div className="space-y-3"><label className="flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/5 px-4 py-4 text-sm">+ تشفير واستيراد ملفات<input type="file" accept="audio/*,video/*,image/*,application/pdf" multiple hidden onChange={(e) => { void vaultAdd(e.target.files); e.currentTarget.value = '' }} /></label><p className="text-xs opacity-55">يُنشأ ملف مشفّر منفصل داخل مساحة التطبيق؛ الأصل في مكتبة الهاتف لا يُحذف. حد الملف 120 MB.</p>
               {vaultItems.length === 0 ? <p className="py-5 text-center text-sm opacity-55">الخزنة فارغة.</p> : vaultItems.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-xl bg-white/5 p-3"><span className="grid size-10 shrink-0 place-items-center rounded-lg" style={{ background: A + '30' }}><Icon n="folder" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs opacity-50">{(item.size / 1048576).toFixed(1)} MB · مشفّر</p></div><button aria-label="تصدير وفك تشفير" onClick={() => void vaultRestore(item)} className="rounded-lg bg-white/10 px-3 py-2 text-xs">استعادة</button><button aria-label="حذف من الخزنة" onClick={() => void vaultRemove(item)} className="rounded-lg bg-red-500/15 px-3 py-2 text-xs text-red-200">حذف</button></div>)}
@@ -2203,11 +2203,11 @@ export default function App() {
 
       {settings && (
         <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setSettings(false)}>
-          <div className="max-h-[85%] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[85%] w-full space-y-4 overflow-y-auto rounded-t-3xl bg-[#201524] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">الإعدادات</h2>
             <label className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
               <span className="text-sm font-medium">لغة التطبيق</span>
-              <select aria-label="لغة التطبيق" value={languageMode === 'system' ? 'system' : language} onChange={(e) => changeLanguage(e.target.value as Language | 'system')} className="max-w-[58%] rounded-xl border border-white/10 bg-[#111722] px-3 py-2 text-sm outline-none">
+              <select aria-label="لغة التطبيق" value={languageMode === 'system' ? 'system' : language} onChange={(e) => changeLanguage(e.target.value as Language | 'system')} className="max-w-[58%] rounded-xl border border-white/10 bg-[#1d1119] px-3 py-2 text-sm outline-none">
                 <option value="system">لغة الهاتف (تلقائي)</option>
                 <option value="ar">العربية</option>
                 <option value="en">English</option>
@@ -2285,7 +2285,7 @@ export default function App() {
 
       {editingMeta && (
         <div className="fixed inset-0 z-[85] flex items-end bg-black/75" onClick={() => { setEditingMeta(null); setEditCover(null); setEditCoverUrl(null) }}>
-          <div className="max-h-[90%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[90%] w-full space-y-4 overflow-y-auto rounded-t-3xl border border-white/10 bg-[#1d1119] p-5 pb-[calc(env(safe-area-inset-bottom)+1.5rem)]" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between"><div><p className="text-xs font-semibold tracking-[.2em]" style={{ color: A }}>LOCAL METADATA</p><h2 className="text-xl font-bold">تعديل بيانات العرض</h2></div><button onClick={() => setEditingMeta(null)} className="rounded-full bg-white/10 px-3 py-2">إغلاق</button></div>
             <p className="text-xs opacity-55">التغييرات داخل HEMA فقط؛ لا تعدّل Tags الأصلية للملف.</p>
             <label className="block space-y-1 text-sm"><span className="opacity-65">اسم المقطع</span><input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} maxLength={180} className="w-full rounded-xl bg-white/10 px-4 py-3 outline-none" placeholder="اسم المقطع" /></label>
@@ -2299,7 +2299,7 @@ export default function App() {
 
       {plSheet && (
         <div className="fixed inset-0 z-[60] flex items-end bg-black/60" onClick={() => setPlSheet(null)}>
-          <div className="max-h-[70%] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-[#1a1d26] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[70%] w-full space-y-3 overflow-y-auto rounded-t-3xl bg-[#201524] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <h2 className="font-semibold">أضف إلى قائمة</h2>
             {Object.keys(lists).map((n) => <button key={n} className="block w-full rounded-xl bg-white/10 p-3 text-start" onClick={() => { addTo(n, plSheet.id); setPlSheet(null) }}>{n}</button>)}
             <div className="flex gap-2"><input value={newList} onChange={(e) => setNewList(e.target.value)} placeholder="قائمة جديدة" className="min-w-0 flex-1 rounded-xl bg-white/10 px-3 py-2 outline-none" /><button onClick={() => { if (newList.trim()) { addTo(newList.trim(), plSheet.id); setNewList(''); setPlSheet(null) } }} className="rounded-xl px-4 text-white" style={{ background: A }}>+</button></div>
@@ -2361,7 +2361,7 @@ export default function App() {
                       <span dir="ltr">{subOffset.toFixed(2)}s</span>
                       <button aria-label="تقديم الترجمة" onClick={() => setSubOffset((v) => Math.min(10, Math.round((v + 0.25) * 100) / 100))}>+</button>
                     </div>
-                              {audioTrackMenu && ui && !lockedScreen && <div className="video-audio-track-menu absolute end-3 top-[132px] z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#101522]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                              {audioTrackMenu && ui && !lockedScreen && <div className="video-audio-track-menu absolute end-3 top-[132px] z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#1d0f18]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
                 <p className="mb-2 text-sm font-semibold">مسارات الصوت</p>
                 {audioTracks.length ? audioTracks.map((track) => <button key={track.id} onClick={() => chooseAudioTrack(track.id)} className="mb-1 flex w-full items-center gap-2 rounded-xl bg-white/5 p-3 text-start text-sm" style={{ color: track.enabled ? A : undefined }}><span className="min-w-0 flex-1 truncate">{track.label}</span><span className="text-xs opacity-50">{track.language}</span>{track.enabled ? '✓' : ''}</button>) : <p className="text-xs opacity-65">لم يعرض Android WebView مسارات صوت منفصلة لهذا الفيديو.</p>}
               </div>}
@@ -2387,7 +2387,7 @@ export default function App() {
       )}
       {convertTrack && (
         <div className="fixed inset-0 z-[110] flex items-end bg-black/75" onClick={() => { if (convertingId === null) setConvertTrack(null) }}>
-          <div className="w-full space-y-4 rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full space-y-4 rounded-t-3xl border border-white/10 bg-[#1d1119] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>VIDEO TO MUSIC</p><h2 className="mt-1 text-xl font-bold">استخراج الصوت</h2><p className="mt-1 truncate text-sm opacity-60">{convertTrack.title}</p></div><button disabled={convertingId !== null} onClick={() => setConvertTrack(null)} className="rounded-xl bg-white/10 px-3 py-2">إغلاق</button></div>
             <p className="text-sm leading-6 opacity-70">حدد الجزء المطلوب. اترك النهاية 0 لاستخراج الصوت حتى نهاية الفيديو. سيُحفظ الملف بصيغة M4A داخل Music/HEMA YARA، ودعم الصيغة يعتمد على مسار الصوت داخل الفيديو.</p>
             <div className="grid grid-cols-2 gap-3">
@@ -2398,7 +2398,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {msg === 'اضغط مرة أخرى للخروج' && <div role="status" className="fixed inset-x-4 bottom-24 z-[120] mx-auto w-fit rounded-full border border-white/10 bg-[#171923]/95 px-5 py-3 text-center text-sm font-medium text-white shadow-2xl">اضغط مرة أخرى للخروج</div>}
+      {msg === 'اضغط مرة أخرى للخروج' && <div role="status" className="fixed inset-x-4 bottom-24 z-[120] mx-auto w-fit rounded-full border border-white/10 bg-[#1e1221]/95 px-5 py-3 text-center text-sm font-medium text-white shadow-2xl">اضغط مرة أخرى للخروج</div>}
     </div>
   )
 }
