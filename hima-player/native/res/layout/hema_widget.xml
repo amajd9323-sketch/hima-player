@@ -12,8 +12,8 @@
         android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="vertical">
-        <TextView android:id="@+id/widget_brand" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="HEMA · ROKSI PLAYER" android:textColor="#AFA2FF" android:textSize="10sp" android:letterSpacing="0.12" android:textStyle="bold" />
-        <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:ellipsize="end" android:maxLines="1" android:text="HEMA ROKSI PLAYER" android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold" />
+        <TextView android:id="@+id/widget_brand" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="HEMA · YARA PLAYER" android:textColor="#AFA2FF" android:textSize="10sp" android:letterSpacing="0.12" android:textStyle="bold" />
+        <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:ellipsize="end" android:maxLines="1" android:text="HEMA YARA PLAYER" android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold" />
         <TextView android:id="@+id/widget_artist" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:text="مكتبة الموسيقى والفيديو" android:textColor="#A9B2C7" android:textSize="11sp" />
     </LinearLayout>
     <LinearLayout

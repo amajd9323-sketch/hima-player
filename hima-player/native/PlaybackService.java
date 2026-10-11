@@ -38,7 +38,7 @@ public class PlaybackService extends Service {
         b.addAction(android.R.drawable.ic_media_previous, "Previous", commandIntent("prev", 10));
         b.addAction(android.R.drawable.ic_media_play, "Play / Pause", commandIntent("toggle", 11));
         b.addAction(android.R.drawable.ic_media_next, "Next", commandIntent("next", 12));
-        Notification n = b.setContentTitle(title).setContentText("HEMA ROKSI PLAYER").setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(pi).setOngoing(true).build();
+        Notification n = b.setContentTitle(title).setContentText("HEMA YARA PLAYER").setSmallIcon(android.R.drawable.ic_media_play).setContentIntent(pi).setOngoing(true).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK); else startForeground(1, n);
         return START_NOT_STICKY;
     }

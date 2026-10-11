@@ -4,10 +4,10 @@
 @import "@fontsource/readex-pro/600.css";
 @import "@fontsource/readex-pro/700.css";
 
-:root{color-scheme:dark;--hema-bg:#080b12;--hema-panel:#111722;--hema-panel-2:#171e2c;--hema-purple:#8957ff;--hema-teal:#24d9c2;--hema-text:#f4f6fc;--hema-muted:#9ca7ba}
+:root{color-scheme:dark;--hema-bg:#050406;--hema-panel:#111722;--hema-panel-2:#171e2c;--hema-purple:#ff5c8d;--hema-teal:#f2c26b;--hema-text:#f4f6fc;--hema-muted:#9ca7ba}
 html,body,#root{height:100%;min-height:100%}
 html{background:var(--hema-bg)}
-body{margin:0;background:radial-gradient(ellipse at 50% -15%,#21183b 0,transparent 48%),var(--hema-bg);color:var(--hema-text);font-family:'Readex Pro',system-ui,sans-serif;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:radial-gradient(ellipse at 50% -15%,#2a1220 0,transparent 48%),var(--hema-bg);color:var(--hema-text);font-family:'Readex Pro',system-ui,sans-serif;overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
 button,input,select,textarea{font:inherit}
 button{touch-action:manipulation}
 input[type=range]{accent-color:var(--hema-purple);width:100%}
@@ -18,14 +18,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid 
 video{background:#03050a}
 video::cue{font-size:var(--hema-cue-size,120%);color:var(--hema-cue-color,#fff);background:rgba(0,0,0,.78);text-shadow:0 1px 2px #000}
 
-/* HEMA ROKSI accessibility and mobile polish */
+/* HEMA YARA accessibility and mobile polish */
 button,label{ -webkit-user-select:none; user-select:none }
 input[type=range]{min-height:24px;cursor:pointer}
 @media (max-width:420px){button{min-height:36px} video::cue{font-size:1rem}}
 
-/* HEMA ROKSI PLAYER · premium mobile finish */
+/* HEMA YARA PLAYER · premium mobile finish */
 :root{--hema-line:rgba(255,255,255,.085);--hema-glass:rgba(20,25,37,.78)}
-body{background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--hema-purple) 14%,transparent),transparent 34%),radial-gradient(ellipse at 0% 90%,color-mix(in srgb,var(--hema-teal) 7%,transparent),transparent 30%),radial-gradient(ellipse at 50% -15%,#21183b 0,transparent 48%);background-color:var(--hema-bg)}
+body{background-image:radial-gradient(ellipse at 90% 0%,color-mix(in srgb,var(--hema-purple) 14%,transparent),transparent 34%),radial-gradient(ellipse at 0% 90%,color-mix(in srgb,var(--hema-teal) 7%,transparent),transparent 30%),radial-gradient(ellipse at 50% -15%,#2a1220 0,transparent 48%);background-color:var(--hema-bg)}
 header{position:relative;isolation:isolate}
 header:after{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.025),transparent);pointer-events:none}
 button{transition:transform .16s ease,opacity .16s ease,background-color .16s ease,color .16s ease}
@@ -65,7 +65,7 @@ canvas{max-width:100%}
 
 
 /* ─────────────────────────────────────────────────────────────
-   HEMA ROKSI · Comfort-first mobile UI
+   HEMA YARA · Comfort-first mobile UI
    Consistent touch targets, calmer spacing, clearer hierarchy.
    ───────────────────────────────────────────────────────────── */
 :root {
@@ -603,13 +603,13 @@ main ul.grid > li > button[aria-label="تعديل بيانات العرض"] {
 }
 
 
-/* HEMA ROKSI 4.0 — clear dropdown navigation and accessible, grouped controls */
+/* HEMA YARA 4.0 — clear dropdown navigation and accessible, grouped controls */
 :root {
   --hema-surface: #111722;
   --hema-card-strong: #151d2b;
   --hema-muted-strong: #b9c3d6;
   --hema-outline: rgba(210, 224, 255, .15);
-  --hema-active-wash: rgba(137, 87, 255, .13);
+  --hema-active-wash: rgba(255, 92, 141, .13);
 }
 html, body, #root { width: 100%; overflow-x: clip; }
 body { color: var(--hema-text); }
@@ -1330,7 +1330,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
 }
 .music-loop-actions > button[aria-pressed="true"] {
   border-color: var(--hema-purple);
-  background: rgba(137,87,255,.18);
+  background: rgba(255,92,141,.18);
 }
 .video-overlay-top {
   z-index: 70 !important;
@@ -1414,7 +1414,7 @@ main ul.grid > li > button:first-child { min-height: 0; }
 }
 .hema-visualizer-controls > button:active { transform: scale(.98); }
 .hema-visualizer-controls > button:focus-visible {
-  outline: 2px solid var(--hema-teal, #24d9c2);
+  outline: 2px solid var(--hema-teal, #f2c26b);
   outline-offset: 2px;
 }
 @media (max-width: 380px) {
@@ -1427,19 +1427,19 @@ main ul.grid > li > button:first-child { min-height: 0; }
 }
 
 
-/* Roksi gift corner: local-only romantic styling; does not change the whole player's theme. */
-.roksi-page { color: var(--hema-text, #f4f6fc); }
-.roksi-page .roksi-hero {
+/* Yara gift corner: local-only romantic styling; does not change the whole player's theme. */
+.yara-page { color: var(--hema-text, #f4f6fc); }
+.yara-page .yara-hero {
   isolation: isolate;
   border-color: rgba(244,114,182,.24);
   background: linear-gradient(135deg, #28152a 0%, #21172e 48%, #111722 100%);
   box-shadow: 0 12px 36px rgba(0,0,0,.16);
 }
-.roksi-page.roksi-glow-on .roksi-hero {
+.yara-page.yara-glow-on .yara-hero {
   border-color: rgba(249,168,212,.42);
   box-shadow: 0 0 0 1px rgba(244,114,182,.07), 0 12px 34px rgba(190,55,135,.13);
 }
-.roksi-page .roksi-orb {
+.yara-page .yara-orb {
   position: absolute;
   z-index: -1;
   width: 150px;
@@ -1449,17 +1449,17 @@ main ul.grid > li > button:first-child { min-height: 0; }
   opacity: .22;
   pointer-events: none;
 }
-.roksi-page .roksi-orb-one { top: -80px; right: -45px; background: #f472b6; }
-.roksi-page .roksi-orb-two { bottom: -100px; left: -55px; background: #a78bfa; }
-.roksi-page button, .roksi-page input, .roksi-page textarea { transition: border-color .15s ease, background-color .15s ease; }
-.roksi-page button:focus-visible, .roksi-page input:focus-visible, .roksi-page textarea:focus-visible {
+.yara-page .yara-orb-one { top: -80px; right: -45px; background: #f472b6; }
+.yara-page .yara-orb-two { bottom: -100px; left: -55px; background: #a78bfa; }
+.yara-page button, .yara-page input, .yara-page textarea { transition: border-color .15s ease, background-color .15s ease; }
+.yara-page button:focus-visible, .yara-page input:focus-visible, .yara-page textarea:focus-visible {
   outline: 2px solid #f9a8d4;
   outline-offset: 2px;
 }
-.roksi-page button:active { transform: scale(.99); }
-.roksi-page textarea { box-sizing: border-box; min-height: 130px; }
+.yara-page button:active { transform: scale(.99); }
+.yara-page textarea { box-sizing: border-box; min-height: 130px; }
 @media (prefers-reduced-motion: reduce) {
-  .roksi-page button, .roksi-page input, .roksi-page textarea { transition: none !important; }
+  .yara-page button, .yara-page input, .yara-page textarea { transition: none !important; }
 }
 
 
@@ -1577,3 +1577,81 @@ main ul.grid > li > button:first-child { min-height: 0; }
   .hema-section-dropdown { margin-inline: 8px; }
   .hema-section-dropdown > .hema-nav-menu { max-height: min(55dvh, 420px); }
 }
+
+
+/* ===================================================================
+   YARA · One UI inspired layer for Samsung Galaxy phones (AMOLED)
+   Unlayered on purpose: it must win over the older rules above.
+   =================================================================== */
+:root{
+  --hema-bg:#050406;--hema-panel:#120d14;--hema-panel-2:#1a1320;
+  --hema-purple:#ff5c8d;--hema-teal:#f2c26b;
+  --hema-text:#fff5f1;--hema-muted:#bba9b2;
+  --hema-line:rgba(255,226,214,.1);--hema-glass:rgba(24,16,26,.82);
+}
+html{background:#050406;-webkit-text-size-adjust:100%}
+body{
+  background-color:#050406;
+  background-image:
+    radial-gradient(ellipse at 88% -6%,rgba(255,92,141,.22),transparent 44%),
+    radial-gradient(ellipse at 0% 100%,rgba(242,194,107,.10),transparent 40%);
+}
+/* One UI: softer, larger radii */
+.rounded-xl{border-radius:20px}
+.rounded-2xl{border-radius:26px}
+.rounded-3xl{border-radius:34px}
+/* One UI: comfortable touch targets and gesture-bar clearance */
+header button,main button,nav button,summary,.hema-menu-toggle{min-height:44px}
+header{padding-top:max(.75rem,env(safe-area-inset-top,0px))}
+.hema-content{padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}
+input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-visible{outline-color:#f2c26b}
+::selection{background:rgba(255,92,141,.35)}
+
+/* Yara cards */
+.yara-card{
+  border:1px solid var(--hema-line);border-radius:26px;padding:1rem;
+  background:linear-gradient(160deg,rgba(255,92,141,.09),rgba(242,194,107,.05) 60%,rgba(255,255,255,.02));
+  display:flex;flex-direction:column;gap:.65rem;
+}
+.yara-eyebrow{margin:0;font-size:.7rem;font-weight:700;letter-spacing:.18em;color:#f2c26b}
+.yara-muted{margin:0;font-size:.78rem;line-height:1.6;opacity:.6}
+.yara-daily-text{margin:0;font-size:1.05rem;line-height:1.9;font-weight:500}
+.yara-since{display:flex;align-items:flex-end;justify-content:space-between;gap:.75rem;flex-wrap:wrap}
+.yara-since-count{display:flex;align-items:baseline;gap:.5rem}
+.yara-since-count strong{font-size:2.4rem;line-height:1;color:#ff5c8d}
+.yara-since-count span{font-size:.85rem;opacity:.75}
+.yara-since-field{display:flex;flex-direction:column;gap:.25rem;font-size:.7rem;opacity:.85}
+.yara-since-field input,.yara-note-form input{
+  min-height:44px;border-radius:16px;border:1px solid var(--hema-line);
+  background:rgba(0,0,0,.35);padding:0 .85rem;outline:none;color:inherit;
+}
+.yara-note-form{display:flex;gap:.5rem}
+.yara-note-form input{flex:1;min-width:0}
+.yara-note-form button{border-radius:16px;padding:0 1.1rem;background:#ff5c8d;color:#fff;font-weight:700}
+.yara-notes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.yara-notes li{display:flex;align-items:center;gap:.5rem;border-radius:18px;background:rgba(0,0,0,.28);padding:.6rem .8rem;font-size:.9rem;line-height:1.7}
+.yara-notes li span{flex:1;min-width:0;overflow-wrap:anywhere}
+.yara-notes li button{opacity:.55;padding:0 .5rem}
+
+/* Daily welcome */
+.yara-welcome{
+  position:fixed;inset:0;z-index:200;display:grid;place-items:center;
+  padding:max(24px,env(safe-area-inset-top,0px)) 24px max(24px,env(safe-area-inset-bottom,0px));
+  background:radial-gradient(ellipse at 50% 18%,rgba(255,92,141,.35),transparent 55%),
+             radial-gradient(ellipse at 50% 100%,rgba(242,194,107,.16),transparent 50%),#050406;
+  animation:yara-fade .45s ease both;overflow:hidden;
+}
+.yara-welcome-card{position:relative;z-index:1;max-width:22rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1.1rem}
+.yara-welcome-from{margin:0;font-size:.72rem;letter-spacing:.22em;color:#f2c26b;font-weight:600}
+.yara-welcome-title{margin:0;font-size:2.1rem;line-height:1.4;font-weight:700}
+.yara-welcome-title span{color:#ff5c8d;font-size:2.7rem}
+.yara-welcome-line{margin:0;font-size:1rem;line-height:1.9;opacity:.85}
+.yara-welcome-btn{
+  min-height:52px;min-width:12rem;border-radius:999px;padding:0 2rem;
+  background:linear-gradient(135deg,#ff5c8d,#ff8a5c);color:#fff;font-weight:700;font-size:1.05rem;
+  box-shadow:0 10px 30px rgba(255,92,141,.35);
+}
+.yara-heart{position:absolute;bottom:-40px;color:#ff5c8d;opacity:0;animation:yara-float 9s linear infinite;pointer-events:none}
+@keyframes yara-fade{from{opacity:0}to{opacity:1}}
+@keyframes yara-float{0%{transform:translateY(0) scale(.8);opacity:0}15%{opacity:.65}100%{transform:translateY(-110vh) scale(1.25);opacity:0}}
+@media (prefers-reduced-motion:reduce){.yara-heart{display:none}}

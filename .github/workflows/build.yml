@@ -24,20 +24,20 @@ jobs:
       - name: Prepare APK and report size
         run: |
           test -f android/app/build/outputs/apk/debug/app-debug.apk
-          cp android/app/build/outputs/apk/debug/app-debug.apk Hema-ROKSI-Player.apk
-          sha256sum Hema-ROKSI-Player.apk | tee Hema-ROKSI-Player.sha256
-          du -h Hema-ROKSI-Player.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk Hema-YARA-Player.apk
+          sha256sum Hema-YARA-Player.apk | tee Hema-YARA-Player.sha256
+          du -h Hema-YARA-Player.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Hema-ROKSI-Player-APK
+          name: Hema-YARA-Player-APK
           path: |
-            hima-player/Hema-ROKSI-Player.apk
-            hima-player/Hema-ROKSI-Player.sha256
+            hima-player/Hema-YARA-Player.apk
+            hima-player/Hema-YARA-Player.sha256
           if-no-files-found: error
           retention-days: 30
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: |
-            hima-player/Hema-ROKSI-Player.apk
-            hima-player/Hema-ROKSI-Player.sha256
+            hima-player/Hema-YARA-Player.apk
+            hima-player/Hema-YARA-Player.sha256

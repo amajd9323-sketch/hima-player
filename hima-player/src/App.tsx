@@ -10,9 +10,10 @@ import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consu
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
+import { YaraExtras, YaraWelcome } from './YaraExtras'
 
 type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; album?: string; albumId?: string; genre?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
-type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast' | 'roksi'
+type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast' | 'yara'
 type Repeat = 'off' | 'all' | 'one'
 type OnlinePlatform = 'youtube' | 'ytmusic' | 'tiktok'
 type OnlineLink = { key: string; platform: OnlinePlatform; videoId: string; url: string; title: string }
@@ -21,12 +22,11 @@ const fmt = (s: number) => (isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.f
 const SPEEDS = [1, 1.25, 1.5, 2, 3, 4, 0.75, 0.5, 0.25]
 const BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
 const EQS = [{ n: 'عادي', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { n: 'باس', g: [8, 7, 6, 4, 2, 0, 0, 0, 0, 0] }, { n: 'صوت', g: [-3, -2, 0, 3, 5, 5, 4, 2, 0, -1] }, { n: 'روك', g: [5, 4, 2, -1, -1, 1, 3, 5, 6, 5] }, { n: 'ناعم', g: [-2, 0, 2, 3, 2, 0, -1, -2, -3, -4] }, { n: 'مخصص', g: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }]
-const ACCENTS = ['#8957FF', '#24D9C2', '#6D8DFF', '#C084FC', '#F4F6FC', '#64748B', '#FF6B6B', '#FFB84D', '#F472B6']
-const ACCENT_NAMES = ['بنفسجي', 'تركواز', 'أزرق', 'ليلكي', 'ثلجي', 'رمادي', 'مرجاني', 'ذهبي', 'وردي']
-const ROKSI_LETTERS: Record<'pl' | 'en' | 'ar', string> = {
-  pl: 'Kochana Roksi,\n\nStworzyłem HEMA ROKSI PLAYER specjalnie dla Ciebie — kawałek mojego świata, który możesz mieć przy sobie. Mam nadzieję, że każda piosenka przyniesie Ci uśmiech i przypomni, jak bardzo jesteś dla mnie ważna.\n\nZ miłością,\nHema (Ibi) ❤️',
-  en: 'My dear Roksi,\n\nI made HEMA ROKSI PLAYER especially for you — a little piece of my world that you can carry with you. I hope every song brings you a smile and reminds you how special you are to me.\n\nWith love,\nHema (Ibi) ❤️',
-  ar: 'روكسي حبيبتي،\n\nصنعت HEMA ROKSI PLAYER خصيصًا لكِ؛ قطعة صغيرة من عالمي أضعها بين يديكِ. أتمنى أن تمنحكِ كل أغنية ابتسامة، وأن تذكّركِ دائمًا بمدى خصوصيتكِ في قلبي.\n\nبكل الحب،\nهيما (إبي) ❤️',
+const ACCENTS = ['#FF5C8D', '#F2C26B', '#2DD4BF', '#C084FC', '#F4F6FC', '#60A5FA', '#FF6B6B', '#FFB84D', '#F472B6']
+const ACCENT_NAMES = ['وردي ياقوتي', 'ذهبي النيل', 'فيروزي', 'ليلكي', 'ثلجي', 'أزرق', 'مرجاني', 'عنبري', 'وردي فاتح']
+const YARA_LETTERS: Record<'en' | 'ar', string> = {
+  en: 'My dear Yara,\n\nI made HEMA YARA PLAYER especially for you — a little piece of my world, from Gaza, to carry with you. I hope every song brings you a smile and reminds you how special you are to me.\n\nWith all my heart,\nIbrahim 💌',
+  ar: 'يارا حبيبتي،\n\nعملت HEMA YARA PLAYER مخصوص ليكي؛ حتة صغيرة من عالمي في غزة، تبقى معاكي في إيديكي. نفسي كل أغنية فيه تخلّيكي تبتسمي، وتفكّرك دايمًا قد إيه إنتي غالية عندي.\n\nبكل قلبي،\nإبراهيم 💌',
 }
 type Mood = 'focus' | 'energy' | 'romance' | 'night' | 'arabic' | 'nostalgia' | 'chill' | 'random'
 const MOOD_PRESETS: { id: Mood; title: string; subtitle: string; icon: string }[] = [
@@ -248,15 +248,15 @@ export default function App() {
   const [settings, setSettings] = useState(false)
   const [inputLoggerEnabled, setInputLoggerEnabled] = useState(false)
   const [inputEvents, setInputEvents] = useState<{ time: string; key: string }[]>([])
-  const [roksiGlow, setRoksiGlow] = useState<boolean>(() => ls('hema_roksi_mode', true))
-  const [roksiSongIds, setRoksiSongIds] = useState<string[]>(() => ls<string[]>('hema_roksi_songs', []))
-  const [roksiLetterLang, setRoksiLetterLang] = useState<'pl' | 'en' | 'ar'>(() => { const v = ls<string>('hema_roksi_letter_lang', 'pl'); return v === 'en' || v === 'ar' ? v : 'pl' })
-  const [roksiLetter, setRoksiLetter] = useState<string>(() => ls('hema_roksi_letter', ROKSI_LETTERS.pl))
-  const [roksiStoryTitle, setRoksiStoryTitle] = useState<string>(() => ls('hema_roksi_story_title', 'Hema × Roksi'))
-  const roksiCopy = ({
+  const [yaraGlow, setYaraGlow] = useState<boolean>(() => ls('hema_yara_mode', true))
+  const [yaraSongIds, setYaraSongIds] = useState<string[]>(() => ls<string[]>('hema_yara_songs', []))
+  const [yaraLetterLang, setYaraLetterLang] = useState<'en' | 'ar'>(() => { const v = ls<string>('hema_yara_letter_lang', 'ar'); return v === 'en' ? 'en' : 'ar' })
+  const [yaraLetter, setYaraLetter] = useState<string>(() => ls('hema_yara_letter', YARA_LETTERS.ar))
+  const [yaraStoryTitle, setYaraStoryTitle] = useState<string>(() => ls('hema_yara_story_title', 'Hema × Yara'))
+  const yaraCopy = ({
     ar: {
       eyebrow: 'هدية صغيرة صُنعت بكل الحب',
-      heroDescription: 'لكِ يا روكسي، قطعة صغيرة من عالمي صنعتها في غزة وأنا أفكر بكِ.',
+      heroDescription: 'لكِ يا يارا، قطعة صغيرة من عالمي صنعتها في غزة وأنا أفكر بكِ.',
       glowOn: '♡ الإضاءة الرومانسية: تعمل',
       glowOff: '♡ الإضاءة الرومانسية: متوقفة',
       songsTitle: 'أغانينا ♫',
@@ -276,20 +276,20 @@ export default function App() {
       letterTitle: 'رسالة من هيما 💌',
       letterDescription: 'هذه الرسالة محفوظة على هذا الهاتف فقط، ويمكنك تعديلها.',
       letterLanguage: 'لغة الرسالة',
-      letterField: 'رسالتك إلى روكسي',
+      letterField: 'رسالتك إلى يارا',
       letterPlaceholder: 'اكتبي كلماتك الخاصة هنا…',
       autoSaved: 'حفظ تلقائي',
       copyLetter: 'نسخ الرسالة',
       copySuccess: 'تم نسخ الرسالة.',
       copyFailure: 'تعذر النسخ على هذا الجهاز.',
       storyEyebrow: 'حكايتنا الصغيرة',
-      storyDescription: 'المسافة بين غزة وبولندا لا تمنعنا من مشاركة الأغاني والذكريات. أضيفوا هنا أغانيكم وكلماتكم والتواريخ المهمة.',
+      storyDescription: 'المسافة بين غزة ومصر لا تمنعنا من مشاركة الأغاني والذكريات. أضيفوا هنا أغانيكم وكلماتكم والتواريخ المهمة.',
       storyTitleLabel: 'عنوان قصتنا (قابل للتعديل)',
-      poland: 'بولندا',
+      poland: 'مصر',
     },
     en: {
       eyebrow: 'A LITTLE GIFT · MADE WITH LOVE',
-      heroDescription: 'For you, Roksi — a little piece of my world, made in Gaza while thinking of you.',
+      heroDescription: 'For you, Yara — a little piece of my world, made in Gaza while thinking of you.',
       glowOn: '♡ Romantic glow: ON',
       glowOff: '♡ Romantic glow: OFF',
       songsTitle: 'Our Songs ♫',
@@ -309,20 +309,20 @@ export default function App() {
       letterTitle: 'A letter from Hema 💌',
       letterDescription: 'This message is saved only on this phone, and you can edit it.',
       letterLanguage: 'Message language',
-      letterField: 'Your message to Roksi',
+      letterField: 'Your message to Yara',
       letterPlaceholder: 'Write your own words here…',
       autoSaved: 'auto-saved',
       copyLetter: 'Copy message',
       copySuccess: 'Message copied.',
       copyFailure: 'Could not copy on this device.',
       storyEyebrow: 'OUR LITTLE STORY',
-      storyDescription: 'Distance between Gaza and Poland cannot stop us from sharing songs and memories. Add your songs, words, and important dates here.',
+      storyDescription: 'Distance between Gaza and Egypt cannot stop us from sharing songs and memories. Add your songs, words, and important dates here.',
       storyTitleLabel: 'Story title (editable)',
-      poland: 'Poland',
+      poland: 'Egypt',
     },
     pl: {
       eyebrow: 'MAŁY PREZENT · STWORZONY Z MIŁOŚCIĄ',
-      heroDescription: 'Dla Ciebie, Roksi — mały kawałek mojego świata, stworzony w Gazie z myślą o Tobie.',
+      heroDescription: 'Dla Ciebie, Yara — mały kawałek mojego świata, stworzony w Gazie z myślą o Tobie.',
       glowOn: '♡ Romantyczna poświata: WŁ.',
       glowOff: '♡ Romantyczna poświata: WYŁ.',
       songsTitle: 'Nasze piosenki ♫',
@@ -342,16 +342,16 @@ export default function App() {
       letterTitle: 'List od Hemy 💌',
       letterDescription: 'Ta wiadomość jest zapisana tylko na tym telefonie i możesz ją zmienić.',
       letterLanguage: 'Język wiadomości',
-      letterField: 'Twoja wiadomość do Roksi',
+      letterField: 'Twoja wiadomość do Yary',
       letterPlaceholder: 'Wpisz tutaj swoje słowa…',
       autoSaved: 'zapisano automatycznie',
       copyLetter: 'Kopiuj wiadomość',
       copySuccess: 'Wiadomość skopiowana.',
       copyFailure: 'Nie można skopiować na tym urządzeniu.',
       storyEyebrow: 'NASZA MAŁA HISTORIA',
-      storyDescription: 'Odległość między Gazą a Polską nie przeszkadza nam dzielić się muzyką i wspomnieniami. Dodajcie tu swoje piosenki, słowa i ważne daty.',
+      storyDescription: 'Odległość między Gazą a Egiptem nie przeszkadza nam dzielić się muzyką i wspomnieniami. Dodajcie tu swoje piosenki, słowa i ważne daty.',
       storyTitleLabel: 'Tytuł naszej historii (do zmiany)',
-      poland: 'Polska',
+      poland: 'Egipt',
     },
   } as const)[language]
   useEffect(() => {
@@ -364,7 +364,7 @@ export default function App() {
     return () => window.removeEventListener('languagechange', updateSystemLanguage)
   }, [languageMode])
   useEffect(() => initLocalization(language), [language])
-  useEffect(() => { localStorage.setItem('hema_roksi_mode', JSON.stringify(roksiGlow)); localStorage.setItem('hema_roksi_songs', JSON.stringify(roksiSongIds)); localStorage.setItem('hema_roksi_letter_lang', JSON.stringify(roksiLetterLang)); localStorage.setItem('hema_roksi_letter', JSON.stringify(roksiLetter)); localStorage.setItem('hema_roksi_story_title', JSON.stringify(roksiStoryTitle)) }, [roksiGlow, roksiSongIds, roksiLetterLang, roksiLetter, roksiStoryTitle])
+  useEffect(() => { localStorage.setItem('hema_yara_mode', JSON.stringify(yaraGlow)); localStorage.setItem('hema_yara_songs', JSON.stringify(yaraSongIds)); localStorage.setItem('hema_yara_letter_lang', JSON.stringify(yaraLetterLang)); localStorage.setItem('hema_yara_letter', JSON.stringify(yaraLetter)); localStorage.setItem('hema_yara_story_title', JSON.stringify(yaraStoryTitle)) }, [yaraGlow, yaraSongIds, yaraLetterLang, yaraLetter, yaraStoryTitle])
   useEffect(() => { localStorage.setItem('hema_battery_saver', JSON.stringify(batterySaver)); document.body.classList.toggle('hema-battery-saver', batterySaver) }, [batterySaver])
   const [plSheet, setPlSheet] = useState<Track | null>(null)
   const [sub, setSub] = useState<string | null>(null)
@@ -671,7 +671,7 @@ export default function App() {
   }
   const shareOnlineLink = async (item: OnlineLink) => {
     try {
-      if (navigator.share) await navigator.share({ title: item.title, text: 'رابط من HEMA ROKSI PLAYER', url: item.url })
+      if (navigator.share) await navigator.share({ title: item.title, text: 'رابط من HEMA YARA PLAYER', url: item.url })
       else if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(item.url); setOnlineMsg('نُسخ الرابط. شاركه في أي تطبيق.') }
       else setOnlineMsg('انسخ الرابط يدويًا من حقل الرابط.')
     } catch (error) {
@@ -958,7 +958,7 @@ export default function App() {
     const file = new File([track.blob], `${track.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 120) || 'HEMA-media'}.${extension}`, { type: mime })
     try {
       if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
-        await navigator.share({ files: [file], title: track.title, text: 'Shared with HEMA ROKSI PLAYER · HEMA Drop' })
+        await navigator.share({ files: [file], title: track.title, text: 'Shared with HEMA YARA PLAYER · HEMA Drop' })
         notify('تم فتح قائمة المشاركة. اختر Quick Share أو جهازًا قريبًا؛ التوفر يعتمد على Android والجهاز الآخر.')
       } else {
         const url = URL.createObjectURL(file); const a = document.createElement('a'); a.href = url; a.download = file.name; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 2000)
@@ -1211,7 +1211,7 @@ export default function App() {
   toggleRef.current = toggle
   useEffect(() => {
     if (!canScan()) return
-    void updateWidget(cur?.title ?? 'HEMA ROKSI PLAYER', cur?.artist ?? (cur?.video ? 'Video' : 'مكتبة Hema'), playing)
+    void updateWidget(cur?.title ?? 'HEMA YARA PLAYER', cur?.artist ?? (cur?.video ? 'Video' : 'مكتبة Hema'), playing)
     let polling = false
     const timer = window.setInterval(async () => {
       if (polling || !qRef.current.length) return
@@ -1294,7 +1294,7 @@ export default function App() {
         const level = values[n] / 255 * Math.min(w, h) * 0.3 + 3
         const x1 = Math.cos(angle) * (radius + 8); const y1 = Math.sin(angle) * (radius + 8)
         const x2 = Math.cos(angle) * (radius + level + 8); const y2 = Math.sin(angle) * (radius + level + 8)
-        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = n % 3 === 0 ? A : n % 3 === 1 ? '#24D9C2' : '#C084FC'; ctx.lineWidth = Math.max(1.5, Math.min(5, w / 100)); ctx.lineCap = 'round'; ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = n % 3 === 0 ? A : n % 3 === 1 ? '#f2c26b' : '#C084FC'; ctx.lineWidth = Math.max(1.5, Math.min(5, w / 100)); ctx.lineCap = 'round'; ctx.stroke()
       }
       ctx.restore(); frame = requestAnimationFrame(draw)
     }
@@ -1355,7 +1355,7 @@ export default function App() {
         let record: { syncedLyrics?: string | null; plainLyrics?: string | null } | null = null
         const exact = await fetch('https://lrclib.net/api/get?' + params.toString(), {
           signal: ctl.signal,
-          headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA ROKSI PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
+          headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA YARA PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
         })
         if (exact.ok) record = await exact.json()
         else if (exact.status !== 404 && exact.status !== 400) return
@@ -1363,7 +1363,7 @@ export default function App() {
           const query = new URLSearchParams({ q: clean((cur.artist ?? '') + ' ' + cur.title) })
           const response = await fetch('https://lrclib.net/api/search?' + query.toString(), {
             signal: ctl.signal,
-            headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA ROKSI PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
+            headers: { Accept: 'application/json', 'X-User-Agent': 'HEMA YARA PLAYER/2.0 (https://github.com/amajd9323-sketch/hima-player)' }
           })
           if (!response.ok) return
           const choices = await response.json() as { syncedLyrics?: string | null; plainLyrics?: string | null }[]
@@ -1395,7 +1395,7 @@ export default function App() {
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = async () => {
     const overrides = await allTrackMeta().catch(() => [])
-    const payload = { app: 'HEMA ROKSI PLAYER', schemaVersion: 3, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })), onlineSaved, onlineHistory, onlineQueue, onlineFavorites }
+    const payload = { app: 'HEMA YARA PLAYER', schemaVersion: 3, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })), onlineSaved, onlineHistory, onlineQueue, onlineFavorites }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية والإعدادات وبيانات العرض. ملفات الغلاف نفسها تُحفظ محليًا ولا تدخل الملف.')
@@ -1404,7 +1404,7 @@ export default function App() {
     if (!file) return
     try {
       const data = JSON.parse(await file.text()) as Record<string, unknown>
-      if (data.app !== 'HEMA ROKSI PLAYER' || (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3)) throw new Error('BACKUP_VERSION')
+      if (!['HEMA YARA PLAYER', 'HEMA ROKSI PLAYER'].includes(String(data.app)) || (data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3)) throw new Error('BACKUP_VERSION')
       if (data.lists && typeof data.lists === 'object' && !Array.isArray(data.lists)) { const safeLists = Object.entries(data.lists as Record<string, unknown>).filter(([name, value]) => !!name.trim() && Array.isArray(value)).map(([name, value]) => [name.trim(), [...new Set((value as unknown[]).filter((id): id is string => typeof id === 'string'))]]); setLists(Object.fromEntries(safeLists) as Record<string, string[]>) }
       if (Array.isArray(data.recent)) setRecent(data.recent.filter((x): x is string => typeof x === 'string').slice(0, 100))
       if (Array.isArray(data.trackMeta)) {
@@ -1546,14 +1546,14 @@ export default function App() {
   }
   const exportPlaylist = (name: string) => {
     const ids = lists[name] ?? []
-    const payload = { app: 'HEMA ROKSI PLAYER', type: 'playlist', schemaVersion: 1, name, exportedAt: new Date().toISOString(), tracks: ids.map((id) => q.find((x) => x.id === id)).filter((x): x is Track => !!x).map((x) => ({ id: x.id, title: x.title, artist: x.artist ?? '', video: x.video })) }
+    const payload = { app: 'HEMA YARA PLAYER', type: 'playlist', schemaVersion: 1, name, exportedAt: new Date().toISOString(), tracks: ids.map((id) => q.find((x) => x.id === id)).filter((x): x is Track => !!x).map((x) => ({ id: x.id, title: x.title, artist: x.artist ?? '', video: x.video })) }
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const a = document.createElement('a'); a.href = url; a.download = name.replace(/[^\p{L}\p{N}_-]+/gu, '_') + '.hema-playlist.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1800); setBackupMsg('تم تصدير القائمة؛ ملفّات الوسائط نفسها لا تُنسخ ضمن القائمة.')
   }
   const importPlaylist = async (file?: File) => {
     if (!file) return
     try {
       const data = JSON.parse(await file.text()) as { app?: unknown; type?: unknown; schemaVersion?: unknown; name?: unknown; tracks?: unknown }
-      if (data.app !== 'HEMA ROKSI PLAYER' || data.type !== 'playlist' || data.schemaVersion !== 1 || typeof data.name !== 'string' || !Array.isArray(data.tracks)) throw new Error('PLAYLIST_INVALID')
+      if (!['HEMA YARA PLAYER', 'HEMA ROKSI PLAYER'].includes(String(data.app)) || data.type !== 'playlist' || data.schemaVersion !== 1 || typeof data.name !== 'string' || !Array.isArray(data.tracks)) throw new Error('PLAYLIST_INVALID')
       const matched: string[] = []
       for (const raw of data.tracks) {
         if (!raw || typeof raw !== 'object') continue
@@ -1718,11 +1718,11 @@ export default function App() {
     },
     {
       id: 'personal',
-      title: language === 'ar' ? 'هدية روكسي' : language === 'pl' ? 'Dla Roksi' : 'For Roksi',
+      title: language === 'ar' ? 'هدية يارا' : language === 'pl' ? 'Dla Yary' : 'For Yara',
       description: language === 'ar' ? 'رسالة وأغاني صنعتها من أجلك' : language === 'pl' ? 'List i muzyka stworzone dla Ciebie' : 'A letter and songs made for you',
       icon: 'heart',
       items: [
-        { key: 'roksi' as Tab, label: language === 'ar' ? 'عالمي الصغير لكِ ♡' : language === 'pl' ? 'Mały świat dla Ciebie ♡' : 'A little world for you ♡', icon: 'heart' },
+        { key: 'yara' as Tab, label: language === 'ar' ? 'عالمي الصغير لكِ ♡' : language === 'pl' ? 'Mały świat dla Ciebie ♡' : 'A little world for you ♡', icon: 'heart' },
       ],
     },
     {
@@ -1747,8 +1747,9 @@ export default function App() {
 
       {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121824] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
 
+      <YaraWelcome language={language} />
       <header className="flex items-center gap-2 px-4 py-3">
-        {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA ROKSI PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">ROKSI PLAYER</p></div></div>
+        {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA YARA PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">YARA PLAYER</p></div></div>
           : <input autoFocus value={find} onChange={(e) => setFind(e.target.value)} placeholder="بحث" className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 outline-none" />}
         <button aria-label="إعدادات" onClick={() => setSettings(true)} className="p-2"><Icon n="gear" /></button>
         <button aria-label="بحث" onClick={() => setFind(find === null ? '' : null)} className="p-2"><Icon n={find === null ? 'search' : 'close'} /></button>
@@ -1805,7 +1806,7 @@ export default function App() {
           })}
         </nav>
       </details>
-      {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'roksi' && (
+      {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'yara' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
           <button aria-label="تحديث" onClick={() => void load()}><Icon n="refresh" s={20} /></button>
@@ -1981,7 +1982,7 @@ export default function App() {
           <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
             <div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>HEMA CONNECT</p><h2 className="mt-1 text-lg font-bold">بث إلى التلفاز</h2><p className="mt-1 text-xs leading-6 opacity-60">يعثر على أجهزة DLNA/UPnP المتوافقة على شبكة Wi-Fi نفسها. اختر ملفًا من مكتبة الهاتف أولًا ثم أرسله. دعم الصيغ يختلف حسب التلفاز.</p></div>
             <button onClick={() => void refreshCastDevices()} disabled={castLoading} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-50" style={{ background: A }}>{castLoading ? 'جارٍ الاتصال…' : 'البحث عن أجهزة التلفاز'}</button>
-            {castDevices.map((device) => <button key={device.id} onClick={() => setCastDeviceId(device.id)} className="flex w-full items-center gap-3 rounded-xl border p-3 text-start" style={{ borderColor: castDeviceId === device.id ? A : 'rgba(255,255,255,.1)', background: castDeviceId === device.id ? 'rgba(137,87,255,.13)' : 'rgba(255,255,255,.035)' }}><Icon n="video" s={22} /><span className="min-w-0 flex-1 truncate">{device.name}</span><span>{castDeviceId === device.id ? '✓' : ''}</span></button>)}
+            {castDevices.map((device) => <button key={device.id} onClick={() => setCastDeviceId(device.id)} className="flex w-full items-center gap-3 rounded-xl border p-3 text-start" style={{ borderColor: castDeviceId === device.id ? A : 'rgba(255,255,255,.1)', background: castDeviceId === device.id ? 'rgba(255,92,141,.13)' : 'rgba(255,255,255,.035)' }}><Icon n="video" s={22} /><span className="min-w-0 flex-1 truncate">{device.name}</span><span>{castDeviceId === device.id ? '✓' : ''}</span></button>)}
             <div className="rounded-xl bg-black/20 p-3"><p className="text-xs opacity-55">الملف الحالي</p><p className="mt-1 truncate text-sm font-medium">{cur?.title ?? 'لم تختر ملفًا بعد'}</p>{cur && <p className="mt-1 text-xs opacity-50">{cur.video ? 'فيديو' : 'موسيقى'} · {cur.uri ? 'من مكتبة الهاتف' : 'ملف مستورد غير قابل للبث المباشر'}</p>}</div>
             <button onClick={() => void sendCurrentToCast()} disabled={castLoading || !castDeviceId || !cur?.uri} className="w-full rounded-xl px-4 py-3 font-semibold text-white disabled:opacity-40" style={{ background: A }}>إرسال الملف الحالي إلى التلفاز</button>
             <button onClick={() => void stopCurrentCast()} disabled={castLoading || !castDeviceId} className="w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-40">إيقاف البث</button>
@@ -2015,42 +2016,43 @@ export default function App() {
         </div>}
         {canScan() && (nativeMore.audio || nativeMore.video) && <button onClick={() => void loadMoreNativeMedia()} disabled={nativeLoading} className="mt-4 w-full rounded-xl bg-white/10 px-4 py-3 text-sm disabled:opacity-50">{nativeLoading ? 'جارٍ تحميل المزيد…' : 'تحميل المزيد من ملفات الهاتف'}</button>}
         {(tab === 'video' ? !videos.length : tab === 'music' ? !musics.length : tab === 'queue' ? !queueIds.some((id) => q.some((x) => x.id === id)) : tab === 'top' ? !topIds.size : tab === 'explore' ? exploreValue !== null && !musics.length : (tab === 'fav' || tab === 'recent' || open) && !videos.length && !musics.length) && (tab === 'queue' ? <p className="py-16 text-center opacity-60">الطابور فارغ. أضف أغنية بزر + بجانب المقطع.</p> : empty)}
-        {tab === 'roksi' && (
-          <div className={'roksi-page space-y-4 pb-5 ' + (roksiGlow ? 'roksi-glow-on' : '')} dir={language === 'ar' ? 'rtl' : 'ltr'}>
-            <section className="roksi-hero relative overflow-hidden rounded-3xl border p-5">
-              <div className="roksi-orb roksi-orb-one" /><div className="roksi-orb roksi-orb-two" />
+        {tab === 'yara' && (
+          <div className={'yara-page space-y-4 pb-5 ' + (yaraGlow ? 'yara-glow-on' : '')} dir={language === 'ar' ? 'rtl' : 'ltr'}>
+            <section className="yara-hero relative overflow-hidden rounded-3xl border p-5">
+              <div className="yara-orb yara-orb-one" /><div className="yara-orb yara-orb-two" />
               <div className="relative z-10 space-y-3">
-                <p className="text-[10px] font-bold tracking-[.24em] text-pink-200">{roksiCopy.eyebrow}</p>
-                <h2 className="text-3xl font-bold tracking-tight">{roksiStoryTitle || 'Hema × Roksi'} <span className="text-pink-300">♡</span></h2>
-                <p className="max-w-sm text-sm leading-7 text-white/75">{roksiCopy.heroDescription}</p>
+                <p className="text-[10px] font-bold tracking-[.24em] text-pink-200">{yaraCopy.eyebrow}</p>
+                <h2 className="text-3xl font-bold tracking-tight">{yaraStoryTitle || 'Hema × Yara'} <span className="text-pink-300">♡</span></h2>
+                <p className="max-w-sm text-sm leading-7 text-white/75">{yaraCopy.heroDescription}</p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇸 Gaza · Hema</span>
-                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇱 {roksiCopy.poland} · Roksi</span>
+                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇪🇬 {yaraCopy.poland} · Yara</span>
                 </div>
-                <button type="button" onClick={() => setRoksiGlow((value) => !value)} aria-pressed={roksiGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{roksiGlow ? roksiCopy.glowOn : roksiCopy.glowOff}</button>
+                <button type="button" onClick={() => setYaraGlow((value) => !value)} aria-pressed={yaraGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{yaraGlow ? yaraCopy.glowOn : yaraCopy.glowOff}</button>
               </div>
             </section>
+            <YaraExtras language={language} notify={notify} />
             <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
-              <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{language === 'ar' ? 'أغانينا' : language === 'pl' ? 'NASZE PIOSENKI' : 'OUR SONGS'}</p><h3 className="mt-1 text-lg font-bold">{roksiCopy.songsTitle}</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} {roksiCopy.saved}</span></div>
-              <p className="mb-3 text-xs leading-5 opacity-60">{roksiCopy.songsDescription}</p>
+              <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{language === 'ar' ? 'أغانينا' : language === 'pl' ? 'NASZE PIOSENKI' : 'OUR SONGS'}</p><h3 className="mt-1 text-lg font-bold">{yaraCopy.songsTitle}</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{yaraSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} {yaraCopy.saved}</span></div>
+              <p className="mb-3 text-xs leading-5 opacity-60">{yaraCopy.songsDescription}</p>
               <div className="mb-3 grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => { const ids = roksiSongIds.filter((id) => q.some((x) => x.id === id && !x.video)); if (!ids.length) { notify(roksiCopy.noSavedSongs); return } setQueueIds(ids); const first = q.findIndex((x) => x.id === ids[0]); if (first >= 0) { setI(first); setSheet(true); setTab('queue') } }} className="rounded-xl bg-pink-500/90 px-3 py-3 text-sm font-bold text-white">{roksiCopy.playSongs}</button>
-                <button type="button" onClick={() => { const ids = q.filter((x) => !x.video && x.fav).map((x) => x.id); if (!ids.length) { notify(roksiCopy.noFavorites); return } setRoksiSongIds((old) => [...new Set([...old, ...ids])]); notify(roksiCopy.favoritesAdded) }} className="rounded-xl bg-white/10 px-3 py-3 text-sm">{roksiCopy.addFavorites}</button>
+                <button type="button" onClick={() => { const ids = yaraSongIds.filter((id) => q.some((x) => x.id === id && !x.video)); if (!ids.length) { notify(yaraCopy.noSavedSongs); return } setQueueIds(ids); const first = q.findIndex((x) => x.id === ids[0]); if (first >= 0) { setI(first); setSheet(true); setTab('queue') } }} className="rounded-xl bg-pink-500/90 px-3 py-3 text-sm font-bold text-white">{yaraCopy.playSongs}</button>
+                <button type="button" onClick={() => { const ids = q.filter((x) => !x.video && x.fav).map((x) => x.id); if (!ids.length) { notify(yaraCopy.noFavorites); return } setYaraSongIds((old) => [...new Set([...old, ...ids])]); notify(yaraCopy.favoritesAdded) }} className="rounded-xl bg-white/10 px-3 py-3 text-sm">{yaraCopy.addFavorites}</button>
               </div>
-              {q.filter((x) => !x.video).length === 0 ? <p className="rounded-xl bg-black/20 p-4 text-center text-sm opacity-65">{roksiCopy.emptyLibrary}</p> : <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain rounded-xl bg-black/15 p-2">{q.filter((x) => !x.video).slice(0, 100).map((track) => { const added = roksiSongIds.includes(track.id); return <div key={track.id} className="flex min-w-0 items-center gap-2 rounded-xl p-2"><span className="grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold" style={art(track.title)}>{track.cover ? <img src={track.cover} alt="" loading="lazy" className="size-full rounded-lg object-cover" /> : '♫'}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs opacity-50">{track.artist || roksiCopy.unknownArtist}</span></span><button type="button" aria-label={added ? roksiCopy.removeSong : roksiCopy.addSong} onClick={() => setRoksiSongIds((ids) => added ? ids.filter((id) => id !== track.id) : [...ids, track.id])} className="min-h-10 min-w-10 rounded-xl px-3 text-lg" style={{ background: added ? 'rgba(244,114,182,.2)' : 'rgba(255,255,255,.07)', color: added ? '#f9a8d4' : '#fff' }}>{added ? '♥' : '+'}</button></div> })}</div>}
-              {q.filter((x) => !x.video).length > 100 && <p className="mt-2 text-[10px] opacity-45">{roksiCopy.limitNotice}</p>}
+              {q.filter((x) => !x.video).length === 0 ? <p className="rounded-xl bg-black/20 p-4 text-center text-sm opacity-65">{yaraCopy.emptyLibrary}</p> : <div className="max-h-72 space-y-1 overflow-y-auto overscroll-contain rounded-xl bg-black/15 p-2">{q.filter((x) => !x.video).slice(0, 100).map((track) => { const added = yaraSongIds.includes(track.id); return <div key={track.id} className="flex min-w-0 items-center gap-2 rounded-xl p-2"><span className="grid size-10 shrink-0 place-items-center rounded-lg text-sm font-bold" style={art(track.title)}>{track.cover ? <img src={track.cover} alt="" loading="lazy" className="size-full rounded-lg object-cover" /> : '♫'}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{track.title}</span><span className="block truncate text-xs opacity-50">{track.artist || yaraCopy.unknownArtist}</span></span><button type="button" aria-label={added ? yaraCopy.removeSong : yaraCopy.addSong} onClick={() => setYaraSongIds((ids) => added ? ids.filter((id) => id !== track.id) : [...ids, track.id])} className="min-h-10 min-w-10 rounded-xl px-3 text-lg" style={{ background: added ? 'rgba(244,114,182,.2)' : 'rgba(255,255,255,.07)', color: added ? '#f9a8d4' : '#fff' }}>{added ? '♥' : '+'}</button></div> })}</div>}
+              {q.filter((x) => !x.video).length > 100 && <p className="mt-2 text-[10px] opacity-45">{yaraCopy.limitNotice}</p>}
             </section>
             <section className="space-y-3 rounded-2xl border border-white/10 bg-white/[.035] p-4">
-              <div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{roksiCopy.letterEyebrow}</p><h3 className="mt-1 text-lg font-bold">{roksiCopy.letterTitle}</h3><p className="mt-1 text-xs opacity-60">{roksiCopy.letterDescription}</p></div>
-              <label className="block text-xs opacity-60">{roksiCopy.letterLanguage}</label>
-              <div className="grid grid-cols-3 gap-2">{([{id:'pl',label:'Polski 🇵🇱'},{id:'en',label:'English'},{id:'ar',label:'العربية'}] as const).map((opt) => <button key={opt.id} type="button" aria-pressed={roksiLetterLang === opt.id} onClick={() => { setRoksiLetterLang(opt.id); setRoksiLetter(ROKSI_LETTERS[opt.id]) }} className="rounded-xl border px-2 py-2.5 text-xs font-semibold" style={roksiLetterLang === opt.id ? {background:'rgba(244,114,182,.2)',borderColor:'#f472b6',color:'#fbcfe8'} : {background:'rgba(255,255,255,.045)',borderColor:'rgba(255,255,255,.1)'}}>{opt.label}</button>)}</div>
-              <label className="block space-y-2"><span className="text-xs opacity-65">{roksiCopy.letterField}</span><textarea value={roksiLetter} onChange={(e) => setRoksiLetter(e.target.value)} maxLength={2500} rows={7} className="w-full resize-y rounded-xl border border-pink-200/10 bg-black/25 p-3 text-sm leading-7 outline-none focus:border-pink-300/60" placeholder={roksiCopy.letterPlaceholder} /></label>
-              <div className="flex items-center justify-between gap-2"><span className="text-[10px] opacity-45">{roksiLetter.length}/2500 · {roksiCopy.autoSaved}</span><button type="button" onClick={() => { navigator.clipboard?.writeText(roksiLetter).then(() => notify(roksiCopy.copySuccess)).catch(() => notify(roksiCopy.copyFailure)) }} className="rounded-xl bg-pink-500/80 px-4 py-2.5 text-xs font-semibold text-white">{roksiCopy.copyLetter}</button></div>
+              <div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{yaraCopy.letterEyebrow}</p><h3 className="mt-1 text-lg font-bold">{yaraCopy.letterTitle}</h3><p className="mt-1 text-xs opacity-60">{yaraCopy.letterDescription}</p></div>
+              <label className="block text-xs opacity-60">{yaraCopy.letterLanguage}</label>
+              <div className="grid grid-cols-2 gap-2">{([{id:'ar',label:'العربية'},{id:'en',label:'English'}] as const).map((opt) => <button key={opt.id} type="button" aria-pressed={yaraLetterLang === opt.id} onClick={() => { setYaraLetterLang(opt.id); setYaraLetter(YARA_LETTERS[opt.id]) }} className="rounded-xl border px-2 py-2.5 text-xs font-semibold" style={yaraLetterLang === opt.id ? {background:'rgba(244,114,182,.2)',borderColor:'#f472b6',color:'#fbcfe8'} : {background:'rgba(255,255,255,.045)',borderColor:'rgba(255,255,255,.1)'}}>{opt.label}</button>)}</div>
+              <label className="block space-y-2"><span className="text-xs opacity-65">{yaraCopy.letterField}</span><textarea value={yaraLetter} onChange={(e) => setYaraLetter(e.target.value)} maxLength={2500} rows={7} className="w-full resize-y rounded-xl border border-pink-200/10 bg-black/25 p-3 text-sm leading-7 outline-none focus:border-pink-300/60" placeholder={yaraCopy.letterPlaceholder} /></label>
+              <div className="flex items-center justify-between gap-2"><span className="text-[10px] opacity-45">{yaraLetter.length}/2500 · {yaraCopy.autoSaved}</span><button type="button" onClick={() => { navigator.clipboard?.writeText(yaraLetter).then(() => notify(yaraCopy.copySuccess)).catch(() => notify(yaraCopy.copyFailure)) }} className="rounded-xl bg-pink-500/80 px-4 py-2.5 text-xs font-semibold text-white">{yaraCopy.copyLetter}</button></div>
             </section>
             <section className="rounded-2xl border border-pink-200/10 bg-gradient-to-br from-pink-500/[.10] to-violet-500/[.06] p-4">
-              <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{roksiCopy.storyEyebrow}</p><h3 className="mt-1 text-lg font-bold">{language === 'ar' ? 'غزة ♡ بولندا' : 'Gaza ♡ Poland'}</h3>
-              <p className="mt-2 text-sm leading-7 opacity-75">{roksiCopy.storyDescription}</p>
-              <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">{roksiCopy.storyTitleLabel}</span><input value={roksiStoryTitle} onChange={(e) => setRoksiStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Roksi" /></label>
+              <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{yaraCopy.storyEyebrow}</p><h3 className="mt-1 text-lg font-bold">{language === 'ar' ? 'غزة ♡ مصر' : 'Gaza ♡ Egypt'}</h3>
+              <p className="mt-2 text-sm leading-7 opacity-75">{yaraCopy.storyDescription}</p>
+              <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">{yaraCopy.storyTitleLabel}</span><input value={yaraStoryTitle} onChange={(e) => setYaraStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Yara" /></label>
             </section>
           </div>
         )}
@@ -2381,7 +2383,7 @@ export default function App() {
         <div className="fixed inset-0 z-[110] flex items-end bg-black/75" onClick={() => { if (convertingId === null) setConvertTrack(null) }}>
           <div className="w-full space-y-4 rounded-t-3xl border border-white/10 bg-[#111722] p-5 pb-8" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold tracking-[0.18em]" style={{ color: A }}>VIDEO TO MUSIC</p><h2 className="mt-1 text-xl font-bold">استخراج الصوت</h2><p className="mt-1 truncate text-sm opacity-60">{convertTrack.title}</p></div><button disabled={convertingId !== null} onClick={() => setConvertTrack(null)} className="rounded-xl bg-white/10 px-3 py-2">إغلاق</button></div>
-            <p className="text-sm leading-6 opacity-70">حدد الجزء المطلوب. اترك النهاية 0 لاستخراج الصوت حتى نهاية الفيديو. سيُحفظ الملف بصيغة M4A داخل Music/HEMA ROKSI، ودعم الصيغة يعتمد على مسار الصوت داخل الفيديو.</p>
+            <p className="text-sm leading-6 opacity-70">حدد الجزء المطلوب. اترك النهاية 0 لاستخراج الصوت حتى نهاية الفيديو. سيُحفظ الملف بصيغة M4A داخل Music/HEMA YARA، ودعم الصيغة يعتمد على مسار الصوت داخل الفيديو.</p>
             <div className="grid grid-cols-2 gap-3">
               <label className="space-y-2 text-sm"><span>البداية (ثانية)</span><input type="number" min={0} max={Math.max(0, Math.ceil(convertTrack.dur ?? 86400))} step={1} value={conversionStart} onChange={(e) => setConversionStart(Math.max(0, Number(e.target.value) || 0))} className="w-full rounded-xl bg-white/5 px-3 py-3" /></label>
               <label className="space-y-2 text-sm"><span>النهاية (ثانية، 0 = الكل)</span><input type="number" min={0} max={Math.max(0, Math.ceil(convertTrack.dur ?? 86400))} step={1} value={conversionEnd} onChange={(e) => setConversionEnd(Math.max(0, Number(e.target.value) || 0))} className="w-full rounded-xl bg-white/5 px-3 py-3" /></label>

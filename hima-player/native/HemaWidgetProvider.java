@@ -19,12 +19,12 @@ public class HemaWidgetProvider extends AppWidgetProvider {
         ComponentName name = new ComponentName(context, HemaWidgetProvider.class);
         int[] ids = manager.getAppWidgetIds(name);
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String title = prefs.getString("title", "HEMA ROKSI PLAYER");
+        String title = prefs.getString("title", "HEMA YARA PLAYER");
         String artist = prefs.getString("artist", "مكتبة الموسيقى والفيديو");
         boolean playing = prefs.getBoolean("playing", false);
         for (int id : ids) {
             RemoteViews views = new RemoteViews(context.getPackageName(), com.hima.player.R.layout.hema_widget);
-            views.setTextViewText(R.id.widget_title, title == null || title.isEmpty() ? "HEMA ROKSI PLAYER" : title);
+            views.setTextViewText(R.id.widget_title, title == null || title.isEmpty() ? "HEMA YARA PLAYER" : title);
             views.setTextViewText(R.id.widget_artist, artist == null || artist.isEmpty() ? "Hema" : artist);
             views.setTextViewText(R.id.widget_play, playing ? "Ⅱ" : "▶");
             views.setOnClickPendingIntent(R.id.widget_prev, command(context, "prev", id * 10 + 1));

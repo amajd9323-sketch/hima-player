@@ -197,7 +197,7 @@ public class MediaScanPlugin extends Plugin {
             }
             DownloadManager.Request req = new DownloadManager.Request(uri);
             req.setTitle(name);
-            req.setDescription("HEMA ROKSI PLAYER · Downloads");
+            req.setDescription("HEMA YARA PLAYER · Downloads");
             req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             req.setAllowedOverMetered(true);
             req.setAllowedOverRoaming(false);
@@ -307,7 +307,7 @@ public class MediaScanPlugin extends Plugin {
                     ContentValues values = new ContentValues();
                     values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
                     values.put(MediaStore.MediaColumns.MIME_TYPE, "audio/mp4");
-                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/HEMA ROKSI");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_MUSIC + "/HEMA YARA");
                     values.put(MediaStore.Audio.Media.IS_MUSIC, 1);
                     values.put(MediaStore.MediaColumns.IS_PENDING, 1);
                     savedUri = getContext().getContentResolver().insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, values);
@@ -323,7 +323,7 @@ public class MediaScanPlugin extends Plugin {
                     publish.put(MediaStore.MediaColumns.IS_PENDING, 0);
                     getContext().getContentResolver().update(savedUri, publish, null, null);
                 } else {
-                    File musicDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "HEMA ROKSI");
+                    File musicDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC), "HEMA YARA");
                     if (!musicDir.exists() && !musicDir.mkdirs()) throw new IOException("MUSIC_FOLDER_FAILED");
                     File outFile = new File(musicDir, fileName);
                     try (InputStream input = new FileInputStream(temp); OutputStream output = new FileOutputStream(outFile)) {
@@ -658,7 +658,7 @@ public class MediaScanPlugin extends Plugin {
     public void castMedia(PluginCall call) {
         String deviceId = call.getString("deviceId", "");
         String raw = call.getString("uri", "");
-        String title = call.getString("title", "HEMA ROKSI");
+        String title = call.getString("title", "HEMA YARA");
         boolean video = Boolean.TRUE.equals(call.getBoolean("video", false));
         CastDevice device = castDevices.get(deviceId);
         if (device == null) { call.reject("CAST_DEVICE_NOT_FOUND"); return; }
@@ -793,7 +793,7 @@ public class MediaScanPlugin extends Plugin {
             send.setType(video ? "video/*" : "audio/*");
             send.putExtra(Intent.EXTRA_STREAM, source);
             send.putExtra(Intent.EXTRA_SUBJECT, title);
-            send.putExtra(Intent.EXTRA_TEXT, title + " · HEMA ROKSI PLAYER");
+            send.putExtra(Intent.EXTRA_TEXT, title + " · HEMA YARA PLAYER");
             send.setClipData(ClipData.newUri(getContext().getContentResolver(), title, source));
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             Intent chooser = Intent.createChooser(send, "مشاركة عبر HEMA Drop");
@@ -858,11 +858,11 @@ public class MediaScanPlugin extends Plugin {
 
     @PluginMethod
     public void updateWidget(PluginCall call) {
-        String title = call.getString("title", "HEMA ROKSI PLAYER");
+        String title = call.getString("title", "HEMA YARA PLAYER");
         String artist = call.getString("artist", "Hema");
         boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", false));
         getContext().getSharedPreferences("hema-widget", android.content.Context.MODE_PRIVATE).edit()
-            .putString("title", title == null ? "HEMA ROKSI PLAYER" : title)
+            .putString("title", title == null ? "HEMA YARA PLAYER" : title)
             .putString("artist", artist == null ? "Hema" : artist)
             .putBoolean("playing", playing)
             .apply();

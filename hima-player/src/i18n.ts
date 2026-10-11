@@ -243,7 +243,7 @@ const strings: Record<string, Pair> = {
   "وصلنا للرابط، لكن المنصة لم تعطنا معرّف تضمين. احفظه أو افتحه على TikTok مباشرة.": ["Link received, but the platform did not provide an embed ID. Save it or open it directly in TikTok.", "Otrzymano link, ale platforma nie udostępniła identyfikatora osadzania. Zapisz go lub otwórz bezpośrednio w TikToku."],
   "اسم الرابط في HEMA": ["Link name in HEMA", "Nazwa linku w HEMA"],
   "تم تحديث الاسم محليًا.": ["Name updated locally.", "Nazwa została zaktualizowana lokalnie."],
-  "رابط من HEMA ROKSI PLAYER": ["Link from HEMA ROKSI PLAYER", "Link z HEMA ROKSI PLAYER"],
+  "رابط من HEMA YARA PLAYER": ["Link from HEMA YARA PLAYER", "Link z HEMA YARA PLAYER"],
   "انسخ الرابط يدويًا من حقل الرابط.": ["Copy the link manually from the URL field.", "Skopiuj link ręcznie z pola adresu."],
   "أداة التحكم تحتاج فيديو قابلًا للتضمين.": ["Controls require an embeddable video.", "Sterowanie wymaga filmu, który można osadzić."],
   "تغيير السرعة من تحكم TikTok غير متاح عبر المشغّل المضمّن.": ["Changing TikTok playback speed is not available in the embedded player.", "Zmiana prędkości odtwarzania TikTok nie jest dostępna w osadzonym odtwarzaczu."],
@@ -527,13 +527,13 @@ export function initLocalization(language: Language): () => void {
   const root = document.documentElement
   root.lang = language
   root.dir = language === 'ar' ? 'rtl' : 'ltr'
-  document.title = language === 'ar' ? 'HEMA ROKSI PLAYER' : language === 'en' ? 'HEMA ROKSI PLAYER — Music & Video' : 'HEMA ROKSI PLAYER — Muzyka i wideo'
+  document.title = language === 'ar' ? 'HEMA YARA PLAYER' : language === 'en' ? 'HEMA YARA PLAYER — Music & Video' : 'HEMA YARA PLAYER — Muzyka i wideo'
   const meta = document.querySelector<HTMLMetaElement>('meta[name="description"]')
   if (meta) meta.content = language === 'ar'
-    ? 'HEMA ROKSI PLAYER — مشغل موسيقى وفيديو بميزات صوت متقدمة ومكتبة محلية.'
+    ? 'HEMA YARA PLAYER — مشغل موسيقى وفيديو بميزات صوت متقدمة ومكتبة محلية.'
     : language === 'en'
-      ? 'HEMA ROKSI PLAYER — music and video player with advanced audio tools and local library.'
-      : 'HEMA ROKSI PLAYER — odtwarzacz muzyki i wideo z zaawansowanym dźwiękiem i lokalną biblioteką.'
+      ? 'HEMA YARA PLAYER — music and video player with advanced audio tools and local library.'
+      : 'HEMA YARA PLAYER — odtwarzacz muzyki i wideo z zaawansowanym dźwiękiem i lokalną biblioteką.'
 
   const translateNode = (node: Node, fromObserver = false) => {
     if (node.nodeType === Node.TEXT_NODE) {
