@@ -826,7 +826,7 @@ export default function App() {
     if (cur?.video) {
       m.current?.pause()
       setPlaying(false)
-      void keepAlive(false)
+      
     }
     setAudioTrackMenu(false)
     setFs(false)
@@ -1209,7 +1209,8 @@ export default function App() {
   }, [sleep, activeBoost])
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return
-    navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: 'Hema' })
+    navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: cur.artist?.trim() || 'Hema', album: cur.album?.trim() || 'HEMA YARA PLAYER' })
+    try { navigator.mediaSession.playbackState = playing ? 'playing' : 'paused' } catch { /* older WebView */ }
     // Media controls must be idempotent: play always plays, pause always pauses.
     try {
       navigator.mediaSession.setActionHandler('play', () => { if (m.current?.paused) void m.current.play() })
@@ -1219,11 +1220,16 @@ export default function App() {
       navigator.mediaSession.setActionHandler('seekbackward', (details) => seek((m.current?.currentTime ?? 0) - (details.seekOffset ?? 10)))
       navigator.mediaSession.setActionHandler('seekforward', (details) => seek((m.current?.currentTime ?? 0) + (details.seekOffset ?? 10)))
     } catch { /* browser may not support every Media Session action */ }
-  }, [cur?.id, cur?.title, cur?.artist, d])
+  }, [cur?.id, cur?.title, cur?.artist, cur?.album, d, playing])
   const stepRef = useRef(step)
   stepRef.current = step
   const toggleRef = useRef(toggle)
   toggleRef.current = toggle
+  useEffect(() => {
+    if (!canScan()) return
+    void keepAlive(Boolean(cur), cur?.title ?? 'HEMA YARA PLAYER', cur?.artist?.trim() || (cur?.video ? 'Video' : 'Hema'), playing)
+  }, [cur?.id, cur?.title, cur?.artist, cur?.video, playing])
+
   useEffect(() => {
     if (!canScan()) return
     void updateWidget(cur?.title ?? 'HEMA YARA PLAYER', cur?.artist ?? (cur?.video ? 'Video' : 'مكتبة Hema'), playing)
@@ -1240,7 +1246,7 @@ export default function App() {
         else if (command === 'prev') { if (cur) stepRef.current(-1); else { const last = ls<string>('hema_last_track', ''); const target = qRef.current.findIndex((x) => x.id === last); if (target >= 0) setI(target) } }
       }
       finally { polling = false }
-    }, 6000)
+    }, 1200)
     return () => window.clearInterval(timer)
   }, [cur?.id, cur?.artist, cur?.video, playing, q.length])
   const tick = (ct: number) => {
@@ -1546,7 +1552,7 @@ export default function App() {
     const timer = window.setTimeout(applyOffset, 250)
     return () => { window.clearTimeout(timer); trackElement.removeEventListener('load', applyOffset) }
   }, [sub, subOffset])
-  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); setPlaying(false); void keepAlive(false); return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false); void keepAlive(false) } }
+  const ended = () => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; if (sleep === -1) { setSleep(0); setPlaying(false); ; return } if (repeat === 'one') { if (m.current) { m.current.currentTime = 0; void m.current.play() } return } const next = nextItem(); if (next) step(1); else { setPlaying(false);  } }
 
   const findDuplicates = async () => {
     setBackupMsg('جارٍ فحص التكرار بالبصمة الرقمية...')
@@ -1791,7 +1797,7 @@ export default function App() {
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
       <video ref={m} playsInline onClick={toggleVideoUi}
         className={fs && cur?.video ? `fixed inset-0 z-[110] size-full bg-black ${cover ? 'object-cover' : 'object-contain'}` : 'hidden'}
-        onPlay={() => { setPlaying(true); initAudio(); if (cur?.video) poke(); else { setFs(false); setUi(false); void bars(false) } void keepAlive(true, cur?.title) }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false); void keepAlive(false) }}
+        onPlay={() => { setPlaying(true); initAudio(); if (cur?.video) poke(); else { setFs(false); setUi(false); void bars(false) }  }} onPause={() => { if (nextStartedFor.current && nextStartedFor.current === cur?.id) return; setPlaying(false);  }}
         onTimeUpdate={(e) => { const ct = e.currentTarget.currentTime; if (loopA !== null && loopB !== null && loopB > loopA && ct >= loopB) { e.currentTarget.currentTime = loopA; lastUiTick.current = loopA; setT(loopA); return } updateUiTime(ct); savePos(ct); tick(ct); void maybeCrossfade(ct) }} onLoadedMetadata={(e) => { const el = e.currentTarget; setD(el.duration); const availableTracks = (el as unknown as { audioTracks?: { length: number; [index: number]: { label?: string; language?: string; enabled: boolean } } }).audioTracks; setAudioTracks(availableTracks?.length ? Array.from({ length: availableTracks.length }, (_, id) => ({ id, label: availableTracks[id].label || 'مسار صوت ' + (id + 1), language: availableTracks[id].language || '', enabled: availableTracks[id].enabled })) : []); const pending = handoff.current; if (pending && pending.id === cur?.id && !cur?.video) { const secondary = nextMedia.current; const pos = secondary?.currentTime ?? pending.pos; if (isFinite(el.duration) && el.duration > 0) el.currentTime = Math.max(0, Math.min(pos, el.duration - 0.1)); const context = ac.current; if (context && fadeMain.current && fadeNext.current) { const now = context.currentTime; fadeMain.current.gain.cancelScheduledValues(now); fadeNext.current.gain.cancelScheduledValues(now); fadeMain.current.gain.setValueAtTime(0.0001, now); fadeNext.current.gain.setValueAtTime(1, now); fadeMain.current.gain.linearRampToValueAtTime(1, now + 0.12); fadeNext.current.gain.linearRampToValueAtTime(0.0001, now + 0.12) } window.setTimeout(() => { if (secondary) { secondary.pause(); secondary.removeAttribute('src'); secondary.load() } }, 180); handoff.current = null; nextStartedFor.current = null } else resume(el); if (fs && el.videoWidth > el.videoHeight) void lock(true) }} onEnded={ended}>{sub && <track key={sub} default kind="subtitles" src={sub} />}</video>
 
       {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#1f111a] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}

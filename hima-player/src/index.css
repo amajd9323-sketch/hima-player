@@ -2024,3 +2024,151 @@ input[type="range"] {
   .video-toolbar { column-gap: 5px; }
   .video-tool { white-space: normal; text-align: center; }
 }
+
+
+/* HEMA YARA PLAYER · tactile mobile controls, unified geometry, and strict dropdown visibility. */
+details:not([open]) > :not(summary) {
+  display: none !important;
+}
+button:not(.media-track-main) {
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 236, 244, .12);
+  border-radius: 14px;
+  transition: transform .12s ease, filter .16s ease, border-color .16s ease, box-shadow .16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button.rounded-full {
+  border-radius: 9999px !important;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(.985);
+  filter: brightness(1.08);
+}
+button:disabled {
+  opacity: .46;
+  box-shadow: none !important;
+  filter: none !important;
+}
+button:focus-visible {
+  outline: 2px solid var(--hema-teal);
+  outline-offset: 3px;
+}
+.hema-primary-media-tabs {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 12px 10px;
+  padding: 5px;
+  border: 1px solid rgba(255, 236, 244, .10);
+  border-radius: 20px;
+  background: rgba(12, 8, 14, .82);
+}
+.hema-primary-media-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 54px !important;
+  padding: 10px 8px;
+  border: 1px solid transparent !important;
+  border-radius: 15px !important;
+  background: rgba(255,255,255,.045);
+  color: rgba(255,255,255,.76);
+  box-shadow: none !important;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.hema-primary-media-tab.is-active {
+  border-color: rgba(255,92,141,.42) !important;
+  background: linear-gradient(135deg, rgba(255,92,141,.24), rgba(242,194,107,.11)) !important;
+  color: #fff !important;
+  box-shadow: inset 0 0 0 1px rgba(255,92,141,.10) !important;
+}
+.hema-media-count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 23px;
+  min-height: 23px;
+  padding: 0 5px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 8px;
+  background: rgba(0,0,0,.22);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.hema-menu-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px !important;
+  margin: 0 12px 10px;
+  padding: 11px 14px;
+  border: 1px solid rgba(255,236,244,.13);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+  box-shadow: none;
+}
+.hema-menu-toggle > span {
+  min-width: 0;
+  flex: 1;
+  text-align: start;
+}
+.media-track-main {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 66px;
+  border: 1px solid rgba(255,236,244,.075) !important;
+  border-radius: 17px !important;
+  background: rgba(255,255,255,.025) !important;
+  box-shadow: none !important;
+}
+.media-track-actions .media-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 48px !important;
+  padding: 8px 6px !important;
+  border: 1px solid rgba(255,236,244,.10) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.045);
+  box-shadow: none !important;
+  line-height: 1.3;
+}
+.media-track-actions .media-action-button > span {
+  overflow-wrap: anywhere;
+}
+.video-tools-dropdown:not([open]) > .video-toolbar,
+.media-track-actions:not([open]) > .media-track-action-grid,
+.hema-section-dropdown:not([open]) > .hema-nav-menu,
+.hema-nav-group:not([open]) > .hema-nav-options {
+  display: none !important;
+}
+.video-tools-dropdown[open] > .video-toolbar,
+.media-track-actions[open] > .media-track-action-grid,
+.hema-section-dropdown[open] > .hema-nav-menu,
+.hema-nav-group[open] > .hema-nav-options {
+  display: grid;
+}
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="السابق"],
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="إيقاف"],
+#root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="التالي"] {
+  min-width: 44px !important;
+  width: 44px !important;
+  min-height: 44px !important;
+  flex-basis: 44px !important;
+}
+@media (max-width: 380px) {
+  .hema-primary-media-tabs { margin-inline: 8px; gap: 6px; }
+  .hema-primary-media-tab { min-height: 50px !important; gap: 6px; padding-inline: 5px; font-size: 12px; }
+  .hema-menu-toggle { margin-inline: 8px; }
+  .media-track-actions .media-action-button { padding-inline: 3px !important; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  button:not(.media-track-main) { transition: none; }
+}

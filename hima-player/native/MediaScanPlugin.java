@@ -847,12 +847,44 @@ public class MediaScanPlugin extends Plugin {
     @PluginMethod
     public void keepAlive(PluginCall call) {
         boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
-        Intent i = new Intent(getContext(), PlaybackService.class);
-        i.putExtra("title", call.getString("title", "Hema"));
+        String title = call.getString("title", "Hema");
+        String artist = call.getString("artist", "Hema");
+        boolean playing = Boolean.TRUE.equals(call.getBoolean("playing", on));
+        Intent intent = new Intent(getContext(), PlaybackService.class);
+        intent.putExtra("on", on);
+        intent.putExtra("title", title == null ? "HEMA YARA PLAYER" : title);
+        intent.putExtra("artist", artist == null ? "Hema" : artist);
+        intent.putExtra("playing", playing);
+
+        if (on && Build.VERSION.SDK_INT >= 33
+                && getContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            android.content.SharedPreferences notificationPrefs =
+                getContext().getSharedPreferences("hema-notifications", android.content.Context.MODE_PRIVATE);
+            final android.app.Activity activity = getActivity();
+            if (activity != null && !notificationPrefs.getBoolean("permission_requested", false)) {
+                notificationPrefs.edit().putBoolean("permission_requested", true).apply();
+                activity.runOnUiThread(() -> {
+                    if (Build.VERSION.SDK_INT >= 33
+                            && activity.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        activity.requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 4107);
+                    }
+                });
+            }
+        }
+
         try {
-            if (on) { if (Build.VERSION.SDK_INT >= 26) getContext().startForegroundService(i); else getContext().startService(i); }
-            else getContext().stopService(i);
-        } catch (Exception ignored) { }
+            if (on) {
+                if (Build.VERSION.SDK_INT >= 26) getContext().startForegroundService(intent);
+                else getContext().startService(intent);
+            } else {
+                getContext().stopService(intent);
+            }
+        } catch (Exception e) {
+            call.reject("MEDIA_NOTIFICATION_FAILED", e);
+            return;
+        }
         call.resolve();
     }
 
