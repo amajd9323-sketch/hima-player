@@ -1132,7 +1132,7 @@ export default function App() {
       const gn = c.createGain(); gn.gain.value = activeBoost / 100
       const meter = c.createAnalyser(); meter.fftSize = 256; normMeter.current = meter
       const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
-      const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
+      const lim = c.createDynamicsCompressor(); lim.threshold.value = -6; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.12
       const an = c.createAnalyser(); an.fftSize = 64
       // Build reverb only when spatial effect is enabled; generating a long impulse on every first play caused startup stutter on low-memory phones.
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
@@ -1410,7 +1410,7 @@ export default function App() {
   const addTo = (n: string, id: string) => setLists((p) => ({ ...p, [n]: [...new Set([...(p[n] ?? []), id])] }))
   const exportBackup = async () => {
     const overrides = await allTrackMeta().catch(() => [])
-    const payload = { app: 'HEMA YARA PLAYER', schemaVersion: 3, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })), onlineSaved, onlineHistory, onlineQueue, onlineFavorites }
+    const payload = { app: 'HEMA YARA PLAYER', schemaVersion: 3, exportedAt: new Date().toISOString(), lists, queueIds, recent, favorites: [...favSet()], positions: ls<Record<string, number>>('hema_pos', {}), stats: ls('hema_stats', { p: {}, s: 0 }), accent: acc, sort, boost, videoBoost, shake, adhan, quran, city, customEq, bassBoost, spatial, bookMode, lyrOffset, crossfade, cueSize, cueColor, autoVolume, trackProfiles: ls('hema_track_eq_profiles', {}), trackMeta: overrides.map(({ id, title, artist }) => ({ id, title, artist })), onlineSaved, onlineHistory, onlineQueue, onlineFavorites, yaraGift: { title: yaraStoryTitle, letter: yaraLetter, letterLang: yaraLetterLang, glow: yaraGlow, songIds: yaraSongIds.slice(0, 100) } }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'hema-player-backup.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
     setBackupMsg('تم تصدير النسخة الاحتياطية والإعدادات وبيانات العرض. ملفات الغلاف نفسها تُحفظ محليًا ولا تدخل الملف.')
@@ -1460,6 +1460,15 @@ export default function App() {
       if (typeof data.accent === 'number' && data.accent >= 0 && data.accent < ACCENTS.length) setAcc(data.accent)
       if (typeof data.sort === 'string' && SORTS.some(([k]) => k === data.sort)) setSort(data.sort)
       if (typeof data.boost === 'number') setBoost(Math.max(100, Math.min(300, data.boost)))
+      if (typeof data.videoBoost === 'number') setVideoBoost(Math.max(100, Math.min(300, data.videoBoost)))
+      if (data.yaraGift && typeof data.yaraGift === 'object') {
+        const gift = data.yaraGift as Record<string, unknown>
+        if (typeof gift.title === 'string') setYaraStoryTitle(gift.title.slice(0, 60))
+        if (typeof gift.letter === 'string') setYaraLetter(gift.letter.slice(0, 2500))
+        if (gift.letterLang === 'ar' || gift.letterLang === 'en') setYaraLetterLang(gift.letterLang)
+        if (typeof gift.glow === 'boolean') setYaraGlow(gift.glow)
+        if (Array.isArray(gift.songIds)) setYaraSongIds([...new Set(gift.songIds.filter((id): id is string => typeof id === 'string' && id.length <= 500))].slice(0, 100))
+      }
       if (Array.isArray(data.customEq) && (data.customEq.length === 5 || data.customEq.length === 10) && data.customEq.every((x) => typeof x === 'number' && x >= -12 && x <= 12)) { if (data.customEq.length === 10) setCustomEq(data.customEq as number[]); else { const n = Array(10).fill(0) as number[]; [1, 3, 5, 7, 9].forEach((j, k) => { n[j] = (data.customEq as number[])[k] }); setCustomEq(n) } }
       if (typeof data.bassBoost === 'boolean') setBassBoost(data.bassBoost)
       if (typeof data.spatial === 'boolean') setSpatial(data.spatial)
@@ -1487,6 +1496,26 @@ export default function App() {
       await load()
       setBackupMsg('تم استيراد الإعدادات والقوائم وبيانات العرض. لم تتضمن النسخة ملفات الوسائط أو أغلفة الصور.')
     } catch { setBackupMsg('ملف النسخة الاحتياطية غير صالح أو من إصدار غير مدعوم.') }
+  }
+  const exportYaraGift = () => {
+    const payload = { app: 'HEMA YARA GIFT', schemaVersion: 1, exportedAt: new Date().toISOString(), title: yaraStoryTitle.slice(0, 60), letter: yaraLetter.slice(0, 2500), letterLang: yaraLetterLang, glow: yaraGlow, songIds: yaraSongIds.slice(0, 100) }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }))
+    const a = document.createElement('a'); a.href = url; a.download = 'Hema-Yara-Gift.json'; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1500)
+    notify('تم تصدير بطاقة هدية يارا. أرسل ملف JSON؛ الأغاني نفسها لا تُنسخ.')
+  }
+  const importYaraGift = async (file?: File) => {
+    if (!file) return
+    try {
+      if (file.size > 1_000_000) throw new Error('GIFT_TOO_LARGE')
+      const data = JSON.parse(await file.text()) as Record<string, unknown>
+      if (data.app !== 'HEMA YARA GIFT' || data.schemaVersion !== 1) throw new Error('GIFT_VERSION')
+      if (typeof data.title === 'string') setYaraStoryTitle(data.title.slice(0, 60))
+      if (typeof data.letter === 'string') setYaraLetter(data.letter.slice(0, 2500))
+      if (data.letterLang === 'ar' || data.letterLang === 'en') setYaraLetterLang(data.letterLang)
+      if (typeof data.glow === 'boolean') setYaraGlow(data.glow)
+      if (Array.isArray(data.songIds)) setYaraSongIds([...new Set(data.songIds.filter((id): id is string => typeof id === 'string' && id.length <= 500))].slice(0, 100))
+      notify('تم استيراد هدية يارا. ستظهر الأغاني المطابقة لملفات هذا الهاتف فقط.')
+    } catch { notify('ملف هدية يارا غير صالح أو غير مدعوم.') }
   }
   const pip = async () => { await requestPip() }
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
@@ -1614,10 +1643,10 @@ export default function App() {
     setBusy(true); setMsg('')
     try {
       let order: number[] = []; let local = false
-      try { order = await aiOrder(ask, list.map((x) => x.title)) } catch {
+      try { order = await aiOrder(ask, list.map((x) => [x.title, x.artist, x.album, x.genre].filter(Boolean).join(' — '))) } catch {
         local = true
         const terms = clean(ask).toLocaleLowerCase().split(/\s+/).filter((x) => x.length > 1)
-        order = list.map((x, n) => ({ n, score: terms.reduce((sum, word) => sum + (clean(x.title + ' ' + (x.artist ?? '')).toLocaleLowerCase().includes(word) ? 4 : 0), 0) + (x.fav ? 1 : 0) - (recent.includes(x.id) ? 3 : 0) })).sort((a, b) => b.score - a.score || a.n - b.n).map((x) => x.n)
+        order = list.map((x, n) => ({ n, score: terms.reduce((sum, word) => sum + (clean([x.title, x.artist, x.album, x.genre].filter(Boolean).join(' ')).toLocaleLowerCase().includes(word) ? 4 : 0), 0) + (x.fav ? 1 : 0) - (recent.includes(x.id) ? 3 : 0) })).sort((a, b) => b.score - a.score || a.n - b.n).map((x) => x.n)
       }
       const picked = order.filter((n) => list[n]).map((n) => list[n])
       if (!picked.length) { setMsg('لا نتيجة. جرب وصف ثاني.'); return }
@@ -2090,6 +2119,14 @@ export default function App() {
               <p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{yaraCopy.storyEyebrow}</p><h3 className="mt-1 text-lg font-bold">{language === 'ar' ? 'غزة ♡ مصر' : 'Gaza ♡ Egypt'}</h3>
               <p className="mt-2 text-sm leading-7 opacity-75">{yaraCopy.storyDescription}</p>
               <label className="mt-3 block space-y-2"><span className="text-xs opacity-60">{yaraCopy.storyTitleLabel}</span><input value={yaraStoryTitle} onChange={(e) => setYaraStoryTitle(e.target.value.slice(0, 60))} maxLength={60} className="w-full rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-sm outline-none focus:border-pink-300/50" placeholder="Hema × Yara" /></label>
+            </section>
+            <section className="space-y-3 rounded-2xl border border-pink-200/10 bg-black/20 p-4">
+              <p className="text-xs font-semibold tracking-[.15em] text-pink-300">Hema × Yara · GIFT PACK</p>
+              <p className="text-sm leading-6 opacity-70">صدّر الرسالة والعنوان واختيارات أغانينا لإرسالها إلى يارا، أو استورد هديتها. لا يتضمن الملف الصوت أو الصور الخاصة.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={exportYaraGift} className="min-h-11 rounded-xl px-3 py-3 text-sm font-semibold text-black" style={{ background: '#f2c26b' }}>تصدير الهدية</button>
+                <label className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-pink-200/20 bg-pink-500/15 px-3 py-3 text-center text-sm font-semibold">استيراد هدية<input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { void importYaraGift(e.target.files?.[0]); e.currentTarget.value = '' }} /></label>
+              </div>
             </section>
           </div>
         )}

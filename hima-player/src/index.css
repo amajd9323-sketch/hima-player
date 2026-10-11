@@ -1987,3 +1987,40 @@ body.yara-has-bg::before{content:'';position:fixed;inset:0;z-index:-1;background
   .hema-nav-options { grid-template-columns: minmax(0, 1fr); }
   .media-track-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Phase 1: Samsung touch targets, focus clarity, and compact-screen safety. */
+button, label, summary, select {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button, label[aria-label], .media-actions-trigger, .video-tool {
+  min-height: 44px;
+}
+input[type="range"] {
+  min-height: 36px;
+  padding-block: 6px;
+  touch-action: pan-y;
+}
+.media-actions-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+}
+.media-track-actions[open] > summary {
+  border-bottom: 1px solid var(--hema-line);
+}
+:where(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--hema-teal);
+  outline-offset: 3px;
+}
+@media (max-width: 380px) {
+  #root > div > .relative.mx-2.mb-2 > div.flex { gap: 5px; padding-inline: 7px; }
+  #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="تشغيل"],
+  #root > div > .relative.mx-2.mb-2 > div.flex > button[aria-label="التالي"] {
+    flex-basis: 38px; width: 38px; min-width: 38px;
+  }
+  .video-toolbar { column-gap: 5px; }
+  .video-tool { white-space: normal; text-align: center; }
+}
