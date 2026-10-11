@@ -2381,3 +2381,38 @@ button:focus-visible {
   .hema-primary-media-tab { min-height:60px !important; padding-inline:9px !important; }
   .hema-primary-media-tab > span:nth-child(2) { font-size:12px; }
 }
+
+
+/* Final layout correction: each track action button/panel spans a full row. */
+.media-track-actions {
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  align-items:stretch;
+  padding-top:0 !important;
+  border-top:0 !important;
+}
+.media-track-actions > .media-actions-trigger,
+.media-track-actions > .media-track-action-grid {
+  grid-column:1 / -1 !important;
+  width:100% !important;
+  min-width:0 !important;
+}
+.media-track-actions .media-track-action-grid {
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+}
+.hema-primary-media-tab > .hema-media-tab-copy {
+  display:flex; flex:1 1 auto; flex-direction:column; align-items:flex-start; justify-content:center;
+  gap:3px; min-width:0; text-align:start;
+}
+.hema-primary-media-tab > .hema-media-tab-copy > span {
+  font-size:14px; line-height:1.25; font-weight:800; color:inherit;
+}
+.hema-primary-media-tab > .hema-media-tab-copy > small {
+  display:block; color:rgba(255,255,255,.53); font-size:10px; line-height:1.25; font-weight:500;
+}
+.hema-primary-media-tab.is-active > .hema-media-tab-copy > small { color:rgba(255,255,255,.70); }
+@media (max-width:380px) {
+  .hema-primary-media-tab > .hema-media-tab-copy > span { font-size:12px; }
+  .hema-primary-media-tab > .hema-media-tab-copy > small { font-size:9px; }
+  .media-track-actions .media-track-action-grid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+}

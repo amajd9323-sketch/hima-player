@@ -1866,7 +1866,7 @@ export default function App() {
             closeSectionsMenu()
           }}>
             <Icon n="video" s={21} />
-            <span>{language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos'}</span>
+            <span className="hema-media-tab-copy"><span>{language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos'}</span><small>{language === 'ar' ? 'مقاطع الهاتف' : language === 'pl' ? 'Pliki wideo' : 'Phone videos'}</small></span>
             <span className="hema-media-count">{videos.length}</span>
           </button>
           <button type="button" aria-pressed={tab === 'music'} className={`hema-primary-media-tab ${tab === 'music' ? 'is-active' : ''}`} onClick={(e) => {
@@ -1878,7 +1878,7 @@ export default function App() {
             closeSectionsMenu()
           }}>
             <Icon n="music" s={21} />
-            <span>{language === 'ar' ? 'الموسيقى' : language === 'pl' ? 'Muzyka' : 'Music'}</span>
+            <span className="hema-media-tab-copy"><span>{language === 'ar' ? 'الموسيقى' : language === 'pl' ? 'Muzyka' : 'Music'}</span><small>{language === 'ar' ? 'ملفات صوتية' : language === 'pl' ? 'Pliki audio' : 'Audio files'}</small></span>
             <span className="hema-media-count">{musics.length}</span>
           </button>
         </div>
