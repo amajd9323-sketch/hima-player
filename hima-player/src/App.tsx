@@ -834,6 +834,7 @@ export default function App() {
       
     }
     setAudioTrackMenu(false)
+    restoreVideoBrightness()
     setFs(false)
     void bars(false)
     void lock(false)
@@ -1140,7 +1141,7 @@ export default function App() {
       const gn = c.createGain(); gn.gain.value = activeBoost / 100
       const meter = c.createAnalyser(); meter.fftSize = 256; normMeter.current = meter
       const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
-      const lim = c.createDynamicsCompressor(); lim.threshold.value = -1.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.002; lim.release.value = 0.15
+      const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 8; lim.ratio.value = 4; lim.attack.value = 0.003; lim.release.value = 0.25
       const an = c.createAnalyser(); an.fftSize = 64
       // Build reverb only when spatial effect is enabled; generating a long impulse on every first play caused startup stutter on low-memory phones.
       const wet = c.createGain(); wet.gain.value = spatial ? 0.22 : 0
@@ -1152,7 +1153,7 @@ export default function App() {
       }
       gainN.current = gn; anN.current = an; wetN.current = wet
       src.connect(mainFade); nextSrc.connect(nextFade); mainFade.connect(bands.current[0]); nextFade.connect(bands.current[0])
-      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(meter); meter.connect(gn); gn.connect(normalizer); normalizer.connect(lim)
+      bands.current.reduce((a, b) => (a.connect(b), b)); const lastBand = bands.current[bands.current.length - 1]; lastBand.connect(meter); meter.connect(normalizer); normalizer.connect(gn); gn.connect(lim)
       lim.connect(an); an.connect(c.destination); if (convolver) { lim.connect(convolver); convolver.connect(wet); wet.connect(c.destination) }
       ac.current = c
       audioGraphActive.current = true
@@ -1264,7 +1265,7 @@ export default function App() {
       const samples = new Uint8Array(normMeter.current.fftSize); normMeter.current.getByteTimeDomainData(samples)
       let sum = 0; for (const value of samples) { const n = (value - 128) / 128; sum += n * n }
       const rms = Math.sqrt(sum / samples.length)
-      if (rms > 0.004) normN.current.gain.setTargetAtTime(Math.max(0.65, Math.min(1.8, 0.12 / rms)), ac.current.currentTime, 0.65)
+      if (rms > 0.004) normN.current.gain.setTargetAtTime(Math.max(1, Math.min(2.5, 0.12 / rms)), ac.current.currentTime, 0.65)
     } else if (!autoVolume && normN.current && ac.current && normN.current.gain.value !== 1) normN.current.gain.setTargetAtTime(1, ac.current.currentTime, 0.4)
     if (!cur || dt <= 0 || dt > 1.5) return
     accT.current += dt
@@ -1533,6 +1534,12 @@ export default function App() {
   }
   const pip = async () => { await requestPip() }
   const setBright = (b: number) => { setBr(b); void nativeBright(b) }
+  const restoreVideoBrightness = () => { setBr(0.5); void nativeBright(-1) }
+  useEffect(() => {
+    // Restore Android's system brightness whenever video fullscreen is no longer active.
+    if (fs && cur?.video) return
+    restoreVideoBrightness()
+  }, [fs, cur?.video])
   const resume = (e: HTMLVideoElement) => { const sp = ls<Record<string, number>>('hema_pos', {})[cur?.id ?? '']; if (sp && (cur?.video || e.duration > 600 || quran || bookMode) && sp < e.duration - 5) e.currentTime = sp }
   const savePos = (ct: number) => { if (!cur || (!cur.video && d < 600 && !quran && !bookMode) || Math.abs(ct - lastSave.current) < 15) return; lastSave.current = ct; const p = ls<Record<string, number>>('hema_pos', {}); p[cur.id] = ct; localStorage.setItem('hema_pos', JSON.stringify(p)) }
   const rotate = async () => { try { const o = await ScreenOrientation.orientation(); await ScreenOrientation.lock({ orientation: o.type.startsWith('landscape') ? 'portrait' : 'landscape' }) } catch { /* web */ } }
