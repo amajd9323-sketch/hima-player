@@ -1797,7 +1797,7 @@ export default function App() {
     setSectionsMenuOpen(false)
     setTrackActionsOpen(null)
   }
-  const sectionsMenuOverlay = {sectionsMenuOpen && createPortal(<div className="hema-section-sheet-backdrop" role="presentation" onClick={closeSectionsMenu}>
+  const sectionsMenuOverlay = sectionsMenuOpen ? createPortal(<div className="hema-section-sheet-backdrop" role="presentation" onClick={closeSectionsMenu}>
           <section id="hema-section-sheet" className="hema-section-sheet" role="dialog" aria-modal="true" aria-label={language === 'ar' ? 'أقسام التطبيق' : language === 'pl' ? 'Sekcje aplikacji' : 'App sections'} dir={language === 'ar' ? 'rtl' : 'ltr'} onClick={(e) => e.stopPropagation()}>
             <div className="hema-section-sheet-heading">
               <div><p className="hema-sheet-eyebrow">HEMA YARA PLAYER</p><h2>{language === 'ar' ? 'اختر القسم' : language === 'pl' ? 'Wybierz sekcję' : 'Choose a section'}</h2><p>{language === 'ar' ? 'كل الأدوات في مكان واحد، بدون قوائم متداخلة.' : language === 'pl' ? 'Wszystkie narzędzia w jednym miejscu.' : 'Every section in one place. No nested menus.'}</p></div>
@@ -1831,7 +1831,7 @@ export default function App() {
               })}
             </nav>
           </section>
-        </div>, document.body)}
+        </div>, document.body) : null
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
