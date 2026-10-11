@@ -184,6 +184,10 @@ export default function App() {
   const [scanMsg, setScanMsg] = useState('')
   const [find, setFind] = useState<string | null>(null)
   const [sheet, setSheet] = useState(false)
+  const [sectionsMenuOpen, setSectionsMenuOpen] = useState(false)
+  const [trackActionsOpen, setTrackActionsOpen] = useState<string | null>(null)
+  const [musicToolsOpen, setMusicToolsOpen] = useState(false)
+  const [videoToolsOpen, setVideoToolsOpen] = useState(false)
   const [panel, setPanel] = useState<'eq' | 'sleep' | null>(null)
   const [fs, setFs] = useState(false)
   const [ui, setUi] = useState(true)
@@ -1683,12 +1687,12 @@ export default function App() {
         <span className="min-w-0 flex-1"><span className="block truncate font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-55">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'ملف موسيقى'}</span></span>
         {k === i && playing && <Icon n="eq" s={19} />}
       </button>
-      <details className="media-track-actions" onToggle={(e) => { const current = e.currentTarget; if (current.open) current.closest('main')?.querySelectorAll('details.media-track-actions').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
-        <summary className="media-actions-trigger">
-          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
-          <span className="media-actions-caret"><Icon n="down" s={18} /></span>
-        </summary>
-        <div className="media-track-action-grid">
+      <div className={`media-track-actions ${trackActionsOpen === x.id ? 'is-open' : ''}`}>
+        <button type="button" className="media-actions-trigger" aria-expanded={trackActionsOpen === x.id} onClick={() => setTrackActionsOpen((open) => open === x.id ? null : x.id)}>
+          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'المزيد من الخيارات' : language === 'pl' ? 'Więcej opcji' : 'More options'}</span></span>
+          <span className="media-actions-caret"><Icon n={trackActionsOpen === x.id ? 'close' : 'down'} s={18} /></span>
+        </button>
+        {trackActionsOpen === x.id && <div className="media-track-action-grid" onClick={(e) => { if ((e.target as HTMLElement).closest('button')) setTrackActionsOpen(null) }}>
         {tab !== 'queue'
           ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={18} /><span>الطابور</span></button>
           : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
@@ -1697,8 +1701,8 @@ export default function App() {
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم والفنان والغلاف" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
         {(x.blob || x.uri) && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
-        </div>
-      </details>
+        </div>}
+      </div>
     </li>
   )
   const VRow = ({ x, k }: { x: Track; k: number }) => (
@@ -1711,12 +1715,12 @@ export default function App() {
         </div>
         <p className="px-1 pt-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'فيديو'}</p>
       </button>
-      <details className="media-track-actions" onToggle={(e) => { const current = e.currentTarget; if (current.open) current.closest('main')?.querySelectorAll('details.media-track-actions').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
-        <summary className="media-actions-trigger">
-          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
-          <span className="media-actions-caret"><Icon n="down" s={18} /></span>
-        </summary>
-        <div className="media-track-action-grid">
+      <div className={`media-track-actions ${trackActionsOpen === x.id ? 'is-open' : ''}`}>
+        <button type="button" className="media-actions-trigger" aria-expanded={trackActionsOpen === x.id} onClick={() => setTrackActionsOpen((open) => open === x.id ? null : x.id)}>
+          <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'المزيد من الخيارات' : language === 'pl' ? 'Więcej opcji' : 'More options'}</span></span>
+          <span className="media-actions-caret"><Icon n={trackActionsOpen === x.id ? 'close' : 'down'} s={18} /></span>
+        </button>
+        {trackActionsOpen === x.id && <div className="media-track-action-grid" onClick={(e) => { if ((e.target as HTMLElement).closest('button')) setTrackActionsOpen(null) }}>
         {tab !== 'queue'
           ? <button aria-label="تشغيل بعد الحالي" title="إضافة إلى الطابور" onClick={() => enqueue(x, true)} className="media-action-button" style={{ color: queueIds.includes(x.id) ? A : undefined }}><Icon n="plus" s={17} /><span>الطابور</span></button>
           : <><button aria-label="تحريك لأعلى" onClick={() => moveQueue(x.id, -1)} className="media-action-button"><span className="text-base">↑</span><span>للأعلى</span></button><button aria-label="تحريك لأسفل" onClick={() => moveQueue(x.id, 1)} className="media-action-button"><span className="text-base">↓</span><span>للأسفل</span></button><button aria-label="إزالة من الطابور" onClick={() => dequeue(x.id)} className="media-action-button"><Icon n="close" s={17} /><span>إزالة</span></button></>}
@@ -1726,8 +1730,8 @@ export default function App() {
         <button aria-label="تعديل بيانات العرض" title="تعديل الاسم" onClick={() => editTrack(x)} className="media-action-button"><span className="text-base">✎</span><span>تعديل</span></button>
         {(x.blob || x.uri) && <button aria-label="مشاركة عبر HEMA Drop" title="إرسال الملف لجهاز قريب عبر قائمة Android" onClick={() => void shareTrack(x)} className="media-action-button"><span className="text-base">↗</span><span>HEMA Drop</span></button>}
         {x.blob && <button aria-label="حذف" onClick={() => remove(x)} className="media-action-button text-red-300"><Icon n="trash" s={17} /><span>حذف</span></button>}
-        </div>
-      </details>
+        </div>}
+      </div>
     </li>
   )
   const empty = <p className="py-20 text-center opacity-60">{scanMsg || 'فارغ. اضغط + لإضافة ملفات.'}</p>
@@ -1785,12 +1789,9 @@ export default function App() {
     },
   ]
   const activeNavItem = navGroups.flatMap((group) => group.items).find((item) => item.key === tab)
-  const closeSectionsMenu = (target: HTMLElement) => {
-    const root = target.closest('.hema-media-navigation')
-    const menu = root?.querySelector('details.hema-section-dropdown') as HTMLDetailsElement | null
-    if (!menu) return
-    menu.open = false
-    menu.querySelectorAll('details.hema-nav-group').forEach((node) => { (node as HTMLDetailsElement).open = false })
+  const closeSectionsMenu = () => {
+    setSectionsMenuOpen(false)
+    setTrackActionsOpen(null)
   }
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
@@ -1818,10 +1819,11 @@ export default function App() {
         <div className="hema-primary-media-tabs" role="group" aria-label={language === 'ar' ? 'الموسيقى والفيديو' : language === 'pl' ? 'Muzyka i wideo' : 'Music and video'}>
           <button type="button" aria-pressed={tab === 'video'} className={`hema-primary-media-tab ${tab === 'video' ? 'is-active' : ''}`} onClick={(e) => {
             setTab('video')
+            setTrackActionsOpen(null)
             setOpenFolder(null)
             setOpenList(null)
             setExploreValue(null)
-            closeSectionsMenu(e.currentTarget)
+            closeSectionsMenu()
           }}>
             <Icon n="video" s={21} />
             <span>{language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos'}</span>
@@ -1829,54 +1831,57 @@ export default function App() {
           </button>
           <button type="button" aria-pressed={tab === 'music'} className={`hema-primary-media-tab ${tab === 'music' ? 'is-active' : ''}`} onClick={(e) => {
             setTab('music')
+            setTrackActionsOpen(null)
             setOpenFolder(null)
             setOpenList(null)
             setExploreValue(null)
-            closeSectionsMenu(e.currentTarget)
+            closeSectionsMenu()
           }}>
             <Icon n="music" s={21} />
             <span>{language === 'ar' ? 'الموسيقى' : language === 'pl' ? 'Muzyka' : 'Music'}</span>
             <span className="hema-media-count">{musics.length}</span>
           </button>
         </div>
-        <details className="hema-section-dropdown" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-          <summary className="hema-menu-toggle">
-            <Icon n="list" s={19} />
-            <span>{activeNavItem?.label ?? (language === 'ar' ? 'المزيد من الأقسام' : language === 'pl' ? 'Więcej sekcji' : 'More sections')}</span>
-            <Icon n="down" s={17} />
-          </summary>
-          <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
-            {navGroups.map((group) => {
-              const groupActive = group.items.some((item) => item.key === tab)
-              const currentItem = group.items.find((item) => item.key === tab)
-              return (
-                <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`} onToggle={(e) => { const current = e.currentTarget; if (current.open) current.parentElement?.querySelectorAll('details.hema-nav-group').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
-                  <summary className="hema-nav-group-trigger">
-                    <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
-                    <span className="hema-nav-group-copy">
-                      <strong>{group.title}</strong>
-                      <small>{currentItem ? currentItem.label : group.description}</small>
-                    </span>
-                    <span className="hema-nav-chevron"><Icon n="down" s={19} /></span>
-                  </summary>
-                  <div className="hema-nav-options">
-                    {group.items.map((item) => (
-                      <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={(e) => {
-                        setTab(item.key)
-                        setOpenFolder(null)
-                        setOpenList(null)
-                        if (item.key === 'explore') setExploreValue(null)
-                        closeSectionsMenu(e.currentTarget)
-                      }}>
-                        <Icon n={item.icon} s={18} /><span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              )
-            })}
-          </nav>
-        </details>
+        <button type="button" className={`hema-menu-toggle ${sectionsMenuOpen ? 'is-open' : ''}`} aria-expanded={sectionsMenuOpen} aria-controls="hema-section-sheet" onClick={() => setSectionsMenuOpen((open) => !open)}>
+          <Icon n="list" s={20} />
+          <span>{activeNavItem?.label ?? (language === 'ar' ? 'كل أقسام التطبيق' : language === 'pl' ? 'Wszystkie sekcje' : 'All sections')}</span>
+          <Icon n={sectionsMenuOpen ? 'close' : 'down'} s={18} />
+        </button>
+        {sectionsMenuOpen && <div className="hema-section-sheet-backdrop" role="presentation" onClick={closeSectionsMenu}>
+          <section id="hema-section-sheet" className="hema-section-sheet" role="dialog" aria-modal="true" aria-label={language === 'ar' ? 'أقسام التطبيق' : language === 'pl' ? 'Sekcje aplikacji' : 'App sections'} dir={language === 'ar' ? 'rtl' : 'ltr'} onClick={(e) => e.stopPropagation()}>
+            <div className="hema-section-sheet-heading">
+              <div><p className="hema-sheet-eyebrow">HEMA YARA PLAYER</p><h2>{language === 'ar' ? 'اختر القسم' : language === 'pl' ? 'Wybierz sekcję' : 'Choose a section'}</h2><p>{language === 'ar' ? 'كل الأدوات في مكان واحد، بدون قوائم متداخلة.' : language === 'pl' ? 'Wszystkie narzędzia w jednym miejscu.' : 'Every section in one place. No nested menus.'}</p></div>
+              <button type="button" className="hema-sheet-close" aria-label={language === 'ar' ? 'إغلاق القائمة' : 'Close menu'} onClick={closeSectionsMenu}><Icon n="close" s={21} /></button>
+            </div>
+            <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
+              {navGroups.map((group) => {
+                const groupActive = group.items.some((item) => item.key === tab)
+                const currentItem = group.items.find((item) => item.key === tab)
+                return (
+                  <section key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
+                    <div className="hema-nav-group-trigger">
+                      <span className="hema-nav-group-icon"><Icon n={group.icon} s={19} /></span>
+                      <span className="hema-nav-group-copy"><strong>{group.title}</strong><small>{currentItem ? currentItem.label : group.description}</small></span>
+                    </div>
+                    <div className="hema-nav-options">
+                      {group.items.map((item) => (
+                        <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={() => {
+                          setTab(item.key)
+                          setOpenFolder(null)
+                          setOpenList(null)
+                          if (item.key === 'explore') setExploreValue(null)
+                          closeSectionsMenu()
+                        }}>
+                          <Icon n={item.icon} s={18} /><span>{item.label}</span>{tab === item.key && <span className="hema-nav-selected-mark">✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                )
+              })}
+            </nav>
+          </section>
+        </div>}
       </div>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'yara' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
@@ -2177,19 +2182,20 @@ export default function App() {
           {lyr.length > 0 && <div className="space-y-1 text-center"><p className="truncate text-sm opacity-50">{lyr[li - 1]?.x}</p><p className="truncate text-lg font-semibold" style={{ color: A }}>{lyr[li]?.x}</p><p className="truncate text-sm opacity-50">{lyr[li + 1]?.x}</p></div>}{!lyr.length && plainLyrics && <div className="max-h-36 overflow-y-auto whitespace-pre-wrap rounded-xl bg-black/20 p-3 text-center text-sm leading-7 opacity-85">{plainLyrics}</div>}{!lyr.length && !plainLyrics && lyricsLoading && <p className="text-center text-xs opacity-50">جارٍ البحث عن كلمات الأغنية…</p>}
           <div className="flex flex-wrap items-center justify-center gap-2"><label className="cursor-pointer rounded-full bg-white/10 px-4 py-2 text-sm">تحميل كلمات LRC<input type="file" accept=".lrc,.txt,text/plain" hidden onChange={async (e) => { const f = e.target.files?.[0]; if (f && cur) { const text = await f.text(); const parsed = lrcParse(text); if (parsed.length) { localStorage.setItem('lyr_' + cur.id, text); setLyr(parsed); setMsg('تم حفظ الكلمات محليًا') } else setMsg('ملف الكلمات غير صالح') } e.currentTarget.value = '' }} /></label><button aria-label="تأخير الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.max(-10, Math.round((v - 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">−0.5s</button><span className="text-xs opacity-60" dir="ltr">{lyrOffset > 0 ? '+' : ''}{lyrOffset.toFixed(1)}s</span><button aria-label="تقديم الكلمات نصف ثانية" onClick={() => setLyrOffset((v: number) => Math.min(10, Math.round((v + 0.5) * 10) / 10))} className="rounded-full bg-white/10 px-3 py-2 text-xs">+0.5s</button></div>
           {Bar({ big: true })}{Ctl()}
-          <details className="music-tools-dropdown">
-            <summary>
+          <div className={`music-tools-dropdown ${musicToolsOpen ? 'is-open' : ''}`}>
+            <button type="button" className="music-tools-toggle" aria-expanded={musicToolsOpen} onClick={() => setMusicToolsOpen((open) => !open)}>
               <span className="music-tools-summary-main"><Icon n="list" s={19} /><span>أدوات الموسيقى</span></span>
               <span className="music-tools-summary-status">{sleep > 0 ? `المؤقت: ${sleep} د` : `السرعة: ${SPEEDS[speed]}×`}</span>
-              <Icon n="down" s={18} />
-            </summary>
+              <Icon n={musicToolsOpen ? 'close' : 'down'} s={18} />
+            </button>
+            {musicToolsOpen && <div className="music-tools-content">
             <div className="music-tools-grid">
-              <button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); fav(cur) }} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" s={20} /><span>{cur.fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}</span></button>
-              <button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setPanel(panel === 'sleep' ? null : 'sleep') }} style={{ color: sleep ? A : undefined }}><Icon n="timer" s={20} /><span>مؤقت النوم</span>{sleep > 0 && <small>{sleep} د</small>}</button>
-              <button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setPanel(panel === 'eq' ? null : 'eq') }} style={{ color: eq ? A : undefined }}><Icon n="eq" s={20} /><span>موازن الصوت</span></button>
-              <button type="button" onClick={(e) => { cycleSpeed(); (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open') }}><Icon n="rotate" s={20} /><span>سرعة التشغيل · {SPEEDS[speed]}×</span></button>
-              <button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setCar(true) }}><Icon n="video" s={20} /><span>وضع القيادة</span></button>
-              <button type="button" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setParty(true) }}><Icon n="spark" s={20} /><span>التأثيرات المرئية</span></button>
+              <button type="button" onClick={(e) => { setMusicToolsOpen(false); fav(cur) }} style={{ color: cur.fav ? A : undefined }}><Icon n="heart" s={20} /><span>{cur.fav ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}</span></button>
+              <button type="button" onClick={(e) => { setMusicToolsOpen(false); setPanel(panel === 'sleep' ? null : 'sleep') }} style={{ color: sleep ? A : undefined }}><Icon n="timer" s={20} /><span>مؤقت النوم</span>{sleep > 0 && <small>{sleep} د</small>}</button>
+              <button type="button" onClick={(e) => { setMusicToolsOpen(false); setPanel(panel === 'eq' ? null : 'eq') }} style={{ color: eq ? A : undefined }}><Icon n="eq" s={20} /><span>موازن الصوت</span></button>
+              <button type="button" onClick={(e) => { cycleSpeed(); setMusicToolsOpen(false) }}><Icon n="rotate" s={20} /><span>سرعة التشغيل · {SPEEDS[speed]}×</span></button>
+              <button type="button" onClick={(e) => { setMusicToolsOpen(false); setCar(true) }}><Icon n="video" s={20} /><span>وضع القيادة</span></button>
+              <button type="button" onClick={(e) => { setMusicToolsOpen(false); setParty(true) }}><Icon n="spark" s={20} /><span>التأثيرات المرئية</span></button>
               <button type="button" aria-pressed={bassBoost} onClick={() => setBassBoost((value) => !value)} style={{ color: bassBoost ? A : undefined }}><Icon n="eq" s={20} /><span>{bassBoost ? 'تعزيز الجهير · مفعّل' : 'تعزيز الجهير'}</span></button>
               <button type="button" aria-pressed={spatial} onClick={() => setSpatial((value) => !value)} style={{ color: spatial ? A : undefined }}><Icon n="spark" s={20} /><span>{spatial ? 'المؤثر المحيطي · مفعّل' : 'المؤثر المحيطي'}</span></button>
               <button type="button" aria-pressed={shuffle} onClick={() => setShuffle((value) => !value)} style={{ color: shuffle ? A : undefined }}><Icon n="shuffle" s={20} /><span>{shuffle ? 'التشغيل العشوائي · مفعّل' : 'تشغيل عشوائي'}</span></button>
@@ -2204,7 +2210,7 @@ export default function App() {
                 <button type="button" onClick={() => { setLoopA(null); setLoopB(null) }}>مسح A–B</button>
               </div>
             </div>
-          </details>
+          </div>}</div>
           {panel && (
             <div className="music-tool-panel absolute inset-x-0 bottom-0 z-10 space-y-3 overflow-y-auto rounded-t-3xl border border-white/10 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
               <h2 className="font-semibold">{panel === 'eq' ? 'HEMA Audio Lab · 10 نطاقات' : 'إيقاف تلقائي'}</h2>
@@ -2417,8 +2423,11 @@ export default function App() {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{cur.title}</span>
                   <button aria-label="تدوير الشاشة" onClick={() => void rotate()} className="video-icon-button"><Icon n="rotate" s={20} /></button>
                 </div>
-                <details className="video-tools-dropdown" onClick={poke}>
-                  <summary><span className="video-tools-summary-main"><Icon n="list" s={18} /><span>أدوات الفيديو</span></span><span className="video-tools-summary-note">الترجمة · الصوت · العرض</span><Icon n="down" s={18} /></summary>
+                <div className={`video-tools-dropdown ${videoToolsOpen ? 'is-open' : ''}`} onClick={poke}>
+                  <button type="button" className="video-tools-toggle" aria-expanded={videoToolsOpen} onClick={() => setVideoToolsOpen((open) => !open)}>
+                    <span className="video-tools-summary-main"><Icon n="list" s={18} /><span>أدوات الفيديو</span></span><span className="video-tools-summary-note">الترجمة · الصوت · العرض</span><Icon n={videoToolsOpen ? 'close' : 'down'} s={18} />
+                  </button>
+                  {videoToolsOpen && <div className="video-tools-content">
                   <div className="video-toolbar">
                     <section className="video-volume-boost" dir="rtl" aria-label="رفع صوت الفيديو">
                       <div className="video-volume-boost-head"><span>رفع صوت الفيديو</span><strong dir="ltr">{videoBoost}%</strong></div>
@@ -2449,7 +2458,7 @@ export default function App() {
                 {audioTracks.length ? audioTracks.map((track) => <button key={track.id} onClick={() => chooseAudioTrack(track.id)} className="mb-1 flex w-full items-center gap-2 rounded-xl bg-white/5 p-3 text-start text-sm" style={{ color: track.enabled ? A : undefined }}><span className="min-w-0 flex-1 truncate">{track.label}</span><span className="text-xs opacity-50">{track.language}</span>{track.enabled ? '✓' : ''}</button>) : <p className="text-xs opacity-65">لم يعرض Android WebView مسارات صوت منفصلة لهذا الفيديو.</p>}
               </div>}
                   </div>
-                </details>
+                </div>}</div>
               </div>
               <div className="video-center-controls absolute inset-x-0 top-1/2 flex -translate-y-1/2 items-center justify-center gap-8" dir="ltr" onClick={(e) => e.stopPropagation()}>
                 <button aria-label="رجوع 10 ثواني" onClick={() => { seek(t - 10); poke() }}><Icon n="rew" s={40} /></button>
