@@ -1699,3 +1699,121 @@ input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-vis
 /* photo background: transparent body so the fixed layer shows through */
 body.yara-has-bg{background:transparent!important}
 body.yara-has-bg::before{content:'';position:fixed;inset:0;z-index:-1;background:linear-gradient(rgba(5,4,6,.8),rgba(5,4,6,.92)),var(--yara-bg) center/cover no-repeat}
+
+
+/* HEMA YARA · clear media-first navigation, optimized for Samsung One UI */
+.hema-media-navigation {
+  position: relative;
+  z-index: 80;
+  flex: 0 0 auto;
+  min-width: 0;
+  isolation: isolate;
+}
+.hema-primary-media-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0 12px 8px;
+}
+.hema-primary-media-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 54px;
+  width: 100%;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid var(--hema-line);
+  border-radius: 18px;
+  background: linear-gradient(145deg, rgba(255,255,255,.065), rgba(255,255,255,.025));
+  color: var(--hema-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  touch-action: manipulation;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.hema-primary-media-tab > span:not(.hema-media-count) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hema-primary-media-tab > svg {
+  flex: 0 0 auto;
+}
+.hema-primary-media-tab.is-active {
+  border-color: color-mix(in srgb, var(--hema-purple) 65%, white 5%);
+  background: linear-gradient(135deg, rgba(255,92,141,.23), rgba(242,194,107,.09));
+  box-shadow: inset 0 0 0 1px rgba(255,92,141,.12), 0 5px 18px rgba(0,0,0,.12);
+  color: #fff;
+}
+.hema-primary-media-tab.is-active > svg {
+  color: var(--hema-purple);
+}
+.hema-primary-media-tab:active {
+  transform: scale(.985);
+}
+.hema-media-count {
+  display: inline-grid;
+  flex: 0 0 auto;
+  min-width: 23px;
+  height: 23px;
+  place-items: center;
+  padding: 0 5px;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 999px;
+  background: rgba(0,0,0,.2);
+  color: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hema-section-dropdown {
+  margin: 0 12px 10px;
+}
+.hema-section-dropdown > summary.hema-menu-toggle {
+  min-height: 46px;
+  border-radius: 15px;
+  background: rgba(255,255,255,.035);
+}
+.hema-section-dropdown[open] > summary.hema-menu-toggle {
+  border-radius: 15px 15px 0 0;
+}
+.hema-section-dropdown .hema-nav-menu {
+  border-radius: 0 0 18px 18px;
+}
+.hema-media-navigation button:focus-visible,
+.hema-media-navigation summary:focus-visible {
+  outline: 2px solid var(--hema-teal);
+  outline-offset: 2px;
+}
+@media (max-width: 360px) {
+  .hema-primary-media-tabs {
+    gap: 7px;
+    margin-inline: 8px;
+  }
+  .hema-primary-media-tab {
+    gap: 6px;
+    min-height: 50px;
+    padding: 8px 7px;
+    border-radius: 15px;
+    font-size: 11px;
+  }
+  .hema-media-count {
+    min-width: 20px;
+    height: 20px;
+    padding-inline: 3px;
+    font-size: 9px;
+  }
+  .hema-section-dropdown {
+    margin-inline: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hema-primary-media-tab {
+    transition: none;
+  }
+}

@@ -288,7 +288,7 @@ export default function App() {
       storyEyebrow: 'حكايتنا الصغيرة',
       storyDescription: 'المسافة بين غزة ومصر لا تمنعنا من مشاركة الأغاني والذكريات. أضيفوا هنا أغانيكم وكلماتكم والتواريخ المهمة.',
       storyTitleLabel: 'عنوان قصتنا (قابل للتعديل)',
-      poland: 'مصر',
+      country: 'مصر',
     },
     en: {
       eyebrow: 'A LITTLE GIFT · MADE WITH LOVE',
@@ -321,7 +321,7 @@ export default function App() {
       storyEyebrow: 'OUR LITTLE STORY',
       storyDescription: 'Distance between Gaza and Egypt cannot stop us from sharing songs and memories. Add your songs, words, and important dates here.',
       storyTitleLabel: 'Story title (editable)',
-      poland: 'Egypt',
+      country: 'Egypt',
     },
     pl: {
       eyebrow: 'MAŁY PREZENT · STWORZONY Z MIŁOŚCIĄ',
@@ -354,7 +354,7 @@ export default function App() {
       storyEyebrow: 'NASZA MAŁA HISTORIA',
       storyDescription: 'Odległość między Gazą a Egiptem nie przeszkadza nam dzielić się muzyką i wspomnieniami. Dodajcie tu swoje piosenki, słowa i ważne daty.',
       storyTitleLabel: 'Tytuł naszej historii (do zmiany)',
-      poland: 'Egipt',
+      country: 'Egipt',
     },
   } as const)[language]
   useEffect(() => {
@@ -1693,8 +1693,6 @@ export default function App() {
       description: language === 'ar' ? 'ملفاتك ومفضلاتك' : language === 'pl' ? 'Twoje pliki i ulubione' : 'Your media and favorites',
       icon: 'folder',
       items: [
-        { key: 'video' as Tab, label: language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos', icon: 'video' },
-        { key: 'music' as Tab, label: language === 'ar' ? 'الأغاني' : language === 'pl' ? 'Muzyka' : 'Music', icon: 'music' },
         { key: 'folders' as Tab, label: language === 'ar' ? 'المجلدات' : language === 'pl' ? 'Foldery' : 'Folders', icon: 'folder' },
         { key: 'fav' as Tab, label: language === 'ar' ? 'المفضلة' : language === 'pl' ? 'Ulubione' : 'Favorites', icon: 'heart' },
         { key: 'recent' as Tab, label: language === 'ar' ? 'الأخيرة' : language === 'pl' ? 'Ostatnie' : 'Recent', icon: 'timer' },
@@ -1742,6 +1740,13 @@ export default function App() {
     },
   ]
   const activeNavItem = navGroups.flatMap((group) => group.items).find((item) => item.key === tab)
+  const closeSectionsMenu = (target: HTMLElement) => {
+    const root = target.closest('.hema-media-navigation')
+    const menu = root?.querySelector('details.hema-section-dropdown') as HTMLDetailsElement | null
+    if (!menu) return
+    menu.open = false
+    menu.querySelectorAll('details.hema-nav-group').forEach((node) => { (node as HTMLDetailsElement).open = false })
+  }
   return (
     <div className="mx-auto flex h-full max-w-xl flex-col" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       <audio ref={nextMedia} preload="auto" className="hidden" aria-hidden="true" />
@@ -1764,54 +1769,70 @@ export default function App() {
         </label>
       </header>
 
-      <div className="hema-page-switcher" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-        <div className="hema-current-page">
-          <span className="hema-current-eyebrow">{language === 'ar' ? 'أنت الآن في' : language === 'pl' ? 'Bieżąca sekcja' : 'CURRENT SECTION'}</span>
-          <strong>{activeNavItem?.label ?? (language === 'ar' ? 'المكتبة' : language === 'pl' ? 'Biblioteka' : 'Library')}</strong>
+      <div className="hema-media-navigation" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <div className="hema-primary-media-tabs" role="group" aria-label={language === 'ar' ? 'الموسيقى والفيديو' : language === 'pl' ? 'Muzyka i wideo' : 'Music and video'}>
+          <button type="button" aria-pressed={tab === 'video'} className={`hema-primary-media-tab ${tab === 'video' ? 'is-active' : ''}`} onClick={(e) => {
+            setTab('video')
+            setOpenFolder(null)
+            setOpenList(null)
+            setExploreValue(null)
+            closeSectionsMenu(e.currentTarget)
+          }}>
+            <Icon n="video" s={21} />
+            <span>{language === 'ar' ? 'الفيديوهات' : language === 'pl' ? 'Wideo' : 'Videos'}</span>
+            <span className="hema-media-count">{videos.length}</span>
+          </button>
+          <button type="button" aria-pressed={tab === 'music'} className={`hema-primary-media-tab ${tab === 'music' ? 'is-active' : ''}`} onClick={(e) => {
+            setTab('music')
+            setOpenFolder(null)
+            setOpenList(null)
+            setExploreValue(null)
+            closeSectionsMenu(e.currentTarget)
+          }}>
+            <Icon n="music" s={21} />
+            <span>{language === 'ar' ? 'الموسيقى' : language === 'pl' ? 'Muzyka' : 'Music'}</span>
+            <span className="hema-media-count">{musics.length}</span>
+          </button>
         </div>
+        <details className="hema-section-dropdown" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+          <summary className="hema-menu-toggle">
+            <Icon n="list" s={19} />
+            <span>{activeNavItem?.label ?? (language === 'ar' ? 'المزيد من الأقسام' : language === 'pl' ? 'Więcej sekcji' : 'More sections')}</span>
+            <Icon n="down" s={17} />
+          </summary>
+          <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
+            {navGroups.map((group) => {
+              const groupActive = group.items.some((item) => item.key === tab)
+              const currentItem = group.items.find((item) => item.key === tab)
+              return (
+                <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
+                  <summary className="hema-nav-group-trigger">
+                    <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
+                    <span className="hema-nav-group-copy">
+                      <strong>{group.title}</strong>
+                      <small>{currentItem ? currentItem.label : group.description}</small>
+                    </span>
+                    <span className="hema-nav-chevron"><Icon n="down" s={19} /></span>
+                  </summary>
+                  <div className="hema-nav-options">
+                    {group.items.map((item) => (
+                      <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={(e) => {
+                        setTab(item.key)
+                        setOpenFolder(null)
+                        setOpenList(null)
+                        if (item.key === 'explore') setExploreValue(null)
+                        closeSectionsMenu(e.currentTarget)
+                      }}>
+                        <Icon n={item.icon} s={18} /><span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              )
+            })}
+          </nav>
+        </details>
       </div>
-      <details className="hema-section-dropdown" dir={language === 'ar' ? 'rtl' : 'ltr'}>
-        <summary className="hema-menu-toggle">
-          <Icon n="list" s={19} />
-          <span>{language === 'ar' ? 'قوائم الأقسام' : language === 'pl' ? 'Menu sekcji' : 'Browse sections'}</span>
-          <Icon n="down" s={17} />
-        </summary>
-        <nav className="hema-nav-menu" aria-label={language === 'ar' ? 'قوائم التطبيق' : language === 'pl' ? 'Menu aplikacji' : 'App navigation'}>
-          {navGroups.map((group) => {
-            const groupActive = group.items.some((item) => item.key === tab)
-            const currentItem = group.items.find((item) => item.key === tab)
-            return (
-              <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
-                <summary className="hema-nav-group-trigger">
-                  <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
-                  <span className="hema-nav-group-copy">
-                    <strong>{group.title}</strong>
-                    <small>{currentItem ? currentItem.label : group.description}</small>
-                  </span>
-                  <span className="hema-nav-chevron"><Icon n="down" s={19} /></span>
-                </summary>
-                <div className="hema-nav-options">
-                  {group.items.map((item) => (
-                    <button key={item.key} type="button" className={`hema-nav-option ${tab === item.key ? 'is-active' : ''}`} aria-current={tab === item.key ? 'page' : undefined} style={tab === item.key ? { background: A, borderColor: A, color: '#fff' } : undefined} onClick={(e) => {
-                      setTab(item.key)
-                      setOpenFolder(null)
-                      setOpenList(null)
-                      if (item.key === 'explore') setExploreValue(null)
-                      const menu = e.currentTarget.closest('details.hema-section-dropdown') as HTMLDetailsElement | null
-                      if (menu) {
-                        menu.open = false
-                        menu.querySelectorAll('details.hema-nav-group').forEach((node) => { (node as HTMLDetailsElement).open = false })
-                      }
-                    }}>
-                      <Icon n={item.icon} s={18} /><span>{item.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </details>
-            )
-          })}
-        </nav>
-      </details>
       {tab !== 'ai' && tab !== 'online' && tab !== 'cast' && tab !== 'yara' && (
         <div className="hema-library-stats flex items-center justify-between px-5 pb-2 text-sm opacity-60">
           <span>{tab === 'video' ? (language === 'ar' ? `${videos.length} فيديو` : language === 'pl' ? `Wideo: ${videos.length}` : `Videos: ${videos.length}`) : tab === 'music' ? (language === 'ar' ? `${musics.length} أغنية` : language === 'pl' ? `Muzyka: ${musics.length}` : `Music: ${musics.length}`) : tab === 'queue' ? (language === 'ar' ? `${queueIds.length} في الطابور` : language === 'pl' ? `Kolejka: ${queueIds.length}` : `Queue: ${queueIds.length}`) : tab === 'top' ? (language === 'ar' ? 'الأكثر استماعًا' : language === 'pl' ? 'Najczęściej odtwarzane' : 'Most played') : (language === 'ar' ? `${videos.length + musics.length} عنصر` : language === 'pl' ? `Elementy: ${videos.length + musics.length}` : `Items: ${videos.length + musics.length}`)}</span>
@@ -2032,7 +2053,7 @@ export default function App() {
                 <p className="max-w-sm text-sm leading-7 text-white/75">{yaraCopy.heroDescription}</p>
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇵🇸 Gaza · Hema</span>
-                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇪🇬 {yaraCopy.poland} · Yara</span>
+                  <span className="rounded-full border border-pink-200/20 bg-pink-200/10 px-3 py-1.5 text-xs">🇪🇬 {yaraCopy.country} · Yara</span>
                 </div>
                 <button type="button" onClick={() => setYaraGlow((value) => !value)} aria-pressed={yaraGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{yaraGlow ? yaraCopy.glowOn : yaraCopy.glowOff}</button>
               </div>
