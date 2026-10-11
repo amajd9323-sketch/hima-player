@@ -1204,9 +1204,9 @@ export default function App() {
   useEffect(() => {
     if (sleep <= 0) return
     const a = window.setTimeout(() => { const c = ac.current, gn = gainN.current; if (c && gn) { gn.gain.setValueAtTime(gn.gain.value, c.currentTime); gn.gain.linearRampToValueAtTime(0.0001, c.currentTime + 8) } }, Math.max(0, sleep * 60000 - 8000))
-    const b = window.setTimeout(() => { m.current?.pause(); setSleep(0); if (gainN.current) gainN.current.gain.value = boost / 100; notify(language === 'ar' ? 'تصبحي على خير يا يارا 🌙' : 'Good night, Yara 🌙') }, sleep * 60000)
+    const b = window.setTimeout(() => { m.current?.pause(); setSleep(0); if (gainN.current) gainN.current.gain.value = activeBoost / 100; notify(language === 'ar' ? 'تصبحي على خير يا يارا 🌙' : 'Good night, Yara 🌙') }, sleep * 60000)
     return () => { window.clearTimeout(a); window.clearTimeout(b) }
-  }, [sleep])
+  }, [sleep, activeBoost])
   useEffect(() => {
     if (!cur || !('mediaSession' in navigator)) return
     navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: 'Hema' })
