@@ -1655,3 +1655,47 @@ input:focus-visible,textarea:focus-visible,button:focus-visible,select:focus-vis
 @keyframes yara-fade{from{opacity:0}to{opacity:1}}
 @keyframes yara-float{0%{transform:translateY(0) scale(.8);opacity:0}15%{opacity:.65}100%{transform:translateY(-110vh) scale(1.25);opacity:0}}
 @media (prefers-reduced-motion:reduce){.yara-heart{display:none}}
+
+/* ===== Yara hub: tabs, forms, voice, memories, locked, gift, background ===== */
+.yara-hub{display:flex;flex-direction:column;gap:.75rem}
+.yara-tabs{display:flex;gap:.5rem;overflow-x:auto;padding:.15rem .1rem .4rem;scrollbar-width:none}
+.yara-tab{flex:0 0 auto;border-radius:999px;padding:0 1rem;min-height:44px;background:rgba(255,255,255,.07);font-size:.85rem;font-weight:600;color:inherit}
+.yara-tab[aria-selected=true]{background:#ff5c8d;color:#fff}
+.yara-form{display:flex;flex-direction:column;gap:.55rem}
+.yara-form input,.yara-form textarea,.yara-form select,.yara-row input{
+  min-height:44px;border-radius:16px;border:1px solid var(--hema-line);background:rgba(0,0,0,.35);
+  padding:.55rem .85rem;outline:none;color:inherit;width:100%;box-sizing:border-box;font-size:.92rem;
+}
+.yara-form select option{background:#1a1320;color:#fff5f1}
+.yara-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.yara-row .yara-muted{flex:1;min-width:8rem}
+.yara-row button,.yara-file{border-radius:14px;padding:0 .9rem;min-height:40px;background:rgba(255,255,255,.1);font-size:.8rem;color:inherit}
+.yara-inline{display:flex;align-items:center;gap:.6rem;font-size:.8rem}
+.yara-inline input{flex:1}
+.yara-file{display:inline-flex;align-items:center;cursor:pointer;font-weight:600}
+.yara-primary{min-height:48px;border-radius:18px;background:linear-gradient(135deg,#ff5c8d,#ff8a5c);color:#fff;font-weight:700}
+.yara-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.6rem}
+.yara-voice-item{display:flex;flex-direction:column;gap:.4rem;border-radius:20px;background:rgba(0,0,0,.28);padding:.65rem}
+.yara-voice-item audio{width:100%;height:40px}
+.yara-rec{min-height:56px;border-radius:999px;background:rgba(255,92,141,.18);border:1px solid #ff5c8d;color:#ffd0de;font-weight:700;font-size:1rem}
+.yara-rec.is-on{background:#ff5c8d;color:#fff;animation:yara-pulse 1.1s ease-in-out infinite}
+@keyframes yara-pulse{50%{box-shadow:0 0 0 10px rgba(255,92,141,.18)}}
+.yara-timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.7rem}
+.yara-timeline li{position:relative;display:flex;flex-direction:column;gap:.35rem;border-radius:22px;background:rgba(0,0,0,.28);padding:.8rem 2.4rem .8rem .9rem;border-inline-start:3px solid #f2c26b}
+.yara-timeline time{font-size:.7rem;letter-spacing:.12em;color:#f2c26b}
+.yara-timeline p{margin:0;font-size:.9rem;line-height:1.8;opacity:.85;overflow-wrap:anywhere}
+.yara-timeline li>button,.yara-lock>button{position:absolute;top:.4rem;inset-inline-end:.4rem;min-height:36px;min-width:36px;opacity:.5;color:inherit}
+.yara-photo{width:100%;max-height:260px;object-fit:cover;border-radius:18px}
+.yara-chip{align-self:flex-start;border-radius:999px;background:rgba(242,194,107,.14);color:#f2c26b;padding:.15rem .7rem;font-size:.75rem}
+.yara-lock{position:relative;border-radius:22px;background:rgba(0,0,0,.28);padding:.8rem 2.4rem .8rem .9rem}
+.yara-lock p{margin:0;line-height:1.8}
+.yara-lock.is-locked{border:1px dashed rgba(242,194,107,.5)}
+.yara-lock-text{margin-top:.35rem!important;font-size:1rem}
+.yara-card-preview{width:100%;border-radius:22px;border:1px solid var(--hema-line)}
+.yara-clocks{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.yara-clocks div{display:flex;flex-direction:column;gap:.2rem;border-radius:20px;background:rgba(0,0,0,.28);padding:.7rem .9rem}
+.yara-clocks span{font-size:.75rem;opacity:.7}
+.yara-clocks strong{font-size:1.6rem;color:#ff5c8d;font-variant-numeric:tabular-nums}
+/* photo background: transparent body so the fixed layer shows through */
+body.yara-has-bg{background:transparent!important}
+body.yara-has-bg::before{content:'';position:fixed;inset:0;z-index:-1;background:linear-gradient(rgba(5,4,6,.8),rgba(5,4,6,.92)),var(--yara-bg) center/cover no-repeat}

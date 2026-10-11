@@ -10,7 +10,8 @@ import { canScan, scan, keepAlive, nativeBright, requestPip, updateWidget, consu
 import { deleteVaultFile, listVaultFiles, restoreVaultFile, saveVaultFile, unlockVault, vaultExists, type VaultItem } from './vault'
 import { allTrackMeta, deleteTrackMeta, saveTrackMeta } from './meta'
 import { initLocalization, type Language } from './i18n'
-import { YaraExtras, YaraWelcome } from './YaraExtras'
+import { YaraWelcome } from './YaraExtras'
+import { YaraBackground, YaraHub } from './YaraHub'
 
 type Track = { id: string; title: string; url: string; uri?: string; video: boolean; fav?: boolean; at: number; blob?: Blob; dur?: number; size?: number; h?: number; artist?: string; album?: string; albumId?: string; genre?: string; folder?: string; fingerprint?: string; cover?: string; sourceTitle?: string; sourceArtist?: string }
 type Tab = 'video' | 'music' | 'explore' | 'queue' | 'top' | 'lists' | 'folders' | 'fav' | 'recent' | 'ai' | 'online' | 'cast' | 'yara'
@@ -28,13 +29,15 @@ const YARA_LETTERS: Record<'en' | 'ar', string> = {
   en: 'My dear Yara,\n\nI made HEMA YARA PLAYER especially for you — a little piece of my world, from Gaza, to carry with you. I hope every song brings you a smile and reminds you how special you are to me.\n\nWith all my heart,\nIbrahim 💌',
   ar: 'يارا حبيبتي،\n\nعملت HEMA YARA PLAYER مخصوص ليكي؛ حتة صغيرة من عالمي في غزة، تبقى معاكي في إيديكي. نفسي كل أغنية فيه تخلّيكي تبتسمي، وتفكّرك دايمًا قد إيه إنتي غالية عندي.\n\nبكل قلبي،\nإبراهيم 💌',
 }
-type Mood = 'focus' | 'energy' | 'romance' | 'night' | 'arabic' | 'nostalgia' | 'chill' | 'random'
+type Mood = 'focus' | 'energy' | 'romance' | 'night' | 'arabic' | 'egypt' | 'palestine' | 'nostalgia' | 'chill' | 'random'
 const MOOD_PRESETS: { id: Mood; title: string; subtitle: string; icon: string }[] = [
   { id: 'focus', title: 'تركيز ودراسة', subtitle: 'هادئ وأقل تشتيتًا', icon: '◌' },
   { id: 'energy', title: 'طاقة ورياضة', subtitle: 'إيقاع سريع وحماسي', icon: '⚡' },
   { id: 'romance', title: 'رومانسي', subtitle: 'حب ومشاعر', icon: '♡' },
   { id: 'night', title: 'ليل وهدوء', subtitle: 'جلسة آخر الليل', icon: '☾' },
   { id: 'arabic', title: 'طرب عربي', subtitle: 'أغاني وفنانون عرب', icon: '♫' },
+  { id: 'egypt', title: 'طرب مصري', subtitle: 'أم كلثوم وعبد الحليم وعمرو دياب', icon: '☥' },
+  { id: 'palestine', title: 'فلسطين', subtitle: 'غزة والقدس وأغاني الأرض', icon: '✦' },
   { id: 'nostalgia', title: 'ذكريات', subtitle: 'قديم وكلاسيكي', icon: '✦' },
   { id: 'chill', title: 'استرخاء', subtitle: 'روقان وأجواء ناعمة', icon: '〰' },
   { id: 'random', title: 'خلط جديد', subtitle: 'ترتيب مختلف كل مرة', icon: '⤨' },
@@ -919,6 +922,8 @@ export default function App() {
       romance: { label: 'رومانسي', words: ['love', 'romantic', 'heart', 'حب', 'حبيبي', 'حبيبتي', 'عشق', 'غرام', 'رومانسي', 'اشتياق', 'وائل كفوري', 'إليسا', 'شيرين'] },
       night: { label: 'ليل وهدوء', words: ['night', 'moon', 'dream', 'sleep', 'rain', 'midnight', 'ليل', 'ليلية', 'نوم', 'قمر', 'مطر', 'سهر', 'هدوء'] },
       arabic: { label: 'طرب عربي', words: ['arabic', 'عربي', 'طرب', 'شرقي', 'أم كلثوم', 'فيروز', 'عبد الحليم', 'محمد عبده', 'عمرو دياب', 'وردة', 'كاظم', 'أصالة', 'ماجدة'] },
+      egypt: { label: 'طرب مصري', words: ['egypt', 'cairo', 'مصر', 'القاهرة', 'النيل', 'أم كلثوم', 'ام كلثوم', 'umm kulthum', 'om kalthoum', 'عبد الحليم', 'abdel halim', 'محمد منير', 'mohamed mounir', 'عمرو دياب', 'amr diab', 'شيرين', 'sherine', 'تامر حسني', 'tamer hosny', 'هاني شاكر', 'محمد فؤاد', 'ليلى مراد'] },
+      palestine: { label: 'فلسطين', words: ['palestine', 'gaza', 'quds', 'فلسطين', 'غزة', 'القدس', 'درويش', 'ريم بنا', 'مارسيل خليفة', 'محمد عساف', 'دلعونا', 'ميجانا', 'عتابا', 'أبو عرب', 'العاشقين', 'عمر العبدلات'] },
       nostalgia: { label: 'ذكريات', words: ['classic', 'oldies', 'retro', 'nostalgia', '2000', '90s', '80s', 'قديم', 'زمان', 'ذكريات', 'قديمه', 'كلاسيك', 'طفولة'] },
       chill: { label: 'استرخاء', words: ['calm', 'chill', 'ambient', 'acoustic', 'jazz', 'soft', 'relax', 'lofi', 'هادئ', 'روقان', 'ناعم', 'استرخاء', 'راحة'] },
       random: { label: 'خلط جديد', words: [] },
@@ -1189,7 +1194,7 @@ export default function App() {
   useEffect(() => {
     if (sleep <= 0) return
     const a = window.setTimeout(() => { const c = ac.current, gn = gainN.current; if (c && gn) { gn.gain.setValueAtTime(gn.gain.value, c.currentTime); gn.gain.linearRampToValueAtTime(0.0001, c.currentTime + 8) } }, Math.max(0, sleep * 60000 - 8000))
-    const b = window.setTimeout(() => { m.current?.pause(); setSleep(0); if (gainN.current) gainN.current.gain.value = boost / 100 }, sleep * 60000)
+    const b = window.setTimeout(() => { m.current?.pause(); setSleep(0); if (gainN.current) gainN.current.gain.value = boost / 100; notify(language === 'ar' ? 'تصبحي على خير يا يارا 🌙' : 'Good night, Yara 🌙') }, sleep * 60000)
     return () => { window.clearTimeout(a); window.clearTimeout(b) }
   }, [sleep])
   useEffect(() => {
@@ -1747,6 +1752,7 @@ export default function App() {
 
       {notice && <div role="status" className="fixed inset-x-4 bottom-5 z-[100] mx-auto max-w-md rounded-2xl border border-white/10 bg-[#121824] px-4 py-3 text-sm text-white shadow-lg">{notice}</div>}
 
+      <YaraBackground />
       <YaraWelcome language={language} />
       <header className="flex items-center gap-2 px-4 py-3">
         {find === null ? <div className="flex min-w-0 flex-1 items-center gap-2"><img src="/icon.svg" alt="HEMA YARA PLAYER" className="size-11 shrink-0 rounded-2xl" /><div className="min-w-0"><h1 className="text-2xl font-bold tracking-[0.18em]" style={{ color: A }}>HEMA</h1><p className="text-[9px] font-semibold tracking-[0.28em] opacity-50">YARA PLAYER</p></div></div>
@@ -2031,7 +2037,7 @@ export default function App() {
                 <button type="button" onClick={() => setYaraGlow((value) => !value)} aria-pressed={yaraGlow} className="rounded-xl border border-pink-100/20 bg-white/10 px-3 py-2 text-xs font-semibold">{yaraGlow ? yaraCopy.glowOn : yaraCopy.glowOff}</button>
               </div>
             </section>
-            <YaraExtras language={language} notify={notify} />
+            <YaraHub language={language} notify={notify} tracks={q} />
             <section className="rounded-2xl border border-white/10 bg-white/[.035] p-4">
               <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-[10px] font-semibold tracking-[.18em] text-pink-300">{language === 'ar' ? 'أغانينا' : language === 'pl' ? 'NASZE PIOSENKI' : 'OUR SONGS'}</p><h3 className="mt-1 text-lg font-bold">{yaraCopy.songsTitle}</h3></div><span className="rounded-full bg-pink-300/10 px-3 py-1 text-xs text-pink-200">{yaraSongIds.filter((id) => q.some((x) => x.id === id && !x.video)).length} {yaraCopy.saved}</span></div>
               <p className="mb-3 text-xs leading-5 opacity-60">{yaraCopy.songsDescription}</p>

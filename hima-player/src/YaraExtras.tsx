@@ -68,6 +68,7 @@ const T = {
     enter: 'ادخلي ♡', from: 'من إبراهيم · غزة ♡ مصر',
     todayTitle: 'رسالة اليوم', since: 'معًا منذ', sinceLabel: 'تاريخ بدايتنا',
     daysTogether: 'يوم معًا', daysLeft: 'يوم ونكون معًا', setDate: 'اختاري تاريخ بدايتنا لنحسب الأيام.',
+    clocksTitle: 'الوقت عندنا', gaza: 'غزة', cairo: 'القاهرة', meetTitle: 'العدّ التنازلي للقاء', meetLabel: 'تاريخ لقائنا', meetLeft: 'يوم ونلتقي', meetToday: 'اليوم نلتقي ♡', meetSet: 'اختاري تاريخ اللقاء لنعدّ الأيام.',
     notesTitle: 'ملاحظاتنا', notesHint: 'اكتبي كلمة حلوة، تُحفظ على هذا الهاتف فقط.',
     notePlaceholder: 'اكتبي ملاحظة…', add: 'إضافة', remove: 'حذف الملاحظة', empty: 'لا توجد ملاحظات بعد.',
   },
@@ -76,6 +77,7 @@ const T = {
     enter: 'Come in ♡', from: 'From Ibrahim · Gaza ♡ Egypt',
     todayTitle: "Today's note", since: 'Together since', sinceLabel: 'Our start date',
     daysTogether: 'days together', daysLeft: 'days until we are together', setDate: 'Pick our start date to count the days.',
+    clocksTitle: 'Time on our side', gaza: 'Gaza', cairo: 'Cairo', meetTitle: 'Countdown to meeting', meetLabel: 'Our meeting date', meetLeft: 'days until we meet', meetToday: 'We meet today ♡', meetSet: 'Pick the meeting date to count the days.',
     notesTitle: 'Our notes', notesHint: 'Write something sweet. Saved on this phone only.',
     notePlaceholder: 'Write a note…', add: 'Add', remove: 'Delete note', empty: 'No notes yet.',
   },
@@ -104,6 +106,10 @@ export function YaraWelcome({ language }: { language: Lang }) {
   )
 }
 
+const clockText = (zone: string, lang: Lang) => {
+  try { return new Intl.DateTimeFormat(lang === 'ar' ? 'ar-EG' : 'en-GB', { hour: '2-digit', minute: '2-digit', timeZone: zone }).format(new Date()) } catch { return '--:--' }
+}
+
 type Note = { id: string; text: string; at: number }
 
 export function YaraExtras({ language, notify }: { language: Lang; notify: (text: string) => void }) {
@@ -111,6 +117,11 @@ export function YaraExtras({ language, notify }: { language: Lang; notify: (text
   const [since, setSince] = useState<string>(() => read<string>('hema_yara_since', ''))
   const [notes, setNotes] = useState<Note[]>(() => read<Note[]>('hema_yara_notes', []))
   const [draft, setDraft] = useState('')
+  const [meet, setMeet] = useState<string>(() => read<string>('hema_yara_meet', ''))
+  const [, setTick] = useState(0)
+  useEffect(() => { write('hema_yara_meet', meet) }, [meet])
+  useEffect(() => { const id = window.setInterval(() => setTick((n) => n + 1), 30000); return () => window.clearInterval(id) }, [])
+  const meetLeft = meet ? daysBetween(meet) : null
   useEffect(() => { write('hema_yara_since', since) }, [since])
   useEffect(() => { write('hema_yara_notes', notes) }, [notes])
   const diff = since ? daysBetween(since) : null
@@ -134,6 +145,26 @@ export function YaraExtras({ language, notify }: { language: Lang; notify: (text
           ) : <p className="yara-muted">{t.setDate}</p>}
           <label className="yara-since-field"><span>{t.sinceLabel}</span>
             <input type="date" value={since} max="2100-12-31" onChange={(e) => setSince(e.target.value)} />
+          </label>
+        </div>
+      </section>
+      <section className="yara-card" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <p className="yara-eyebrow">{t.clocksTitle}</p>
+        <div className="yara-clocks">
+          <div><span>🇵🇸 {t.gaza}</span><strong>{clockText('Asia/Gaza', language)}</strong></div>
+          <div><span>🇪🇬 {t.cairo}</span><strong>{clockText('Africa/Cairo', language)}</strong></div>
+        </div>
+      </section>
+      <section className="yara-card" dir={language === 'ar' ? 'rtl' : 'ltr'}>
+        <p className="yara-eyebrow">{t.meetTitle}</p>
+        <div className="yara-since">
+          {meetLeft !== null ? (
+            meetLeft === 0 ? <div className="yara-since-count"><strong>♡</strong><span>{t.meetToday}</span></div>
+              : meetLeft < 0 ? <div className="yara-since-count"><strong>{Math.abs(meetLeft)}</strong><span>{t.meetLeft}</span></div>
+                : <p className="yara-muted">{meet}</p>
+          ) : <p className="yara-muted">{t.meetSet}</p>}
+          <label className="yara-since-field"><span>{t.meetLabel}</span>
+            <input type="date" value={meet} max="2100-12-31" onChange={(e) => setMeet(e.target.value)} />
           </label>
         </div>
       </section>
