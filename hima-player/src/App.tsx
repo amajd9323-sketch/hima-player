@@ -376,7 +376,8 @@ export default function App() {
   const [bright, setBr] = useState(0.5)
   const g = useRef({ x: 0, y: 0, ax: '', v: 1, b: 0.5, t: 0, w: 1, left: false, nt: -1 })
   const lastSave = useRef(0)
-  const [boost, setBoost] = useState(() => ls('hema_boost', 100))
+  const [boost, setBoost] = useState<number>(() => { const value = Number(ls('hema_boost', 100)); return Number.isFinite(value) ? Math.max(100, Math.min(300, value)) : 100 })
+  const [videoBoost, setVideoBoost] = useState<number>(() => { const value = Number(ls('hema_video_boost', 100)); return Number.isFinite(value) ? Math.max(100, Math.min(300, value)) : 100 })
   const [shake, setShake] = useState(() => ls('hema_shake', false))
   const [adhan, setAdhan] = useState(() => ls('hema_adhan', false))
   const [quran, setQuran] = useState(() => ls('hema_quran', false))
@@ -410,7 +411,7 @@ export default function App() {
   const lastUiTick = useRef(0)
   const accT = useRef(0)
   const counted = useRef('')
-  useEffect(() => { for (const [k, v] of Object.entries({ boost, shake, adhan, quran, city })) localStorage.setItem('hema_' + k, JSON.stringify(v)); if (gainN.current) gainN.current.gain.value = boost / 100 }, [boost, shake, adhan, quran, city])
+  useEffect(() => { for (const [k, v] of Object.entries({ boost, shake, adhan, quran, city })) localStorage.setItem('hema_' + k, JSON.stringify(v)); localStorage.setItem('hema_video_boost', JSON.stringify(videoBoost)) }, [boost, videoBoost, shake, adhan, quran, city])
   A = ACCENTS[acc] ?? ACCENTS[0]
   useEffect(() => { localStorage.setItem('hema_acc', String(acc)); localStorage.setItem('hema_sort', JSON.stringify(sort)) }, [acc, sort])
   useEffect(() => { localStorage.setItem('hema_lists', JSON.stringify(lists)) }, [lists])
@@ -442,7 +443,8 @@ export default function App() {
   const bands = useRef<BiquadFilterNode[]>([])
   const drag = useRef({ y: 0, v: 1 })
   const cur = q[i]
-  const needsAudioGraph = eq !== 0 || boost !== 100 || autoVolume || bassBoost || spatial || crossfade > 0
+  const activeBoost = cur?.video ? videoBoost : boost
+  const needsAudioGraph = eq !== 0 || activeBoost !== 100 || autoVolume || bassBoost || spatial || crossfade > 0
   const barRangeRef = useRef<HTMLInputElement>(null)
   const barTimeRef = useRef<HTMLSpanElement>(null)
   const miniProgressRef = useRef<HTMLDivElement>(null)
@@ -1127,7 +1129,7 @@ export default function App() {
       const nextFade = c.createGain(); nextFade.gain.value = 0
       fadeMain.current = mainFade; fadeNext.current = nextFade
       bands.current = BANDS.map((f, j) => { const b = c.createBiquadFilter(); b.type = 'peaking'; b.frequency.value = f; b.Q.value = 1; b.gain.value = (eq === EQS.length - 1 ? customEq : EQS[eq].g)[j] + (bassBoost && j < 3 ? 5 : 0); return b })
-      const gn = c.createGain(); gn.gain.value = boost / 100
+      const gn = c.createGain(); gn.gain.value = activeBoost / 100
       const meter = c.createAnalyser(); meter.fftSize = 256; normMeter.current = meter
       const normalizer = c.createGain(); normalizer.gain.value = 1; normN.current = normalizer
       const lim = c.createDynamicsCompressor(); lim.threshold.value = -3; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15
@@ -1149,6 +1151,14 @@ export default function App() {
     } catch { setMsg('تعذر تفعيل مؤثرات الصوت على هذا الملف أو الجهاز.') }
   }
   useEffect(() => { if (playing) initAudio() }, [playing, needsAudioGraph])
+  useEffect(() => {
+    const context = ac.current
+    const gain = gainN.current
+    if (!context || !gain) return
+    const now = context.currentTime
+    gain.gain.cancelScheduledValues(now)
+    gain.gain.setTargetAtTime(activeBoost / 100, now, 0.035)
+  }, [activeBoost])
   const maybeCrossfade = async (ct: number) => {
     if (crossfade <= 0 || !cur || cur.video || !d || d < crossfade + 2 || !m.current || !nextMedia.current || !fadeMain.current || !fadeNext.current || nextStartedFor.current === cur.id || ct < d - crossfade) return
     const next = nextItem()
@@ -1638,7 +1648,7 @@ export default function App() {
         <span className="min-w-0 flex-1"><span className="block truncate font-medium" style={k === i ? { color: A } : undefined}>{x.title}</span><span className="block truncate text-xs opacity-55">{[x.artist && x.artist !== '<unknown>' ? x.artist : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'ملف موسيقى'}</span></span>
         {k === i && playing && <Icon n="eq" s={19} />}
       </button>
-      <details className="media-track-actions">
+      <details className="media-track-actions" onToggle={(e) => { const current = e.currentTarget; if (current.open) current.closest('main')?.querySelectorAll('details.media-track-actions').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
         <summary className="media-actions-trigger">
           <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
           <span className="media-actions-caret"><Icon n="down" s={18} /></span>
@@ -1666,7 +1676,7 @@ export default function App() {
         </div>
         <p className="px-1 pt-1 text-xs opacity-50">{[x.h ? `${x.h}P` : '', x.dur ? fmt(x.dur) : ''].filter(Boolean).join(' · ') || 'فيديو'}</p>
       </button>
-      <details className="media-track-actions">
+      <details className="media-track-actions" onToggle={(e) => { const current = e.currentTarget; if (current.open) current.closest('main')?.querySelectorAll('details.media-track-actions').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
         <summary className="media-actions-trigger">
           <span className="media-actions-trigger-label"><Icon n="list" s={17} /><span>{language === 'ar' ? 'إجراءات المقطع' : language === 'pl' ? 'Opcje utworu' : 'Track actions'}</span></span>
           <span className="media-actions-caret"><Icon n="down" s={18} /></span>
@@ -1805,7 +1815,7 @@ export default function App() {
               const groupActive = group.items.some((item) => item.key === tab)
               const currentItem = group.items.find((item) => item.key === tab)
               return (
-                <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`}>
+                <details key={group.id} className={`hema-nav-group ${groupActive ? 'is-current' : ''}`} onToggle={(e) => { const current = e.currentTarget; if (current.open) current.parentElement?.querySelectorAll('details.hema-nav-group').forEach((node) => { if (node !== current) (node as HTMLDetailsElement).open = false }) }}>
                   <summary className="hema-nav-group-trigger">
                     <span className="hema-nav-group-icon"><Icon n={group.icon} s={20} /></span>
                     <span className="hema-nav-group-copy">
@@ -2363,9 +2373,17 @@ export default function App() {
                   <span className="min-w-0 flex-1 truncate text-sm font-medium">{cur.title}</span>
                   <button aria-label="تدوير الشاشة" onClick={() => void rotate()} className="video-icon-button"><Icon n="rotate" s={20} /></button>
                 </div>
-                <details className="video-tools-dropdown">
+                <details className="video-tools-dropdown" onClick={poke}>
                   <summary><span className="video-tools-summary-main"><Icon n="list" s={18} /><span>أدوات الفيديو</span></span><span className="video-tools-summary-note">الترجمة · الصوت · العرض</span><Icon n="down" s={18} /></summary>
                   <div className="video-toolbar">
+                    <section className="video-volume-boost" dir="rtl" aria-label="رفع صوت الفيديو">
+                      <div className="video-volume-boost-head"><span>رفع صوت الفيديو</span><strong dir="ltr">{videoBoost}%</strong></div>
+                      <input aria-label="مستوى تضخيم صوت الفيديو" type="range" min={100} max={300} step={10} value={videoBoost} onChange={(e) => setVideoBoost(Math.max(100, Math.min(300, Number(e.target.value))))} />
+                      <div className="video-volume-presets" dir="ltr">
+                        {[100, 150, 200, 250, 300].map((level) => <button key={level} type="button" className="video-volume-preset" aria-pressed={videoBoost === level} onClick={() => setVideoBoost(level)} style={videoBoost === level ? { background: A, borderColor: A, color: '#fff' } : undefined}>{level}%</button>)}
+                      </div>
+                      <p className="video-volume-boost-note">التضخيم فوق 100% قد يسبب تشويشًا. ارفع تدريجيًا، وابدأ بـ150%.</p>
+                    </section>
                     <button aria-label="صورة داخل صورة" onClick={() => void pip().catch(() => setBackupMsg('PiP غير متاح على هذا الجهاز'))} className="video-tool"><Icon n="video" s={17} /><span>PiP</span></button>
                     <button aria-label="تغيير ملاءمة الفيديو" onClick={() => setCover(!cover)} className="video-tool"><Icon n="video" s={17} /><span>{cover ? 'ملء الشاشة' : 'احتواء الفيديو'}</span></button>
                     <label className="video-tool cursor-pointer"><Icon n="list" s={17} /><span>تحميل ترجمة CC</span>
@@ -2382,7 +2400,7 @@ export default function App() {
                       <span dir="ltr">{subOffset.toFixed(2)}s</span>
                       <button aria-label="تقديم الترجمة" onClick={() => setSubOffset((v) => Math.min(10, Math.round((v + 0.25) * 100) / 100))}>+</button>
                     </div>
-                              {audioTrackMenu && ui && !lockedScreen && <div className="video-audio-track-menu absolute end-3 top-[132px] z-[80] max-h-[50%] w-64 max-w-[80%] overflow-y-auto rounded-2xl border border-white/15 bg-[#1d0f18]/95 p-3 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                              {audioTrackMenu && ui && !lockedScreen && <div className="video-audio-track-menu col-span-full w-full max-h-40 overflow-y-auto rounded-xl border border-white/15 bg-[#1d0f18]/95 p-3" onClick={(e) => e.stopPropagation()}>
                 <p className="mb-2 text-sm font-semibold">مسارات الصوت</p>
                 {audioTracks.length ? audioTracks.map((track) => <button key={track.id} onClick={() => chooseAudioTrack(track.id)} className="mb-1 flex w-full items-center gap-2 rounded-xl bg-white/5 p-3 text-start text-sm" style={{ color: track.enabled ? A : undefined }}><span className="min-w-0 flex-1 truncate">{track.label}</span><span className="text-xs opacity-50">{track.language}</span>{track.enabled ? '✓' : ''}</button>) : <p className="text-xs opacity-65">لم يعرض Android WebView مسارات صوت منفصلة لهذا الفيديو.</p>}
               </div>}
